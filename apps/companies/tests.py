@@ -1,8 +1,10 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils.translation import override
 from rest_framework.test import APIClient
 
 from apps.accounts.models import UserPlanTier
+from apps.companies.forms import OrganizationForm
 from apps.companies.models import Organization
 from apps.subscriptions.models import PlanTier
 
@@ -137,4 +139,19 @@ class CompanyApiTests(TestCase):
         self.assertEqual(third_response.status_code, 201)
         self.assertEqual(fourth_response.status_code, 400)
         self.assertIn("plan", fourth_response.json())
+
+
+class OrganizationFormLocalizationTests(TestCase):
+    def test_polish_labels_are_used_for_polish_language(self):
+        with override("pl"):
+            form = OrganizationForm()
+
+        self.assertEqual(form.fields["name"].label, "Nazwa firmy")
+        self.assertEqual(form.fields["website_url"].label, "Adres strony WWW")
+        self.assertEqual(form.fields["primary_language"].label, "Język główny")
+        self.assertEqual(form.fields["allow_ai_indexing"].label, "Zezwól AI na indeksowanie")
+        self.assertEqual(
+            form.fields["primary_language"].choices,
+            [("en", "Angielski"), ("pl", "Polski")],
+        )
 

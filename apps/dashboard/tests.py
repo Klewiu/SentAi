@@ -1,6 +1,8 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils.translation import override
 
 from apps.accounts.models import UserPlanTier
 from apps.companies.models import Organization
@@ -113,3 +115,33 @@ class DashboardPlanLimitTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertTrue(Organization.objects.filter(pk=foreign_organization.pk).exists())
+
+
+class LanguageSwitchTests(TestCase):
+    def test_localized_set_language_route_has_polish_prefix(self):
+        self.assertEqual(reverse("set_language_localized"), "/set-language/")
+
+        with override("pl"):
+            self.assertEqual(reverse("set_language_localized"), "/pl/set-language/")
+
+    def test_switching_from_polish_url_to_english_removes_prefix(self):
+        response = self.client.post(
+            "/pl/set-language/",
+            {"language": "en", "next": "/pl/organizations/new/"},
+            HTTP_HOST="testserver",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "/organizations/new/")
+        self.assertEqual(response.cookies[settings.LANGUAGE_COOKIE_NAME].value, "en")
+
+    def test_switching_from_english_url_to_polish_adds_prefix(self):
+        response = self.client.post(
+            "/set-language/",
+            {"language": "pl", "next": "/organizations/new/"},
+            HTTP_HOST="testserver",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "/pl/organizations/new/")
+        self.assertEqual(response.cookies[settings.LANGUAGE_COOKIE_NAME].value, "pl")
