@@ -7,7 +7,7 @@ db.sqlite3
 
 # Django / generated assets
 staticfiles/
-media/
+
 
 # Environment and secrets
 .env
