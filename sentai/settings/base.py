@@ -5,11 +5,37 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 
+def load_env_file(file_path: Path) -> None:
+    if not file_path.exists():
+        return
+
+    for raw_line in file_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip())
+
+
+load_env_file(BASE_DIR / ".env")
+
+
 def env_bool(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value.strip())
+    except ValueError:
+        return default
 
 
 def env_list(name: str, default: str = "") -> list[str]:
@@ -40,6 +66,12 @@ DEBUG = env_bool("DJANGO_DEBUG", True)
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost")
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "")
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+
+STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY", "")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "pln").strip().lower()
+STRIPE_PLUS_PRICE_AMOUNT = env_int("STRIPE_PLUS_PRICE_AMOUNT", 4900)
+STRIPE_PRO_PRICE_AMOUNT = env_int("STRIPE_PRO_PRICE_AMOUNT", 9900)
 
 INSTALLED_APPS = [
     "django.contrib.admin",

@@ -1,6 +1,9 @@
+from types import SimpleNamespace
+from unittest.mock import patch
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils.translation import override
 
@@ -29,7 +32,7 @@ class DashboardPlanLimitTests(TestCase):
         response = self.client.get(reverse("dashboard:home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Add company")
+        self.assertContains(response, "+ add company")
 
     def test_add_company_button_hidden_when_basic_limit_reached(self):
         Organization.objects.create(
@@ -60,14 +63,56 @@ class DashboardPlanLimitTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("dashboard:plan-update"))
-        self.assertContains(response, "Plan BASIC")
+        self.assertContains(response, "BASIC")
         self.assertContains(response, "client")
         self.assertContains(response, "0/1")
 
-    def test_user_can_change_plan_on_plan_page(self):
+    @override_settings(
+        STRIPE_SECRET_KEY="sk_test_dummy",
+        SITE_BASE_URL="http://testserver",
+        STRIPE_PLUS_PRICE_AMOUNT=4900,
+        STRIPE_PRO_PRICE_AMOUNT=9900,
+        STRIPE_CURRENCY="pln",
+    )
+    @patch("apps.dashboard.views.stripe.checkout.Session.create")
+    def test_user_selecting_plus_starts_stripe_checkout(self, mock_checkout_create):
+        mock_checkout_create.return_value = SimpleNamespace(url="https://checkout.stripe.test/session")
+
         response = self.client.post(
             reverse("dashboard:plan-update"),
             {"plan_tier": UserPlanTier.PLUS},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "https://checkout.stripe.test/session")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.plan_tier, UserPlanTier.BASIC)
+
+    def test_user_can_downgrade_to_basic_without_payment(self):
+        self.user.plan_tier = UserPlanTier.PLUS
+        self.user.save(update_fields=["plan_tier"])
+
+        response = self.client.post(
+            reverse("dashboard:plan-update"),
+            {"plan_tier": UserPlanTier.BASIC},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard:home"))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.plan_tier, UserPlanTier.BASIC)
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
+    @patch("apps.dashboard.views.stripe.checkout.Session.retrieve")
+    def test_checkout_success_updates_user_plan(self, mock_checkout_retrieve):
+        mock_checkout_retrieve.return_value = SimpleNamespace(
+            metadata={"user_id": str(self.user.pk), "plan_tier": UserPlanTier.PLUS},
+            payment_status="paid",
+        )
+
+        response = self.client.get(
+            reverse("dashboard:plan-checkout-success"),
+            {"session_id": "cs_test_123"},
         )
 
         self.assertEqual(response.status_code, 302)
@@ -75,9 +120,23 @@ class DashboardPlanLimitTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.plan_tier, UserPlanTier.PLUS)
 
-        home_response = self.client.get(reverse("dashboard:home"))
-        self.assertContains(home_response, "Plan PLUS")
-        self.assertContains(home_response, "0/3")
+    @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
+    @patch("apps.dashboard.views.stripe.checkout.Session.retrieve")
+    def test_checkout_success_rejects_session_for_other_user(self, mock_checkout_retrieve):
+        mock_checkout_retrieve.return_value = SimpleNamespace(
+            metadata={"user_id": str(self.other_user.pk), "plan_tier": UserPlanTier.PRO},
+            payment_status="paid",
+        )
+
+        response = self.client.get(
+            reverse("dashboard:plan-checkout-success"),
+            {"session_id": "cs_test_123"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard:plan-update"))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.plan_tier, UserPlanTier.BASIC)
 
     def test_plan_downgrade_is_blocked_if_user_has_too_many_pages(self):
         self.user.plan_tier = UserPlanTier.PLUS

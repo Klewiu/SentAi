@@ -2,3 +2,4 @@ Django>=5.2,<6.0
 djangorestframework>=3.16,<4.0
 psycopg[binary]>=3.2,<4.0
 whitenoise>=6.8,<7.0
+stripe>=12.5,<13.0

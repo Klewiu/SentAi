@@ -47,6 +47,7 @@ pip install -r requirements.txt
 ```
 
 3. Copy environment variables from `.env.example` into `.env`.
+  For Stripe test payments, set `STRIPE_SECRET_KEY` and optionally adjust `STRIPE_PLUS_PRICE_AMOUNT` and `STRIPE_PRO_PRICE_AMOUNT`.
 4. Run migrations:
 
 ```bash
@@ -88,6 +89,6 @@ python manage.py runserver
 ## Notes
 
 - The project is ready for PostgreSQL in production through environment variables.
-- Billing integration is intentionally not hardcoded yet. Stripe, Paddle, or another provider can be attached to the subscription model later.
+- Stripe Checkout is wired for paid `PLUS` and `PRO` plans in test mode through environment variables.
 - Public endpoints are open by design so AI crawlers can consume them directly. 
 
