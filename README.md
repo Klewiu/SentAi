@@ -89,4 +89,5 @@ python manage.py runserver
 
 - The project is ready for PostgreSQL in production through environment variables.
 - Billing integration is intentionally not hardcoded yet. Stripe, Paddle, or another provider can be attached to the subscription model later.
-- Public endpoints are open by design so AI crawlers can consume them directly.
+- Public endpoints are open by design so AI crawlers can consume them directly. 
+
