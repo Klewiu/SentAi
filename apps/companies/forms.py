@@ -1,8 +1,12 @@
-from django import forms
-from django.utils.translation import get_language
 import json
+from urllib.parse import urlsplit
 
-from .models import Organization
+from django import forms
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
+from django.utils.translation import get_language
+
+from .models import Organization, OrganizationType
 
 
 LANGUAGE_CHOICES = [
@@ -35,8 +39,7 @@ LANGUAGE_LABELS = {
 
 POLISH_FIELD_LABELS = {
     "name": "Nazwa firmy",
-    "slug": "Slug URL",
-    "legal_name": "Pełna nazwa prawna",
+    "company_type": "Typ firmy",
     "website_url": "Adres strony WWW",
     "contact_email": "Adres e-mail",
     "phone_number": "Numer telefonu",
@@ -45,6 +48,20 @@ POLISH_FIELD_LABELS = {
     "postal_code": "Kod pocztowy",
     "country": "Kraj",
 }
+
+ENGLISH_COMPANY_TYPE_CHOICES = [
+    (OrganizationType.MANUFACTURING, "Manufacturing"),
+    (OrganizationType.SERVICES, "Services"),
+    (OrganizationType.TRADING, "Trading"),
+    (OrganizationType.OTHER, "Other"),
+]
+
+POLISH_COMPANY_TYPE_CHOICES = [
+    (OrganizationType.MANUFACTURING, "Produkcyjna"),
+    (OrganizationType.SERVICES, "Usługowa"),
+    (OrganizationType.TRADING, "Handlowa"),
+    (OrganizationType.OTHER, "Inna"),
+]
 
 DESCRIPTION_HELP_TEXTS = {
     "en": {
@@ -78,6 +95,7 @@ LANGUAGE_BUTTON_HELP = {
 class OrganizationForm(forms.ModelForm):
     # Wszystkie dostępne języki
     AVAILABLE_LANGUAGES = ["pl", "en", "es", "it", "de", "fr"]
+    website_url = forms.CharField(required=False, widget=forms.TextInput())
 
     def __init__(self, *args, language_code: str | None = None, organization: Organization | None = None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -116,12 +134,51 @@ class OrganizationForm(forms.ModelForm):
         # Usuń pole primary_language i content_languages z formularza
         self.fields.pop("primary_language", None)
         self.fields.pop("content_languages", None)
+
+        if "company_type" in self.fields:
+            self.fields["company_type"].choices = (
+                POLISH_COMPANY_TYPE_CHOICES if ui_language == "pl" else ENGLISH_COMPANY_TYPE_CHOICES
+            )
+            self.fields["company_type"].label = "Typ firmy" if ui_language == "pl" else "Company type"
+            self.fields["company_type"].widget.attrs.update(
+                {
+                    "class": "w-full appearance-none rounded border border-[#00d4aa]/40 bg-[#0d1117] px-3 py-2 pr-10 font-mono text-xs text-slate-200 transition hover:border-[#00d4aa]/60 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20",
+                }
+            )
+
+        if "website_url" in self.fields:
+            self.fields["website_url"].widget.attrs.update(
+                {
+                    "type": "text",
+                    "inputmode": "url",
+                    "autocomplete": "url",
+                    "placeholder": "twojadomena.pl" if ui_language == "pl" else "yourdomain.com",
+                }
+            )
         
         # Na koniec przetłumacz pozostałe pola na PL jeśli trzeba
         if ui_language == "pl":
             for field_name, label in POLISH_FIELD_LABELS.items():
                 if field_name in self.fields:
                     self.fields[field_name].label = label
+
+    def clean_website_url(self):
+        website_url = (self.cleaned_data.get("website_url") or "").strip()
+        if not website_url:
+            return ""
+
+        parsed_url = urlsplit(website_url)
+        normalized_url = website_url if parsed_url.scheme else f"https://{website_url}"
+
+        try:
+            URLValidator()(normalized_url)
+        except ValidationError:
+            raise forms.ValidationError(
+                "Podaj poprawny adres strony WWW." if self.ui_language == "pl"
+                else "Enter a valid website URL."
+            )
+
+        return normalized_url
 
     def clean(self):
         cleaned_data = super().clean()
@@ -235,8 +292,7 @@ class OrganizationForm(forms.ModelForm):
         model = Organization
         fields = [
             "name",
-            "slug",
-            "legal_name",
+            "company_type",
             "website_url",
             "contact_email",
             "phone_number",

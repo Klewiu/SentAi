@@ -85,7 +85,17 @@
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <h2 class="font-display text-xl font-semibold tracking-tight text-white">{{ organization.name }}</h2>
-                    <p class="mt-0.5 font-mono text-xs text-slate-500">/{{ organization.slug }}</p>
+                    <p class="mt-0.5 font-mono text-xs uppercase tracking-[0.18em] text-slate-500">
+                        {% if organization.company_type == 'manufacturing' %}
+                            {% if request.LANGUAGE_CODE == 'pl' %}produkcyjna{% else %}manufacturing{% endif %}
+                        {% elif organization.company_type == 'services' %}
+                            {% if request.LANGUAGE_CODE == 'pl' %}usługowa{% else %}services{% endif %}
+                        {% elif organization.company_type == 'trading' %}
+                            {% if request.LANGUAGE_CODE == 'pl' %}handlowa{% else %}trading{% endif %}
+                        {% else %}
+                            {% if request.LANGUAGE_CODE == 'pl' %}inna{% else %}other{% endif %}
+                        {% endif %}
+                    </p>
                 </div>
             </div>
             <dl class="mt-4 space-y-3 border-t border-white/[0.05] pt-4">

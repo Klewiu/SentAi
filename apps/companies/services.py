@@ -45,7 +45,7 @@ def build_basic_feed(organization, request=None) -> dict:
         "company": {
             "name": organization.name,
             "slug": organization.slug,
-            "legal_name": organization.legal_name,
+            "company_type": organization.company_type,
             "website": organization.website_url,
             "email": organization.contact_email,
             "phone": organization.phone_number,
@@ -81,7 +81,6 @@ def build_jsonld_feed(organization, request=None) -> dict:
             "@context": "https://schema.org",
             "@type": "Organization",
             "name": organization.name,
-            "legalName": organization.legal_name,
             "url": organization.website_url,
             "email": organization.contact_email,
             "telephone": organization.phone_number,

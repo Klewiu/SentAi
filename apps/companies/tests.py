@@ -5,7 +5,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import UserPlanTier
 from apps.companies.forms import OrganizationForm
-from apps.companies.models import Organization
+from apps.companies.models import Organization, OrganizationType
 from apps.subscriptions.models import PlanTier
 
 
@@ -147,11 +147,33 @@ class OrganizationFormLocalizationTests(TestCase):
             form = OrganizationForm()
 
         self.assertEqual(form.fields["name"].label, "Nazwa firmy")
+        self.assertEqual(form.fields["company_type"].label, "Typ firmy")
         self.assertEqual(form.fields["website_url"].label, "Adres strony WWW")
-        self.assertEqual(form.fields["primary_language"].label, "Język główny")
-        self.assertEqual(form.fields["allow_ai_indexing"].label, "Zezwól AI na indeksowanie")
+        self.assertNotIn("slug", form.fields)
+        self.assertNotIn("legal_name", form.fields)
         self.assertEqual(
-            form.fields["primary_language"].choices,
-            [("en", "Angielski"), ("pl", "Polski")],
+            form.fields["company_type"].choices,
+            [
+                (OrganizationType.MANUFACTURING, "Produkcyjna"),
+                (OrganizationType.SERVICES, "Usługowa"),
+                (OrganizationType.TRADING, "Handlowa"),
+                (OrganizationType.OTHER, "Inna"),
+            ],
         )
+
+    def test_website_url_accepts_value_without_scheme(self):
+        form = OrganizationForm(
+            data={
+                "name": "Acme AI",
+                "company_type": OrganizationType.SERVICES,
+                "website_url": "acme.ai",
+                "content_languages": '["pl"]',
+                "short_description_pl": "Krótki opis firmy.",
+                "long_description_pl": "Pełny opis firmy do walidacji formularza.",
+            },
+            language_code="pl",
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["website_url"], "https://acme.ai")
 

@@ -5,6 +5,13 @@ from django.utils.text import slugify
 import json
 
 
+class OrganizationType(models.TextChoices):
+    MANUFACTURING = "manufacturing", "Manufacturing"
+    SERVICES = "services", "Services"
+    TRADING = "trading", "Trading"
+    OTHER = "other", "Other"
+
+
 class Organization(models.Model):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -13,7 +20,7 @@ class Organization(models.Model):
     )
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True, blank=True)
-    legal_name = models.CharField(max_length=255, blank=True)
+    company_type = models.CharField(max_length=32, choices=OrganizationType.choices, default=OrganizationType.OTHER)
     website_url = models.URLField(blank=True)
     contact_email = models.EmailField(blank=True)
     phone_number = models.CharField(max_length=64, blank=True)
