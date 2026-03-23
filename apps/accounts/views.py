@@ -1,10 +1,39 @@
+from django.contrib import messages
 from django.contrib.auth import login
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from django.views.generic import FormView
 from rest_framework import permissions, status
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .forms import UserRegistrationForm
 from .serializers import CurrentUserSerializer, TokenLoginSerializer
+
+
+class RegisterView(FormView):
+    template_name = "registration/register.html"
+    form_class = UserRegistrationForm
+    success_url = reverse_lazy("login")
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect("dashboard:home")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["language_code"] = self.request.LANGUAGE_CODE
+        return kwargs
+
+    def form_valid(self, form):
+        form.save()
+        if self.request.LANGUAGE_CODE == "pl":
+            messages.success(self.request, "Konto zostało utworzone. Możesz się zalogować.")
+        else:
+            messages.success(self.request, "Account created. You can now sign in.")
+        return super().form_valid(form)
 
 
 class TokenLoginView(APIView):

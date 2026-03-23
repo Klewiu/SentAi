@@ -69,6 +69,7 @@ python manage.py runserver
 ## Main URLs
 
 - `/accounts/login/` - login form
+- `/accounts/register/` - registration form (no email verification yet)
 - `/` - authenticated dashboard
 - `/admin/` - superuser administration
 - `/api/auth/login/` - token login endpoint

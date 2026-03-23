@@ -114,6 +114,14 @@
                         </div>
                     {% endif %}
                     {% if request.user.is_superuser %}
+                        <span class="inline-flex min-h-9 w-full cursor-default items-center justify-center gap-1.5 rounded border border-white/10 bg-white/5 px-4 py-2 font-mono text-xs font-medium text-slate-300 sm:w-auto">
+                            <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.3 0-6 1.8-6 4v1h12v-1c0-2.2-2.7-4-6-4z" fill="currentColor"/>
+                            </svg>
+                            <span class="max-w-[160px] truncate">{% firstof request.user.get_full_name request.user.username %}</span>
+                        </span>
+                    {% endif %}
+                    {% if request.user.is_superuser %}
                         <a class="inline-flex min-h-9 w-full items-center justify-center rounded border border-white/10 bg-white/5 px-4 py-2 font-mono text-xs font-medium text-slate-400 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa] sm:w-auto" href="{% url 'admin:index' %}">
                             {% if request.LANGUAGE_CODE == 'pl' %}admin{% else %}admin{% endif %}
                         </a>

@@ -39,6 +39,9 @@
                         Darmowy plan <b>BASIC</b> pozwala dodać podstawowe informacje i zaistnieć w świecie AI.
                         <br>Plany <b>PLUS</b> i <b>PRO</b> odblokowują pełny potencjał — realnie zwiększają szansę, że AI wskaże właśnie Twoją firmę jako odpowiedź.
                     </p>
+                    <a class="mt-4 inline-flex min-h-10 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-5 py-2.5 font-mono text-sm font-semibold text-[#00d4aa] shadow-[0_0_20px_rgba(0,212,170,0.15)] transition hover:bg-[#00d4aa]/20" href="{% url 'dashboard:plan-update' %}">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Przejdź na wyższy plan{% else %}Upgrade your plan{% endif %}
+                    </a>
                 {% else %}
                     <p>Choose one of 3 plans BASIC, PLUS, or PRO.</p>
                     <p class="mt-2 text-lg font-bold tracking-tight text-transparent bg-clip-text 
@@ -51,6 +54,9 @@
                         The free <b>BASIC</b> plan lets you add essential information and get discovered by AI.
                         <br><b>PLUS</b> and <b>PRO</b> unlock the full potential — significantly increasing the chances that AI will recommend your business.
                     </p>
+                    <a class="mt-4 inline-flex min-h-10 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-5 py-2.5 font-mono text-sm font-semibold text-[#00d4aa] shadow-[0_0_20px_rgba(0,212,170,0.15)] transition hover:bg-[#00d4aa]/20" href="{% url 'dashboard:plan-update' %}">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Przejdź na wyższy plan{% else %}Upgrade your plan{% endif %}
+                    </a>
                 {% endif %}
             </div>
         </div>
