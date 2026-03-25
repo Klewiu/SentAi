@@ -7,7 +7,7 @@ from .models import ContentEntry, Organization, Product, SocialProfile, Tag
 class OrganizationAdmin(admin.ModelAdmin):
     list_display = ("name", "owner", "company_type", "slug", "public", "allow_ai_indexing", "updated_at")
     list_filter = ("company_type", "public", "allow_ai_indexing", "primary_language")
-    search_fields = ("name", "slug", "contact_email")
+    search_fields = ("name", "slug", "owner__email")
     prepopulated_fields = {"slug": ("name",)}
 
 

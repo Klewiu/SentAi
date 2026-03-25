@@ -47,7 +47,7 @@ def build_basic_feed(organization, request=None) -> dict:
             "slug": organization.slug,
             "company_type": organization.company_type,
             "website": organization.website_url,
-            "email": organization.contact_email,
+            "email": organization.owner.email,
             "phone": organization.phone_number,
             "primary_language": organization.primary_language,
             "descriptions": {
@@ -82,7 +82,7 @@ def build_jsonld_feed(organization, request=None) -> dict:
             "@type": "Organization",
             "name": organization.name,
             "url": organization.website_url,
-            "email": organization.contact_email,
+            "email": organization.owner.email,
             "telephone": organization.phone_number,
             "description": organization.localized_text("long_description", "en")
             or organization.localized_text("short_description", "en"),
@@ -146,7 +146,7 @@ def build_llms_text(organization, request=None) -> str:
         "",
         "## Contact",
         f"- Website: {organization.website_url or 'n/a'}",
-        f"- Email: {organization.contact_email or 'n/a'}",
+        f"- Email: {organization.owner.email or 'n/a'}",
         f"- Phone: {organization.phone_number or 'n/a'}",
         "",
         "## Topics",

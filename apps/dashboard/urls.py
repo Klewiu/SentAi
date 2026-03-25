@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    ClientDetailView,
+    ClientListView,
     DashboardHomeView,
     PlanCheckoutCancelView,
     PlanCheckoutSuccessView,
@@ -21,5 +23,7 @@ urlpatterns = [
     path("organizations/new/", OrganizationCreateView.as_view(), name="organization-create"),
     path("organizations/<int:pk>/edit/", OrganizationUpdateView.as_view(), name="organization-edit"),
     path("organizations/<int:pk>/delete/", OrganizationDeleteView.as_view(), name="organization-delete"),
+    path("clients/", ClientListView.as_view(), name="client-list"),
+    path("clients/<int:pk>/", ClientDetailView.as_view(), name="client-detail"),
 ]
 

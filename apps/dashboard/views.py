@@ -6,8 +6,9 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, FormView, TemplateView, UpdateView
+from django.db import models
 
-from apps.accounts.models import UserPlanTier
+from apps.accounts.models import User, UserPlanTier
 from apps.companies.forms import OrganizationForm
 from apps.companies.models import Organization
 
@@ -345,4 +346,46 @@ class PlanCheckoutCancelView(LoginRequiredMixin, View):
         else:
             messages.info(request, "Payment was canceled.")
         return redirect("dashboard:plan-update")
+
+
+class AdminRequiredMixin(LoginRequiredMixin):
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        if not request.user.is_superuser:
+            return redirect("dashboard:home")
+        return super().dispatch(request, *args, **kwargs)
+
+
+class ClientListView(AdminRequiredMixin, TemplateView):
+    template_name = "dashboard/client_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        q = self.request.GET.get("q", "").strip()
+        qs = (
+            User.objects.filter(is_superuser=False)
+            .prefetch_related("organizations")
+            .order_by("email")
+        )
+        if q:
+            qs = qs.filter(
+                models.Q(company_name__icontains=q)
+                | models.Q(email__icontains=q)
+                | models.Q(username__icontains=q)
+            )
+        context["clients"] = qs
+        context["search_query"] = q
+        return context
+
+
+class ClientDetailView(AdminRequiredMixin, TemplateView):
+    template_name = "dashboard/client_detail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        client = get_object_or_404(User, pk=self.kwargs["pk"], is_superuser=False)
+        context["client"] = client
+        context["organizations"] = client.organizations.all().order_by("name")
+        return context
 

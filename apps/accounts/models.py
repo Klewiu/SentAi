@@ -39,6 +39,7 @@ class User(AbstractUser):
         choices=UserPlanTier.choices,
         default=UserPlanTier.BASIC,
     )
+    country = models.CharField(max_length=120, blank=True)
 
     class Meta:
         ordering = ["username"]

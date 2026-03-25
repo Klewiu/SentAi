@@ -99,12 +99,12 @@
                                 </svg>
                                 <span class="truncate">{{ navbar_user_plan_tier }}</span>
                             </a>
-                            <span class="inline-flex min-h-9 cursor-default items-center justify-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-2 font-mono text-[10px] font-medium text-slate-300 sm:px-3">
+                            <a href="{% url 'accounts:profile' %}" class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-2 font-mono text-[10px] font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa] sm:px-3">
                                 <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                     <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.3 0-6 1.8-6 4v1h12v-1c0-2.2-2.7-4-6-4z" fill="currentColor"/>
                                 </svg>
                                 <span class="max-w-[88px] truncate sm:max-w-[140px]">{{ navbar_user_display_name }}</span>
-                            </span>
+                            </a>
                             <span class="inline-flex min-h-9 cursor-default items-center justify-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-2 font-mono text-[10px] font-medium text-slate-300 sm:px-3">
                                 <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                     <path d="M5 6h14v12H5V6zm2 2v8h10V8H7zm4 1h2v6h-2V9z" fill="currentColor"/>

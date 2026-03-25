@@ -18,7 +18,6 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "slug",
             "company_type",
             "website_url",
-            "contact_email",
             "phone_number",
             "address_line",
             "city",

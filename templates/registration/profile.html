@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="relative overflow-hidden rounded-lg border border-white/[0.07] bg-[#0d1117] p-6 glow-teal">
+    <div class="pointer-events-none absolute left-0 top-0 h-px w-24 bg-gradient-to-r from-[#00d4aa] to-transparent" aria-hidden="true"></div>
+    <div class="pointer-events-none absolute left-0 top-0 h-24 w-px bg-gradient-to-b from-[#00d4aa] to-transparent" aria-hidden="true"></div>
+    <div class="pointer-events-none absolute bottom-0 right-0 h-px w-24 bg-gradient-to-l from-[#6366f1]/60 to-transparent" aria-hidden="true"></div>
+    <div class="pointer-events-none absolute bottom-0 right-0 h-24 w-px bg-gradient-to-t from-[#6366f1]/60 to-transparent" aria-hidden="true"></div>
+
+    <div class="relative space-y-8">
+
+        <!-- Header -->
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <span class="inline-flex items-center gap-1.5 rounded border border-[#00d4aa]/30 bg-[#00d4aa]/5 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-[#00d4aa]">
+                    <span class="h-1.5 w-1.5 rounded-full bg-[#00d4aa] animate-pulse"></span>
+                    {% if request.LANGUAGE_CODE == 'pl' %}Mój profil{% else %}My profile{% endif %}
+                </span>
+                <h1 class="mt-3 font-display text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
+                    {{ request.user.company_name|default:request.user.username }}
+                </h1>
+                <p class="mt-1 font-mono text-xs text-slate-500">{{ request.user.email }}</p>
+            </div>
+            <a href="{% url 'dashboard:home' %}"
+               class="inline-flex min-h-9 items-center justify-center rounded border border-white/10 bg-white/5 px-4 py-2 font-mono text-xs font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]">
+                ← {% if request.LANGUAGE_CODE == 'pl' %}Dashboard{% else %}Dashboard{% endif %}
+            </a>
+        </div>
+
+        <!-- Plan badge -->
+        <div class="flex items-center gap-3">
+            <span class="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                {% if request.LANGUAGE_CODE == 'pl' %}Aktywny plan{% else %}Active plan{% endif %}
+            </span>
+            {% if request.user.plan_tier == 'PRO' %}
+                <span class="inline-flex items-center rounded border border-[#6366f1]/30 bg-[#6366f1]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#818cf8]">PRO</span>
+            {% elif request.user.plan_tier == 'PLUS' %}
+                <span class="inline-flex items-center rounded border border-[#00d4aa]/30 bg-[#00d4aa]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#00d4aa]">PLUS</span>
+            {% else %}
+                <span class="inline-flex items-center rounded border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-400">BASIC</span>
+            {% endif %}
+            <a href="{% url 'dashboard:plan-update' %}" class="font-mono text-[10px] text-[#00d4aa] hover:underline">
+                {% if request.LANGUAGE_CODE == 'pl' %}zmień plan{% else %}change plan{% endif %} →
+            </a>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-2">
+
+            <!-- Profile data form -->
+            <div class="rounded-lg border border-white/[0.07] bg-white/[0.02] p-5">
+                <h2 class="mb-4 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Dane konta{% else %}Account details{% endif %}
+                </h2>
+                <form method="post" action="{% url 'accounts:profile' %}" class="grid gap-4">
+                    {% csrf_token %}
+                    {% for field in form %}
+                        <label class="block space-y-1.5">
+                            <span class="font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ field.label }}</span>
+                            {{ field }}
+                            {% if field.errors %}
+                                <small class="block font-mono text-[10px] font-semibold text-rose-400">{{ field.errors|striptags }}</small>
+                            {% endif %}
+                        </label>
+                    {% endfor %}
+                    {% if form.non_field_errors %}
+                        <div class="font-mono text-xs font-semibold text-rose-400">{{ form.non_field_errors|striptags }}</div>
+                    {% endif %}
+                    <button type="submit"
+                            class="mt-1 inline-flex min-h-10 w-full items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-5 py-2.5 font-mono text-sm font-semibold text-[#00d4aa] shadow-[0_0_20px_rgba(0,212,170,0.15)] transition hover:bg-[#00d4aa]/20">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Zapisz zmiany{% else %}Save changes{% endif %}
+                    </button>
+                </form>
+            </div>
+
+            <!-- Password change form -->
+            <div class="rounded-lg border border-white/[0.07] bg-white/[0.02] p-5">
+                <h2 class="mb-4 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Zmiana hasła{% else %}Change password{% endif %}
+                </h2>
+                <form method="post" action="{% url 'accounts:profile-password' %}" class="grid gap-4">
+                    {% csrf_token %}
+                    {% for field in password_form %}
+                        <label class="block space-y-1.5">
+                            <span class="font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ field.label }}</span>
+                            {{ field }}
+                            {% if field.errors %}
+                                <small class="block font-mono text-[10px] font-semibold text-rose-400">{{ field.errors|striptags }}</small>
+                            {% endif %}
+                        </label>
+                    {% endfor %}
+                    {% if password_form.non_field_errors %}
+                        <div class="font-mono text-xs font-semibold text-rose-400">{{ password_form.non_field_errors|striptags }}</div>
+                    {% endif %}
+                    <button type="submit"
+                            class="mt-1 inline-flex min-h-10 w-full items-center justify-center rounded border border-[#6366f1]/40 bg-[#6366f1]/10 px-5 py-2.5 font-mono text-sm font-semibold text-[#818cf8] shadow-[0_0_20px_rgba(99,102,241,0.15)] transition hover:bg-[#6366f1]/20">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Zmień hasło{% else %}Change password{% endif %}
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</section>
+{% endblock %}

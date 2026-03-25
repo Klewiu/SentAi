@@ -38,10 +38,9 @@ LANGUAGE_LABELS = {
 }
 
 POLISH_FIELD_LABELS = {
-    "name": "Nazwa firmy",
+    "name": "Nazwa brandu",
     "company_type": "Typ firmy",
     "website_url": "Adres strony WWW",
-    "contact_email": "Adres e-mail",
     "phone_number": "Numer telefonu",
     "address_line": "Adres",
     "city": "Miasto",
@@ -116,6 +115,8 @@ class OrganizationForm(forms.ModelForm):
             selected_languages = ["pl"]
 
         selected_languages = selected_languages[:allowed_languages_count]
+
+        self.initial_descriptions = self._build_initial_descriptions(selected_languages)
         
         # Store metadata dla template
         self.ui_language = ui_language
@@ -145,6 +146,9 @@ class OrganizationForm(forms.ModelForm):
                     "class": "w-full appearance-none rounded border border-[#00d4aa]/40 bg-[#0d1117] px-3 py-2 pr-10 font-mono text-xs text-slate-200 transition hover:border-[#00d4aa]/60 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20",
                 }
             )
+
+        if "name" in self.fields:
+            self.fields["name"].label = "Nazwa brandu" if ui_language == "pl" else "Brand name"
 
         if "website_url" in self.fields:
             self.fields["website_url"].widget.attrs.update(
@@ -286,7 +290,28 @@ class OrganizationForm(forms.ModelForm):
             "description_helps": self.description_helps,
             "languageButtonHelp": self.language_button_help,
             "availableLanguages": self.AVAILABLE_LANGUAGES,
+            "initialDescriptions": self.initial_descriptions,
         })
+
+    def _build_initial_descriptions(self, selected_languages: list[str]) -> dict:
+        descriptions: dict[str, dict[str, str]] = {}
+        for lang_code in selected_languages:
+            short_field = f"short_description_{lang_code}"
+            long_field = f"long_description_{lang_code}"
+
+            if self.is_bound:
+                short_value = self.data.get(short_field, "")
+                long_value = self.data.get(long_field, "")
+            else:
+                short_value = getattr(self.instance, short_field, "") if self.instance else ""
+                long_value = getattr(self.instance, long_field, "") if self.instance else ""
+
+            descriptions[lang_code] = {
+                "short": short_value or "",
+                "long": long_value or "",
+            }
+
+        return descriptions
 
     class Meta:
         model = Organization
@@ -294,7 +319,6 @@ class OrganizationForm(forms.ModelForm):
             "name",
             "company_type",
             "website_url",
-            "contact_email",
             "phone_number",
             "address_line",
             "city",

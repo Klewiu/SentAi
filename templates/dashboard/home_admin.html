@@ -23,7 +23,7 @@
         </div>
 
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <a class="inline-flex min-h-12 items-center justify-center rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-sm font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]" href="{% url 'admin:companies_organization_changelist' %}">
+            <a class="inline-flex min-h-12 items-center justify-center rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-sm font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]" href="{% url 'dashboard:client-list' %}">
                 {% if request.LANGUAGE_CODE == 'pl' %}Tabela klientów{% else %}Customers table{% endif %}
             </a>
             <a class="inline-flex min-h-12 items-center justify-center rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-sm font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]" href="{% url 'admin:accounts_user_changelist' %}">

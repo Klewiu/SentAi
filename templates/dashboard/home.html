@@ -163,7 +163,7 @@
             </p>
             {% if can_create_organization %}
                 <a class="mt-6 inline-flex min-h-10 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-5 py-2.5 font-mono text-sm font-semibold text-[#00d4aa] shadow-[0_0_20px_rgba(0,212,170,0.15)] transition hover:bg-[#00d4aa]/20" href="{% url 'dashboard:organization-create' %}">
-                    {% if request.LANGUAGE_CODE == 'pl' %}+ dodaj firmę{% else %}+ add company{% endif %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}+ DODAJ DOMENĘ{% else %}+ ADD DOMAIN{% endif %}
                 </a>
             {% endif %}
         </article>
@@ -171,7 +171,7 @@
     {% if organizations and can_create_organization %}
         <div class="md:col-span-2 xl:col-span-3">
             <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-5 py-2.5 font-mono text-sm font-semibold text-[#00d4aa] shadow-[0_0_20px_rgba(0,212,170,0.15)] transition hover:bg-[#00d4aa]/20" href="{% url 'dashboard:organization-create' %}">
-                {% if request.LANGUAGE_CODE == 'pl' %}+ dodaj firmę{% else %}+ add company{% endif %}
+                {% if request.LANGUAGE_CODE == 'pl' %}+ DODAJ DOMENĘ{% else %}+ ADD DOMAIN{% endif %}
             </a>
         </div>
     {% endif %}
