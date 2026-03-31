@@ -26,7 +26,7 @@
             <a class="inline-flex min-h-12 items-center justify-center rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-sm font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]" href="{% url 'dashboard:client-list' %}">
                 {% if request.LANGUAGE_CODE == 'pl' %}Tabela klientów{% else %}Customers table{% endif %}
             </a>
-            <a class="inline-flex min-h-12 items-center justify-center rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-sm font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]" href="{% url 'admin:accounts_user_changelist' %}">
+            <a class="inline-flex min-h-12 items-center justify-center rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-sm font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]" href="{% url 'dashboard:seller-list' %}">
                 {% if request.LANGUAGE_CODE == 'pl' %}Sprzedawcy{% else %}Sellers{% endif %}
             </a>
             <a class="inline-flex min-h-12 items-center justify-center rounded border border-white/10 bg-white/5 px-4 py-3 font-mono text-sm font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]" href="{% url 'admin:subscriptions_subscription_changelist' %}">

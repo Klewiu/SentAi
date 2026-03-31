@@ -7,7 +7,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils.translation import override
 
-from apps.accounts.models import UserPlanTier
+from apps.accounts.models import AccountType, UserPlanTier
 from apps.companies.models import Organization
 
 
@@ -204,3 +204,113 @@ class LanguageSwitchTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, "/pl/organizations/new/")
         self.assertEqual(response.cookies[settings.LANGUAGE_COOKIE_NAME].value, "pl")
+
+
+class SellerManagementTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser(
+            username="admin",
+            email="admin@example.com",
+            password="strong-pass-123",
+        )
+        self.client_user = User.objects.create_user(
+            username="client",
+            email="client@example.com",
+            password="strong-pass-123",
+        )
+        self.seller = User.objects.create_user(
+            username="seller-home",
+            email="seller-home@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.STAFF,
+        )
+
+    def test_seller_sees_dedicated_home_layout(self):
+        self.client.force_login(self.seller)
+
+        response = self.client.get(reverse("dashboard:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Seller workspace")
+
+    def test_admin_can_open_seller_list(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("dashboard:seller-list"))
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_admin_can_create_seller_with_login_and_password(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("dashboard:seller-list"),
+            {
+                "username": "seller-one",
+                "email": "seller-one@example.com",
+                "password1": "strong-pass-123",
+                "password2": "strong-pass-123",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard:seller-list"))
+        seller = User.objects.get(username="seller-one")
+        self.assertEqual(seller.account_type, AccountType.STAFF)
+        self.assertEqual(seller.email, "seller-one@example.com")
+        self.assertTrue(seller.is_active)
+
+    def test_admin_can_block_seller_access(self):
+        seller = User.objects.create_user(
+            username="seller-to-block",
+            email="seller-to-block@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.STAFF,
+            is_active=True,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse("dashboard:seller-toggle-access", args=[seller.pk]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard:seller-detail", args=[seller.pk]))
+        seller.refresh_from_db()
+        self.assertFalse(seller.is_active)
+
+    def test_admin_can_delete_seller(self):
+        seller = User.objects.create_user(
+            username="seller-to-delete",
+            email="seller-to-delete@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.STAFF,
+            is_active=True,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse("dashboard:seller-delete", args=[seller.pk]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard:seller-list"))
+        self.assertFalse(User.objects.filter(pk=seller.pk).exists())
+
+    def test_non_admin_cannot_access_seller_management(self):
+        self.client.force_login(self.client_user)
+
+        response = self.client.get(reverse("dashboard:seller-list"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard:home"))
+
+    def test_sellers_are_hidden_on_client_list(self):
+        seller = User.objects.create_user(
+            username="seller-hidden",
+            email="seller-hidden@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.STAFF,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("dashboard:client-list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, seller.email)

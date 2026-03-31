@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     "apps.subscriptions",
     "apps.companies",
     "apps.dashboard",
+    "apps.sales",
 ]
 
 MIDDLEWARE = [

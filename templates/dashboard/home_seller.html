@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <section class="relative overflow-hidden rounded-lg border border-white/[0.07] bg-[#0d1117] p-6 glow-teal lg:p-8">
+        <div class="pointer-events-none absolute left-0 top-0 h-px w-24 bg-gradient-to-r from-[#00d4aa] to-transparent" aria-hidden="true"></div>
+        <div class="pointer-events-none absolute left-0 top-0 h-24 w-px bg-gradient-to-b from-[#00d4aa] to-transparent" aria-hidden="true"></div>
+
+        <div class="relative space-y-6">
+            <div>
+                <span class="inline-flex items-center gap-1.5 rounded border border-[#00d4aa]/30 bg-[#00d4aa]/5 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-[#00d4aa]">
+                    <span class="h-1.5 w-1.5 rounded-full bg-[#00d4aa] animate-pulse"></span>
+                    {% if request.LANGUAGE_CODE == 'pl' %}Strefa sprzedawcy{% else %}Seller workspace{% endif %}
+                </span>
+                <h1 class="mt-3 font-display text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Zarządzaj klientami{% else %}Manage clients{% endif %}
+                </h1>
+                <p class="mt-2 font-mono text-sm text-slate-500">
+                    {% if request.LANGUAGE_CODE == 'pl' %}
+                        Tutaj możesz zarządzać listą klientów i potencjalnych klientów, oraz śledzić aktywności sprzedażowe.
+                    {% else %}
+                        Here you can manage your clients and prospects, and track sales activities.
+                    {% endif %}
+                </p>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                <!-- Klienci card -->
+                <a href="{% url 'dashboard:seller-clients' %}"
+                   class="group relative rounded-lg border border-white/[0.07] bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-6 transition hover:border-[#00d4aa]/40 hover:bg-white/[0.08]">
+                    <div class="absolute inset-0 rounded-lg bg-gradient-to-br from-[#00d4aa]/0 to-[#00d4aa]/5 opacity-0 transition group-hover:opacity-100" aria-hidden="true"></div>
+                    <div class="relative space-y-3">
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex h-2 w-2 rounded-full bg-[#00d4aa]"></span>
+                            <h3 class="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Klienci{% else %}Clients{% endif %}
+                            </h3>
+                        </div>
+                        <p class="font-display text-lg font-semibold text-white">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Zarejestrowani klienci{% else %}Registered clients{% endif %}
+                        </p>
+                        <p class="font-mono text-xs text-slate-400">
+                            {% if request.LANGUAGE_CODE == 'pl' %}
+                                Przeglądaj listę zarejestrowanych klientów z aktywnym planem.
+                            {% else %}
+                                View your registered clients with active plans.
+                            {% endif %}
+                        </p>
+                        <div class="inline-flex items-center gap-2 font-mono text-xs text-[#00d4aa] transition group-hover:gap-3">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Otwórz→{% else %}Open→{% endif %}
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Prospekty card -->
+                <a href="{% url 'dashboard:seller-prospects' %}"
+                   class="group relative rounded-lg border border-white/[0.07] bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-6 transition hover:border-[#00d4aa]/40 hover:bg-white/[0.08]">
+                    <div class="absolute inset-0 rounded-lg bg-gradient-to-br from-[#00d4aa]/0 to-[#00d4aa]/5 opacity-0 transition group-hover:opacity-100" aria-hidden="true"></div>
+                    <div class="relative space-y-3">
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex h-2 w-2 rounded-full bg-[#00d4aa]"></span>
+                            <h3 class="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Prospekty{% else %}Prospects{% endif %}
+                            </h3>
+                        </div>
+                        <p class="font-display text-lg font-semibold text-white">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Potencjalni klienci{% else %}Potential clients{% endif %}
+                        </p>
+                        <p class="font-mono text-xs text-slate-400">
+                            {% if request.LANGUAGE_CODE == 'pl' %}
+                                Dodaj i śledzaj potencjalnych klientów oraz aktywności sprzedażowe.
+                            {% else %}
+                                Add and track potential clients with sales activities.
+                            {% endif %}
+                        </p>
+                        <div class="inline-flex items-center gap-2 font-mono text-xs text-[#00d4aa] transition group-hover:gap-3">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Otwórz→{% else %}Open→{% endif %}
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

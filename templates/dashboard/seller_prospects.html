@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="relative overflow-hidden rounded-lg border border-white/[0.07] bg-[#0d1117] p-6 glow-teal">
+    <div class="pointer-events-none absolute left-0 top-0 h-px w-24 bg-gradient-to-r from-[#00d4aa] to-transparent" aria-hidden="true"></div>
+    <div class="pointer-events-none absolute left-0 top-0 h-24 w-px bg-gradient-to-b from-[#00d4aa] to-transparent" aria-hidden="true"></div>
+
+    <div class="relative space-y-6">
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <span class="inline-flex items-center gap-1.5 rounded border border-[#00d4aa]/30 bg-[#00d4aa]/5 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-[#00d4aa]">
+                    <span class="h-1.5 w-1.5 rounded-full bg-[#00d4aa] animate-pulse"></span>
+                    {% if request.LANGUAGE_CODE == 'pl' %}Prospekty{% else %}Prospects{% endif %}
+                </span>
+                <h1 class="mt-3 font-display text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Potencjalni klienci{% else %}Potential clients{% endif %}
+                </h1>
+            </div>
+            <a href="{% url 'dashboard:home' %}"
+               class="inline-flex min-h-9 items-center justify-center rounded border border-white/10 bg-white/5 px-4 py-2 font-mono text-xs font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]">
+                ← {% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}
+            </a>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'dashboard:prospect-create' %}"
+               class="inline-flex min-h-10 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-4 font-mono text-sm font-semibold text-[#00d4aa] transition hover:bg-[#00d4aa]/20">
+                {% if request.LANGUAGE_CODE == 'pl' %}+ Dodaj prospekt{% else %}+ Add prospect{% endif %}
+            </a>
+            
+            <a href="?filter=own"
+               class="inline-flex min-h-10 items-center justify-center rounded border {% if is_viewing_all %}border-white/10 bg-white/5 text-slate-300{% else %}border-[#00d4aa]/40 bg-[#00d4aa]/10 text-[#00d4aa]{% endif %} px-4 font-mono text-sm font-medium transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]">
+                {% if request.LANGUAGE_CODE == 'pl' %}Moi{% else %}Mine{% endif %}
+            </a>
+            
+            <a href="?filter=all"
+               class="inline-flex min-h-10 items-center justify-center rounded border {% if is_viewing_all %}border-[#00d4aa]/40 bg-[#00d4aa]/10 text-[#00d4aa]{% else %}border-white/10 bg-white/5 text-slate-300{% endif %} px-4 font-mono text-sm font-medium transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]">
+                {% if request.LANGUAGE_CODE == 'pl' %}Wszystkich{% else %}All{% endif %}
+            </a>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-white/[0.07]">
+            <table class="w-full text-left text-sm">
+                <thead>
+                    <tr class="border-b border-white/[0.07] bg-white/[0.03]">
+                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Nazwa firmy{% else %}Company name{% endif %}
+                        </th>
+                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Osoba kontaktowa{% else %}Contact person{% endif %}
+                        </th>
+                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                            {% if request.LANGUAGE_CODE == 'pl' %}E-mail{% else %}Email{% endif %}
+                        </th>
+                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Telefon{% else %}Phone{% endif %}
+                        </th>
+                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Sprzedawca{% else %}Seller{% endif %}
+                        </th>
+                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Ostatnia aktywność{% else %}Last activity{% endif %}
+                        </th>
+                        <th class="px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/[0.04]">
+                    {% for prospect in prospects %}
+                    <tr class="transition hover:bg-white/[0.03]">
+                        <td class="px-4 py-3 font-medium text-slate-200">{{ prospect.company_name }}</td>
+                        <td class="px-4 py-3 text-slate-400">{{ prospect.contact_person }}</td>
+                        <td class="px-4 py-3 font-mono text-slate-400">{{ prospect.email }}</td>
+                        <td class="px-4 py-3 font-mono text-slate-400">{{ prospect.phone }}</td>
+                        <td class="px-4 py-3 font-mono text-slate-500 text-xs">{{ prospect.seller.username }}</td>
+                        <td class="px-4 py-3 text-slate-400">
+                            {% if prospect.last_activity %}
+                                {% if prospect.last_activity.activity_type == 'call' %}
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-green-500/20 text-green-400">☎️</span>
+                                        <span class="font-mono text-xs">{{ prospect.last_activity.activity_date|date:"d.m.Y" }}</span>
+                                    </span>
+                                {% elif prospect.last_activity.activity_type == 'email' %}
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-purple-500/20 text-purple-400">✉️</span>
+                                        <span class="font-mono text-xs">{{ prospect.last_activity.activity_date|date:"d.m.Y" }}</span>
+                                    </span>
+                                {% elif prospect.last_activity.activity_type == 'meeting' %}
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-pink-500/20 text-pink-400">🤝</span>
+                                        <span class="font-mono text-xs">{{ prospect.last_activity.activity_date|date:"d.m.Y" }}</span>
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-slate-500 text-xs">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <a href="{% url 'dashboard:prospect-detail' prospect.pk %}"
+                               class="inline-flex min-h-7 items-center justify-center rounded border border-white/10 bg-white/5 px-3 py-1 font-mono text-xs font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Szczegóły{% else %}Details{% endif %} →
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center font-mono text-sm text-slate-500">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Brak prospektów.{% else %}No prospects yet.{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
