@@ -16,8 +16,8 @@ class UserPlanTier(models.TextChoices):
 
 USER_PLAN_ORGANIZATION_LIMITS = {
     UserPlanTier.BASIC: 1,
-    UserPlanTier.PLUS: 3,
-    UserPlanTier.PRO: 10,
+    UserPlanTier.PLUS: 2,
+    UserPlanTier.PRO: 3,
 }
 
 
