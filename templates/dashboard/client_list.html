@@ -68,6 +68,9 @@
                             {% if request.LANGUAGE_CODE == 'pl' %}Plan{% else %}Plan{% endif %}
                         </th>
                         <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Handlowiec{% else %}Sales rep{% endif %}
+                        </th>
+                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
                             {% if request.LANGUAGE_CODE == 'pl' %}Kraj{% else %}Country{% endif %}
                         </th>
                         <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
@@ -100,6 +103,9 @@
                                 <span class="inline-flex items-center rounded border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-400">BASIC</span>
                             {% endif %}
                         </td>
+                        <td class="px-4 py-3 font-mono text-slate-400">
+                            {{ client.linked_seller_username|default:"—" }}
+                        </td>
                         <td class="px-4 py-3 text-slate-400">
                             {{ client.country|default:"—" }}
                         </td>
@@ -113,6 +119,12 @@
                             {{ client.last_login|date:"Y-m-d H:i"|default:"—" }}
                         </td>
                         <td class="px-4 py-3 text-right">
+                            {% if client.linked_prospect_id %}
+                                <a href="{% url 'dashboard:prospect-detail' client.linked_prospect_id %}"
+                                   class="mr-1 inline-flex min-h-7 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-3 py-1 font-mono text-xs font-medium text-[#00d4aa] transition hover:bg-[#00d4aa]/20">
+                                    {% if request.LANGUAGE_CODE == 'pl' %}Aktywności{% else %}Activities{% endif %}
+                                </a>
+                            {% endif %}
                             <a href="{% url 'dashboard:client-detail' client.pk %}"
                                class="inline-flex min-h-7 items-center justify-center rounded border border-white/10 bg-white/5 px-3 py-1 font-mono text-xs font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]">
                                 {% if request.LANGUAGE_CODE == 'pl' %}Szczegóły{% else %}Details{% endif %} →
@@ -121,7 +133,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="px-4 py-8 text-center font-mono text-sm text-slate-500">
+                        <td colspan="9" class="px-4 py-8 text-center font-mono text-sm text-slate-500">
                             {% if request.LANGUAGE_CODE == 'pl' %}Brak klientów.{% else %}No clients yet.{% endif %}
                         </td>
                     </tr>

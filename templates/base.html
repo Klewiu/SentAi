@@ -92,25 +92,29 @@
                 </form>
                 {% if request.user.is_authenticated %}
                     {% if navbar_show_account_badges %}
-                        <div class="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto">
-                            <a class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-2 font-mono text-[10px] font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa] sm:px-3" href="{% url 'dashboard:plan-update' %}">
-                                <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                    <path d="M4 7h16l-2 11H6L4 7zm4-3h8v2H8V4z" fill="currentColor"/>
-                                </svg>
-                                <span class="truncate">{{ navbar_user_plan_tier }}</span>
-                            </a>
+                        <div class="grid w-full {% if request.user.account_type == 'STAFF' %}grid-cols-1{% else %}grid-cols-3{% endif %} gap-2 sm:flex sm:w-auto">
+                            {% if request.user.account_type != 'STAFF' %}
+                                <a class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-2 font-mono text-[10px] font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa] sm:px-3" href="{% url 'dashboard:plan-update' %}">
+                                    <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M4 7h16l-2 11H6L4 7zm4-3h8v2H8V4z" fill="currentColor"/>
+                                    </svg>
+                                    <span class="truncate">{{ navbar_user_plan_tier }}</span>
+                                </a>
+                            {% endif %}
                             <a href="{% url 'accounts:profile' %}" class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-2 font-mono text-[10px] font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa] sm:px-3">
                                 <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                     <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.3 0-6 1.8-6 4v1h12v-1c0-2.2-2.7-4-6-4z" fill="currentColor"/>
                                 </svg>
                                 <span class="max-w-[88px] truncate sm:max-w-[140px]">{{ navbar_user_display_name }}</span>
                             </a>
-                            <span class="inline-flex min-h-9 cursor-default items-center justify-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-2 font-mono text-[10px] font-medium text-slate-300 sm:px-3">
-                                <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                    <path d="M5 6h14v12H5V6zm2 2v8h10V8H7zm4 1h2v6h-2V9z" fill="currentColor"/>
-                                </svg>
-                                <span class="truncate font-mono">{{ navbar_organization_count }}/{{ navbar_organization_limit }}</span>
-                            </span>
+                            {% if request.user.account_type != 'STAFF' %}
+                                <span class="inline-flex min-h-9 cursor-default items-center justify-center gap-1.5 rounded border border-white/10 bg-white/5 px-2 py-2 font-mono text-[10px] font-medium text-slate-300 sm:px-3">
+                                    <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M5 6h14v12H5V6zm2 2v8h10V8H7zm4 1h2v6h-2V9z" fill="currentColor"/>
+                                    </svg>
+                                    <span class="truncate font-mono">{{ navbar_organization_count }}/{{ navbar_organization_limit }}</span>
+                                </span>
+                            {% endif %}
                         </div>
                     {% endif %}
                     {% if request.user.is_superuser %}

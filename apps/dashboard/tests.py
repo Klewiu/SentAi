@@ -9,6 +9,7 @@ from django.utils.translation import override
 
 from apps.accounts.models import AccountType, UserPlanTier
 from apps.companies.models import Organization
+from apps.sales.models import ProspectClient, SellerSettlement
 
 
 User = get_user_model()
@@ -232,6 +233,8 @@ class SellerManagementTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Seller workspace")
+        self.assertNotContains(response, reverse("dashboard:plan-update"))
+        self.assertNotContains(response, "0/1")
 
     def test_admin_can_open_seller_list(self):
         self.client.force_login(self.admin)
@@ -314,3 +317,246 @@ class SellerManagementTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, seller.email)
+
+    def test_seller_can_link_prospect_with_registered_client(self):
+        client_user = User.objects.create_user(
+            username="client-linked",
+            email="client-linked@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+        )
+        prospect = ProspectClient.objects.create(
+            seller=self.seller,
+            company_name="Lead Corp",
+            contact_person="Alice",
+            email="alice@lead.example",
+            phone="123456789",
+        )
+        self.client.force_login(self.seller)
+
+        response = self.client.post(
+            reverse("dashboard:prospect-link-client", args=[prospect.pk]),
+            {"registered_client": client_user.pk},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard:prospect-detail", args=[prospect.pk]))
+        prospect.refresh_from_db()
+        self.assertEqual(prospect.registered_client, client_user)
+
+    def test_seller_cannot_link_other_seller_prospect(self):
+        other_seller = User.objects.create_user(
+            username="seller-other",
+            email="seller-other@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.STAFF,
+        )
+        client_user = User.objects.create_user(
+            username="client-target",
+            email="client-target@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+        )
+        prospect = ProspectClient.objects.create(
+            seller=other_seller,
+            company_name="Foreign Lead",
+            contact_person="Bob",
+            email="bob@lead.example",
+            phone="123456789",
+        )
+        self.client.force_login(self.seller)
+
+        response = self.client.post(
+            reverse("dashboard:prospect-link-client", args=[prospect.pk]),
+            {"registered_client": client_user.pk},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        prospect.refresh_from_db()
+        self.assertIsNone(prospect.registered_client)
+
+    def test_seller_can_select_registered_client_while_creating_prospect(self):
+        client_user = User.objects.create_user(
+            username="client-at-create",
+            email="client-at-create@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+        )
+        self.client.force_login(self.seller)
+
+        response = self.client.post(
+            reverse("dashboard:prospect-create"),
+            {
+                "company_name": "Create Lead",
+                "contact_person": "Eve",
+                "email": "eve@lead.example",
+                "phone": "999999999",
+                "notes": "created with linked client",
+                "registered_client": client_user.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard:seller-prospects"))
+
+        prospect = ProspectClient.objects.get(company_name="Create Lead")
+        self.assertEqual(prospect.seller, self.seller)
+        self.assertEqual(prospect.registered_client, client_user)
+
+    def test_admin_client_list_shows_linked_seller_username(self):
+        client_user = User.objects.create_user(
+            username="client-for-admin-list",
+            email="client-for-admin-list@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+        )
+        ProspectClient.objects.create(
+            seller=self.seller,
+            registered_client=client_user,
+            company_name="Lead for Admin List",
+            contact_person="Ann",
+            email="ann@lead.example",
+            phone="123456789",
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("dashboard:client-list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.seller.username)
+
+    def test_seller_clients_list_shows_linked_seller_username(self):
+        client_user = User.objects.create_user(
+            username="client-for-seller-list",
+            email="client-for-seller-list@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+        )
+        ProspectClient.objects.create(
+            seller=self.seller,
+            registered_client=client_user,
+            company_name="Lead for Seller List",
+            contact_person="Tom",
+            email="tom@lead.example",
+            phone="123456789",
+        )
+        self.client.force_login(self.seller)
+
+        response = self.client.get(reverse("dashboard:seller-clients"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.seller.username)
+
+    def test_client_tables_show_activities_link_for_linked_client(self):
+        client_user = User.objects.create_user(
+            username="client-with-activity-link",
+            email="client-with-activity-link@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+        )
+        prospect = ProspectClient.objects.create(
+            seller=self.seller,
+            registered_client=client_user,
+            company_name="Lead With Activity Link",
+            contact_person="Lia",
+            email="lia@lead.example",
+            phone="123456789",
+        )
+        self.client.force_login(self.seller)
+
+        seller_response = self.client.get(reverse("dashboard:seller-clients"))
+        self.assertContains(seller_response, reverse("dashboard:prospect-detail", args=[prospect.pk]))
+
+        self.client.force_login(self.admin)
+        admin_response = self.client.get(reverse("dashboard:client-list"))
+        self.assertContains(admin_response, reverse("dashboard:prospect-detail", args=[prospect.pk]))
+
+    def test_admin_can_open_prospect_detail_for_linked_client(self):
+        client_user = User.objects.create_user(
+            username="client-admin-open",
+            email="client-admin-open@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+        )
+        prospect = ProspectClient.objects.create(
+            seller=self.seller,
+            registered_client=client_user,
+            company_name="Lead Admin Open",
+            contact_person="Meg",
+            email="meg@lead.example",
+            phone="123456789",
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("dashboard:prospect-detail", args=[prospect.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Lead Admin Open")
+
+    def test_admin_settlements_page_shows_only_paid_clients(self):
+        paid_client = User.objects.create_user(
+            username="paid-client",
+            email="paid-client@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+            plan_tier=UserPlanTier.PLUS,
+        )
+        free_client = User.objects.create_user(
+            username="free-client",
+            email="free-client@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+            plan_tier=UserPlanTier.BASIC,
+        )
+        ProspectClient.objects.create(
+            seller=self.seller,
+            registered_client=paid_client,
+            company_name="Paid Lead",
+            contact_person="Paul",
+            email="paul@lead.example",
+            phone="123456789",
+        )
+        ProspectClient.objects.create(
+            seller=self.seller,
+            registered_client=free_client,
+            company_name="Free Lead",
+            contact_person="Frank",
+            email="frank@lead.example",
+            phone="123456789",
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("dashboard:seller-settlements"), {"seller": self.seller.pk})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, paid_client.username)
+        self.assertNotContains(response, free_client.username)
+
+    def test_admin_can_settle_paid_client_and_move_to_report(self):
+        paid_client = User.objects.create_user(
+            username="paid-client-settle",
+            email="paid-client-settle@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+            plan_tier=UserPlanTier.PRO,
+        )
+        prospect = ProspectClient.objects.create(
+            seller=self.seller,
+            registered_client=paid_client,
+            company_name="Paid Settle Lead",
+            contact_person="Sara",
+            email="sara@lead.example",
+            phone="123456789",
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse("dashboard:seller-settlement-create", args=[prospect.pk]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard:seller-settlements"))
+        settlement = SellerSettlement.objects.get(client=paid_client)
+        self.assertEqual(settlement.seller, self.seller)
+
+        page = self.client.get(reverse("dashboard:seller-settlements"), {"seller": self.seller.pk})
+        self.assertNotContains(page, "Paid Settle Lead")
+        self.assertContains(page, paid_client.email)

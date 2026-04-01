@@ -8,6 +8,13 @@ User = get_user_model()
 class ProspectClient(models.Model):
     """Potencjalny klient (prospekt) dodany przez sprzedawcę."""
     seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name="prospect_clients")
+    registered_client = models.OneToOneField(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="attributed_prospect",
+        null=True,
+        blank=True,
+    )
     company_name = models.CharField(max_length=255)
     contact_person = models.CharField(max_length=255)
     email = models.EmailField()
@@ -47,3 +54,32 @@ class ProspectActivity(models.Model):
 
     def __str__(self) -> str:
         return f"{self.prospect.company_name} - {self.activity_date}"
+
+
+class SellerSettlement(models.Model):
+    seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name="seller_settlements")
+    client = models.OneToOneField(User, on_delete=models.CASCADE, related_name="seller_settlement")
+    prospect = models.ForeignKey(
+        ProspectClient,
+        on_delete=models.SET_NULL,
+        related_name="settlements",
+        null=True,
+        blank=True,
+    )
+    client_registered_at = models.DateTimeField()
+    client_paid_plan_started_at = models.DateTimeField(blank=True, null=True)
+    client_plan_tier = models.CharField(max_length=16)
+    settled_at = models.DateTimeField(auto_now_add=True)
+    settled_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="processed_seller_settlements",
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ["-settled_at"]
+
+    def __str__(self) -> str:
+        return f"{self.client.email} settled for {self.seller.username}"

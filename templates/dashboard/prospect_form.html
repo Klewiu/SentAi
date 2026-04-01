@@ -1,6 +1,30 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+    .prospect-client-picker-menu {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0, 212, 170, 0.4) rgba(255, 255, 255, 0.05);
+    }
+
+    .prospect-client-picker-menu::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .prospect-client-picker-menu::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .prospect-client-picker-menu::-webkit-scrollbar-thumb {
+        background: rgba(0, 212, 170, 0.4);
+        border-radius: 999px;
+    }
+
+    select[name="registered_client"] {
+        display: none;
+    }
+</style>
+
 <section class="relative overflow-hidden rounded-lg border border-white/[0.07] bg-[#0d1117] p-6 glow-teal">
     <div class="pointer-events-none absolute left-0 top-0 h-px w-24 bg-gradient-to-r from-[#00d4aa] to-transparent" aria-hidden="true"></div>
     <div class="pointer-events-none absolute left-0 top-0 h-24 w-px bg-gradient-to-b from-[#00d4aa] to-transparent" aria-hidden="true"></div>
@@ -59,6 +83,41 @@
                 {{ form.notes }}
             </div>
 
+            <div>
+                <label class="mb-1 block font-mono text-[10px] uppercase tracking-widest text-slate-500" for="{{ form.registered_client.id_for_label }}">
+                    {{ form.registered_client.label }}
+                </label>
+                <div id="prospect-client-picker" class="relative min-w-full">
+                    <button type="button" id="prospect-client-trigger"
+                            class="w-full inline-flex items-center justify-between rounded border border-[#00d4aa]/40 bg-[#0d1117] px-3 py-2 font-mono text-xs text-slate-200 transition hover:border-[#00d4aa]/60 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20">
+                        <span id="prospect-client-label">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Wybierz klienta{% else %}Choose client{% endif %}
+                        </span>
+                        <span class="text-[#00d4aa]">▾</span>
+                    </button>
+
+                    <div id="prospect-client-menu"
+                         class="prospect-client-picker-menu absolute left-0 top-full z-30 mt-2 hidden max-h-56 w-full overflow-auto rounded border border-[#00d4aa]/40 bg-[#0d1117] p-1 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+                        <button type="button"
+                                class="prospect-client-option w-full rounded px-3 py-2 text-left font-mono text-xs text-slate-400 transition hover:bg-white/10 hover:text-slate-200"
+                                data-value=""
+                                data-label="{% if request.LANGUAGE_CODE == 'pl' %}Wybierz klienta{% else %}Choose client{% endif %}">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Brak powiązania{% else %}No link{% endif %}
+                        </button>
+                        {% for client in form.fields.registered_client.queryset %}
+                            <button type="button"
+                                    class="prospect-client-option w-full rounded px-3 py-2 text-left font-mono text-xs text-slate-200 transition hover:bg-[#00d4aa]/20 hover:text-[#00d4aa]"
+                                    data-value="{{ client.pk }}"
+                                    data-label="{% firstof client.company_name client.get_full_name client.username %}">
+                                {% firstof client.company_name client.get_full_name client.username %}
+                            </button>
+                        {% endfor %}
+                    </div>
+
+                    {{ form.registered_client }}
+                </div>
+            </div>
+
             {% if form.non_field_errors %}
                 <p class="font-mono text-xs text-rose-400">{{ form.non_field_errors|striptags }}</p>
             {% endif %}
@@ -75,4 +134,40 @@
         </form>
     </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const picker = document.getElementById('prospect-client-picker');
+    const trigger = document.getElementById('prospect-client-trigger');
+    const menu = document.getElementById('prospect-client-menu');
+    const hiddenInput = document.querySelector('select[name="registered_client"]');
+    const label = document.getElementById('prospect-client-label');
+    const options = document.querySelectorAll('.prospect-client-option');
+
+    if (!picker || !trigger || !menu || !hiddenInput || !label) {
+        return;
+    }
+
+    trigger.addEventListener('click', function(e) {
+        e.preventDefault();
+        menu.classList.toggle('hidden');
+    });
+
+    options.forEach(function(option) {
+        option.addEventListener('click', function(e) {
+            e.preventDefault();
+            hiddenInput.value = option.dataset.value;
+            label.textContent = option.dataset.label;
+            trigger.classList.add('border-[#00d4aa]', 'text-[#00d4aa]', 'shadow-[0_0_0_2px_rgba(0,212,170,0.15)]');
+            menu.classList.add('hidden');
+        });
+    });
+
+    document.addEventListener('click', function(event) {
+        if (!picker.contains(event.target)) {
+            menu.classList.add('hidden');
+        }
+    });
+});
+</script>
 {% endblock %}

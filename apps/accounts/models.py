@@ -39,6 +39,7 @@ class User(AbstractUser):
         choices=UserPlanTier.choices,
         default=UserPlanTier.BASIC,
     )
+    paid_plan_started_at = models.DateTimeField(blank=True, null=True)
     country = models.CharField(max_length=120, blank=True)
 
     class Meta:

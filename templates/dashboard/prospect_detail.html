@@ -1,6 +1,30 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+    .client-link-picker-menu {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0, 212, 170, 0.4) rgba(255, 255, 255, 0.05);
+    }
+
+    .client-link-picker-menu::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .client-link-picker-menu::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .client-link-picker-menu::-webkit-scrollbar-thumb {
+        background: rgba(0, 212, 170, 0.4);
+        border-radius: 999px;
+    }
+
+    select[name="registered_client"] {
+        display: none;
+    }
+</style>
+
 <section class="relative overflow-hidden rounded-lg border border-white/[0.07] bg-[#0d1117] p-6 glow-teal">
     <div class="pointer-events-none absolute left-0 top-0 h-px w-24 bg-gradient-to-r from-[#00d4aa] to-transparent" aria-hidden="true"></div>
     <div class="pointer-events-none absolute left-0 top-0 h-24 w-px bg-gradient-to-b from-[#00d4aa] to-transparent" aria-hidden="true"></div>
@@ -40,6 +64,66 @@
                 <p class="font-mono text-[10px] uppercase tracking-widest text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Sprzedawca{% else %}Seller{% endif %}</p>
                 <p class="font-mono text-sm text-slate-200">{{ prospect.seller.username }}</p>
             </div>
+        </div>
+
+        <div class="rounded-lg border border-white/[0.07] bg-white/[0.02] px-4 py-4 space-y-3">
+            <div class="space-y-1">
+                <p class="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Powiązane konto klienta{% else %}Linked client account{% endif %}
+                </p>
+                {% if prospect.registered_client %}
+                    <p class="font-mono text-sm text-slate-200">{{ prospect.registered_client.email }}</p>
+                {% else %}
+                    <p class="font-mono text-xs text-slate-500">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Brak powiązania.{% else %}Not linked yet.{% endif %}
+                    </p>
+                {% endif %}
+            </div>
+
+            {% if can_link_client %}
+                {% url 'dashboard:prospect-link-client' prospect.pk as prospect_link_client_url %}
+                {% if prospect_link_client_url %}
+                    <form method="post" action="{{ prospect_link_client_url }}" class="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+                        {% csrf_token %}
+                        <div>
+                            <label class="mb-1 block font-mono text-[10px] uppercase tracking-widest text-slate-500" for="{{ link_client_form.registered_client.id_for_label }}">
+                                {{ link_client_form.registered_client.label }}
+                            </label>
+                            <div id="client-link-picker" class="relative min-w-full">
+                                <button type="button" id="client-link-trigger"
+                                        class="w-full inline-flex items-center justify-between rounded border border-[#00d4aa]/40 bg-[#0d1117] px-3 py-2 font-mono text-xs text-slate-200 transition hover:border-[#00d4aa]/60 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20">
+                                    <span id="client-link-label">
+                                        {% if prospect.registered_client %}
+                                            {% firstof prospect.registered_client.company_name prospect.registered_client.get_full_name prospect.registered_client.username %}
+                                        {% else %}
+                                            {% if request.LANGUAGE_CODE == 'pl' %}Wybierz klienta{% else %}Choose client{% endif %}
+                                        {% endif %}
+                                    </span>
+                                    <span class="text-[#00d4aa]">▾</span>
+                                </button>
+
+                                <div id="client-link-menu"
+                                     class="client-link-picker-menu absolute left-0 top-full z-30 mt-2 hidden max-h-56 w-full overflow-auto rounded border border-[#00d4aa]/40 bg-[#0d1117] p-1 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+                                    {% for client in link_client_form.fields.registered_client.queryset %}
+                                        <button type="button"
+                                                class="client-link-option w-full rounded px-3 py-2 text-left font-mono text-xs text-slate-200 transition hover:bg-[#00d4aa]/20 hover:text-[#00d4aa]"
+                                                data-value="{{ client.pk }}"
+                                                data-label="{% firstof client.company_name client.get_full_name client.username %}">
+                                            {% firstof client.company_name client.get_full_name client.username %}
+                                        </button>
+                                    {% endfor %}
+                                </div>
+
+                                {{ link_client_form.registered_client }}
+                            </div>
+                        </div>
+                        <button type="submit"
+                                class="inline-flex min-h-10 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-4 font-mono text-sm font-semibold text-[#00d4aa] transition hover:bg-[#00d4aa]/20">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Zapisz powiązanie{% else %}Save link{% endif %}
+                        </button>
+                    </form>
+                {% endif %}
+            {% endif %}
         </div>
 
         {% if prospect.notes %}
@@ -97,4 +181,40 @@
         </div>
     </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const picker = document.getElementById('client-link-picker');
+    const trigger = document.getElementById('client-link-trigger');
+    const menu = document.getElementById('client-link-menu');
+    const hiddenInput = document.querySelector('select[name="registered_client"]');
+    const label = document.getElementById('client-link-label');
+    const options = document.querySelectorAll('.client-link-option');
+
+    if (!picker || !trigger || !menu || !hiddenInput || !label) {
+        return;
+    }
+
+    trigger.addEventListener('click', function(e) {
+        e.preventDefault();
+        menu.classList.toggle('hidden');
+    });
+
+    options.forEach(function(option) {
+        option.addEventListener('click', function(e) {
+            e.preventDefault();
+            hiddenInput.value = option.dataset.value;
+            label.textContent = option.dataset.label;
+            trigger.classList.add('border-[#00d4aa]', 'text-[#00d4aa]', 'shadow-[0_0_0_2px_rgba(0,212,170,0.15)]');
+            menu.classList.add('hidden');
+        });
+    });
+
+    document.addEventListener('click', function(event) {
+        if (!picker.contains(event.target)) {
+            menu.classList.add('hidden');
+        }
+    });
+});
+</script>
 {% endblock %}

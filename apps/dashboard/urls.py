@@ -13,11 +13,14 @@ from .views import (
     ProspectActivityAddView,
     ProspectCreateView,
     ProspectDetailView,
+    ProspectLinkClientView,
     SellerAccessToggleView,
     SellerClientsListView,
     SellerDeleteView,
     SellerDetailView,
     SellerListView,
+    SellerSettlementCreateView,
+    SellerSettlementListView,
     SellerProspectsListView,
 )
 
@@ -35,6 +38,8 @@ urlpatterns = [
     path("clients/", ClientListView.as_view(), name="client-list"),
     path("clients/<int:pk>/", ClientDetailView.as_view(), name="client-detail"),
     path("sellers/", SellerListView.as_view(), name="seller-list"),
+    path("sellers/settlements/", SellerSettlementListView.as_view(), name="seller-settlements"),
+    path("sellers/settlements/<int:prospect_pk>/settle/", SellerSettlementCreateView.as_view(), name="seller-settlement-create"),
     path("sellers/<int:pk>/", SellerDetailView.as_view(), name="seller-detail"),
     path("sellers/<int:pk>/toggle-access/", SellerAccessToggleView.as_view(), name="seller-toggle-access"),
     path("sellers/<int:pk>/delete/", SellerDeleteView.as_view(), name="seller-delete"),
@@ -43,6 +48,7 @@ urlpatterns = [
     path("seller/prospects/", SellerProspectsListView.as_view(), name="seller-prospects"),
     path("seller/prospects/new/", ProspectCreateView.as_view(), name="prospect-create"),
     path("seller/prospects/<int:pk>/", ProspectDetailView.as_view(), name="prospect-detail"),
+    path("seller/prospects/<int:pk>/link-client/", ProspectLinkClientView.as_view(), name="prospect-link-client"),
     path("seller/prospects/<int:prospect_pk>/activity/", ProspectActivityAddView.as_view(), name="prospect-activity-add"),
 ]
 

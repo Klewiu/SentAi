@@ -7,12 +7,14 @@ from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, FormView, TemplateView, UpdateView
 from django.db import models
+from django.utils import timezone
 
 from apps.accounts.models import AccountType, User, UserPlanTier
 from apps.companies.forms import OrganizationForm
 from apps.companies.models import Organization
 
 from .forms import SellerCreateForm, UserPlanUpdateForm, ProspectClientForm, ProspectActivityForm
+from .forms import ProspectLinkClientForm
 
 
 class UserOrganizationQuerysetMixin(LoginRequiredMixin):
@@ -227,7 +229,8 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
 
         if selected_tier == UserPlanTier.BASIC:
             self.request.user.plan_tier = selected_tier
-            self.request.user.save(update_fields=["plan_tier"])
+            self.request.user.paid_plan_started_at = None
+            self.request.user.save(update_fields=["plan_tier", "paid_plan_started_at"])
             if self.request.LANGUAGE_CODE == "pl":
                 messages.success(self.request, "Plan został zaktualizowany.")
             else:
@@ -332,7 +335,9 @@ class PlanCheckoutSuccessView(LoginRequiredMixin, View):
 
         if request.user.plan_tier != selected_tier:
             request.user.plan_tier = selected_tier
-            request.user.save(update_fields=["plan_tier"])
+            if request.user.paid_plan_started_at is None:
+                request.user.paid_plan_started_at = timezone.now()
+            request.user.save(update_fields=["plan_tier", "paid_plan_started_at"])
 
         if request.LANGUAGE_CODE == "pl":
             messages.success(request, "Płatność zakończona sukcesem. Plan został aktywowany.")
@@ -363,10 +368,20 @@ class ClientListView(AdminRequiredMixin, TemplateView):
     template_name = "dashboard/client_list.html"
 
     def get_context_data(self, **kwargs):
+        from apps.sales.models import ProspectClient
+
         context = super().get_context_data(**kwargs)
         q = self.request.GET.get("q", "").strip()
+        linked_prospect_subquery = ProspectClient.objects.filter(
+            registered_client=models.OuterRef("pk")
+        ).values("pk")[:1]
+        linked_seller_subquery = ProspectClient.objects.filter(
+            registered_client=models.OuterRef("pk")
+        ).values("seller__username")[:1]
         qs = (
             User.objects.filter(is_superuser=False, account_type=AccountType.CLIENT)
+            .annotate(linked_prospect_id=models.Subquery(linked_prospect_subquery))
+            .annotate(linked_seller_username=models.Subquery(linked_seller_subquery))
             .prefetch_related("organizations")
             .order_by("email")
         )
@@ -490,6 +505,89 @@ class SellerDeleteView(AdminRequiredMixin, View):
         return redirect("dashboard:seller-list")
 
 
+class SellerSettlementListView(AdminRequiredMixin, TemplateView):
+    template_name = "dashboard/seller_settlements.html"
+
+    def get_context_data(self, **kwargs):
+        from apps.sales.models import ProspectClient, SellerSettlement
+
+        context = super().get_context_data(**kwargs)
+        seller_id = self.request.GET.get("seller")
+
+        sellers = User.objects.filter(
+            account_type=AccountType.STAFF,
+            is_superuser=False,
+        ).order_by("username")
+
+        selected_seller = None
+        if seller_id:
+            selected_seller = sellers.filter(pk=seller_id).first()
+
+        payable_qs = ProspectClient.objects.select_related("seller", "registered_client").filter(
+            registered_client__isnull=False,
+            registered_client__account_type=AccountType.CLIENT,
+            registered_client__plan_tier__in=[UserPlanTier.PLUS, UserPlanTier.PRO],
+            registered_client__seller_settlement__isnull=True,
+        )
+
+        if selected_seller:
+            payable_qs = payable_qs.filter(seller=selected_seller)
+
+        settled_qs = SellerSettlement.objects.select_related("seller", "client", "prospect").all()
+        if selected_seller:
+            settled_qs = settled_qs.filter(seller=selected_seller)
+
+        context["sellers"] = sellers
+        context["selected_seller"] = selected_seller
+        context["payable_prospects"] = payable_qs.order_by("registered_client__date_joined")
+        context["settled_items"] = settled_qs
+        return context
+
+
+class SellerSettlementCreateView(AdminRequiredMixin, View):
+    def post(self, request, prospect_pk, *args, **kwargs):
+        from apps.sales.models import ProspectClient, SellerSettlement
+
+        prospect = get_object_or_404(
+            ProspectClient.objects.select_related("seller", "registered_client"),
+            pk=prospect_pk,
+            registered_client__isnull=False,
+        )
+        client = prospect.registered_client
+
+        if client.plan_tier not in [UserPlanTier.PLUS, UserPlanTier.PRO]:
+            if request.LANGUAGE_CODE == "pl":
+                messages.error(request, "Klient nie ma planu płatnego (PLUS/PRO).")
+            else:
+                messages.error(request, "Client is not on a paid plan (PLUS/PRO).")
+            return redirect("dashboard:seller-settlements")
+
+        settlement, created = SellerSettlement.objects.get_or_create(
+            client=client,
+            defaults={
+                "seller": prospect.seller,
+                "prospect": prospect,
+                "client_registered_at": client.date_joined,
+                "client_paid_plan_started_at": client.paid_plan_started_at,
+                "client_plan_tier": client.plan_tier,
+                "settled_by": request.user,
+            },
+        )
+
+        if created:
+            if request.LANGUAGE_CODE == "pl":
+                messages.success(request, "Klient został rozliczony.")
+            else:
+                messages.success(request, "Client has been settled.")
+        else:
+            if request.LANGUAGE_CODE == "pl":
+                messages.info(request, "Ten klient został już wcześniej rozliczony.")
+            else:
+                messages.info(request, "This client has already been settled.")
+
+        return redirect("dashboard:seller-settlements")
+
+
 # ===== Seller Workspace Views =====
 
 class SellerRequiredMixin(LoginRequiredMixin):
@@ -502,16 +600,38 @@ class SellerRequiredMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
+class SellerOrAdminRequiredMixin(LoginRequiredMixin):
+    """Allow access for sellers and administrators."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        if request.user.is_superuser or request.user.account_type == AccountType.STAFF:
+            return super().dispatch(request, *args, **kwargs)
+        return redirect("dashboard:home")
+
+
 class SellerClientsListView(SellerRequiredMixin, TemplateView):
     """Show registered clients (users who signed up and selected a plan)."""
     template_name = "dashboard/seller_clients.html"
 
     def get_context_data(self, **kwargs):
+        from apps.sales.models import ProspectClient
+
         context = super().get_context_data(**kwargs)
         # Show all registered clients (not sellers, not superusers)
+        linked_prospect_subquery = ProspectClient.objects.filter(
+            registered_client=models.OuterRef("pk")
+        ).values("pk")[:1]
+        linked_seller_subquery = ProspectClient.objects.filter(
+            registered_client=models.OuterRef("pk")
+        ).values("seller__username")[:1]
         clients = User.objects.filter(
             is_superuser=False,
             account_type=AccountType.CLIENT
+        ).annotate(
+            linked_prospect_id=models.Subquery(linked_prospect_subquery),
+            linked_seller_username=models.Subquery(linked_seller_subquery)
         ).order_by("email")
         context["clients"] = clients
         return context
@@ -566,6 +686,7 @@ class ProspectCreateView(SellerRequiredMixin, FormView):
             email=form.cleaned_data["email"],
             phone=form.cleaned_data["phone"],
             notes=form.cleaned_data.get("notes", ""),
+            registered_client=form.cleaned_data.get("registered_client"),
         )
         
         if self.request.LANGUAGE_CODE == "pl":
@@ -575,7 +696,7 @@ class ProspectCreateView(SellerRequiredMixin, FormView):
         return super().form_valid(form)
 
 
-class ProspectDetailView(SellerRequiredMixin, TemplateView):
+class ProspectDetailView(SellerOrAdminRequiredMixin, TemplateView):
     """Show prospect details and activities."""
     template_name = "dashboard/prospect_detail.html"
 
@@ -590,9 +711,46 @@ class ProspectDetailView(SellerRequiredMixin, TemplateView):
             # For now, allow viewing others' prospects as per requirement
             pass
         
+        can_link_client = prospect.seller == self.request.user
         context["prospect"] = prospect
         context["activities"] = prospect.activities.order_by('-activity_date')
+        context["can_link_client"] = can_link_client
+        context["link_client_form"] = ProspectLinkClientForm(
+            language_code=self.request.LANGUAGE_CODE,
+            prospect=prospect,
+        )
         return context
+
+
+class ProspectLinkClientView(SellerRequiredMixin, View):
+    """Link seller's prospect with an already registered client account."""
+
+    def post(self, request, pk, *args, **kwargs):
+        from apps.sales.models import ProspectClient
+
+        prospect = get_object_or_404(ProspectClient, pk=pk, seller=request.user)
+        form = ProspectLinkClientForm(
+            request.POST,
+            language_code=request.LANGUAGE_CODE,
+            prospect=prospect,
+        )
+
+        if not form.is_valid():
+            if request.LANGUAGE_CODE == "pl":
+                messages.error(request, "Nie udało się powiązać prospektu z klientem.")
+            else:
+                messages.error(request, "Could not link prospect with registered client.")
+            return redirect("dashboard:prospect-detail", pk=prospect.pk)
+
+        prospect.registered_client = form.cleaned_data["registered_client"]
+        prospect.save()
+
+        if request.LANGUAGE_CODE == "pl":
+            messages.success(request, "Prospekt został powiązany z zarejestrowanym klientem.")
+        else:
+            messages.success(request, "Prospect has been linked with registered client.")
+
+        return redirect("dashboard:prospect-detail", pk=prospect.pk)
 
 
 class ProspectActivityAddView(SellerRequiredMixin, FormView):

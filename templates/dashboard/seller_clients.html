@@ -44,8 +44,12 @@
                             {% if request.LANGUAGE_CODE == 'pl' %}Plan{% else %}Plan{% endif %}
                         </th>
                         <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Handlowiec{% else %}Sales rep{% endif %}
+                        </th>
+                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
                             {% if request.LANGUAGE_CODE == 'pl' %}Rejestracja{% else %}Joined{% endif %}
                         </th>
+                        <th class="px-4 py-3"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-white/[0.04]">
@@ -62,11 +66,22 @@
                                 <span class="inline-flex items-center rounded border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-400">BASIC</span>
                             {% endif %}
                         </td>
+                        <td class="px-4 py-3 font-mono text-slate-400">{{ client.linked_seller_username|default:"—" }}</td>
                         <td class="px-4 py-3 font-mono text-slate-500 text-xs">{{ client.date_joined|date:"Y-m-d" }}</td>
+                        <td class="px-4 py-3 text-right">
+                            {% if client.linked_prospect_id %}
+                                <a href="{% url 'dashboard:prospect-detail' client.linked_prospect_id %}"
+                                   class="inline-flex min-h-7 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-3 py-1 font-mono text-xs font-medium text-[#00d4aa] transition hover:bg-[#00d4aa]/20">
+                                    {% if request.LANGUAGE_CODE == 'pl' %}Aktywności{% else %}Activities{% endif %}
+                                </a>
+                            {% else %}
+                                <span class="font-mono text-xs text-slate-500">—</span>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4" class="px-4 py-8 text-center font-mono text-sm text-slate-500">
+                        <td colspan="6" class="px-4 py-8 text-center font-mono text-sm text-slate-500">
                             {% if request.LANGUAGE_CODE == 'pl' %}Brak klientów.{% else %}No clients yet.{% endif %}
                         </td>
                     </tr>

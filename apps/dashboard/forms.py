@@ -1,10 +1,24 @@
 from django import forms
+from django.db.models import Q
 from django.contrib.auth import get_user_model
 
 from apps.accounts.models import AccountType, USER_PLAN_ORGANIZATION_LIMITS, UserPlanTier
 
 
 User = get_user_model()
+
+
+class RegisteredClientChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        company_name = (obj.company_name or "").strip()
+        if company_name:
+            return company_name
+
+        full_name = (obj.get_full_name() or "").strip()
+        if full_name:
+            return full_name
+
+        return obj.username
 
 
 class UserPlanUpdateForm(forms.Form):
@@ -108,6 +122,7 @@ class ProspectClientForm(forms.Form):
     email = forms.EmailField()
     phone = forms.CharField(max_length=20)
     notes = forms.CharField(widget=forms.Textarea, required=False)
+    registered_client = RegisteredClientChoiceField(queryset=User.objects.none(), required=False)
 
     def __init__(self, *args, language_code="en", **kwargs):
         self.language_code = language_code
@@ -119,12 +134,26 @@ class ProspectClientForm(forms.Form):
             self.fields["email"].label = "E-mail"
             self.fields["phone"].label = "Numer telefonu"
             self.fields["notes"].label = "Notatki"
+            self.fields["registered_client"].label = "Powiązany zarejestrowany klient (opcjonalnie)"
         else:
             self.fields["company_name"].label = "Company name"
             self.fields["contact_person"].label = "Contact person"
             self.fields["email"].label = "Email"
             self.fields["phone"].label = "Phone"
             self.fields["notes"].label = "Notes"
+            self.fields["registered_client"].label = "Linked registered client (optional)"
+
+        self.fields["registered_client"].queryset = (
+            User.objects.filter(
+                account_type=AccountType.CLIENT,
+                is_superuser=False,
+                attributed_prospect__isnull=True,
+            )
+            .order_by("email")
+        )
+        self.fields["registered_client"].empty_label = (
+            "-- brak --" if self.language_code == "pl" else "-- none --"
+        )
 
         for field_name in self.fields:
             self.fields[field_name].widget.attrs.update({
@@ -180,3 +209,39 @@ class ProspectActivityForm(forms.Form):
         self.fields["activity_description"].widget.attrs.update({
             "class": "min-w-0 flex-1 rounded border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-sm text-slate-100 placeholder-slate-600 outline-none transition focus:border-[#00d4aa]/50 focus:ring-1 focus:ring-[#00d4aa]/30"
         })
+
+
+class ProspectLinkClientForm(forms.Form):
+    registered_client = RegisteredClientChoiceField(queryset=User.objects.none())
+
+    def __init__(self, *args, language_code="en", prospect=None, **kwargs):
+        self.language_code = language_code
+        self.prospect = prospect
+        super().__init__(*args, **kwargs)
+
+        current_client_id = None
+        if self.prospect and self.prospect.registered_client_id:
+            current_client_id = self.prospect.registered_client_id
+
+        self.fields["registered_client"].queryset = (
+            User.objects.filter(
+                account_type=AccountType.CLIENT,
+                is_superuser=False,
+            )
+            .filter(Q(attributed_prospect__isnull=True) | Q(pk=current_client_id))
+            .order_by("email")
+        )
+
+        if current_client_id and not self.is_bound:
+            self.fields["registered_client"].initial = current_client_id
+
+        if self.language_code == "pl":
+            self.fields["registered_client"].label = "Powiąż z zarejestrowanym klientem"
+        else:
+            self.fields["registered_client"].label = "Link to registered client"
+
+        self.fields["registered_client"].widget.attrs.update(
+            {
+                "class": "min-w-0 flex-1 rounded border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-sm text-slate-100 placeholder-slate-600 outline-none transition focus:border-[#00d4aa]/50 focus:ring-1 focus:ring-[#00d4aa]/30"
+            }
+        )
