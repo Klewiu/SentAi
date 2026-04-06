@@ -262,14 +262,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const text = {
         shortDescription: config.uiLanguage === 'pl' ? 'Krótki opis' : 'Short description',
         longDescription: config.uiLanguage === 'pl' ? 'Pełny opis' : 'Long description',
+        shortDescriptionPlaceholder: config.uiLanguage === 'pl'
+            ? '1-2 zdania czym zajmuje się firma i komu pomaga.'
+            : '1-2 sentences on what the company does and who it helps.',
+        longDescriptionPlaceholder: config.uiLanguage === 'pl'
+            ? 'Rozwiń ofertę, przewagi i grupę docelową dla tego języka.'
+            : 'Expand your offer, differentiators, and target audience for this language.',
         languageKeywords: config.uiLanguage === 'pl' ? 'Słowa kluczowe dla tego języka' : 'Keywords for this language',
         languageKeywordsHelp: config.uiLanguage === 'pl'
             ? 'Opcjonalnie: wpisz słowa kluczowe oddzielone przecinkami dla tego języka.'
             : 'Optional: enter comma-separated keywords for this language.',
+        languageKeywordsPlaceholder: config.uiLanguage === 'pl'
+            ? 'np. automatyzacja sprzedaży, CRM, lead generation'
+            : 'e.g. sales automation, CRM, lead generation',
         languageProducts: config.uiLanguage === 'pl' ? 'Produkty/usługi dla tego języka' : 'Products/services for this language',
         languageProductsHelp: config.uiLanguage === 'pl'
             ? 'Jedna linia = jeden produkt. Format: Nazwa | Krótki opis | opcjonalny link.'
             : 'One line = one product. Format: Name | Short description | optional URL.',
+        languageProductsPlaceholder: config.uiLanguage === 'pl'
+            ? 'np. AI Agent | Automatyzuje obsługę leadów | https://twojadomena.pl/agent\nSEO Audit | Audyt SEO dla e-commerce'
+            : 'e.g. AI Agent | Automates lead handling | https://yourdomain.com/agent\nSEO Audit | SEO audit for e-commerce',
         remove: config.uiLanguage === 'pl' ? '✕ Usuń' : '✕ Remove',
         chooseLanguage: config.uiLanguage === 'pl' ? 'Wybierz język' : 'Choose language',
         selectLanguage: config.uiLanguage === 'pl' ? 'Wybierz język' : 'Select a language',
@@ -323,6 +335,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${text.shortDescription}
                 </span>
                 <input type="text" name="short_description_${langCode}" value="${shortValue}" maxlength="280" 
+                      placeholder="${text.shortDescriptionPlaceholder}"
                        class="w-full rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-white placeholder-slate-500 transition hover:border-white/20 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20">
                 <small class="block font-mono text-[10px] text-slate-500">${helps.short_description}</small>
             </label>
@@ -332,6 +345,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${text.longDescription}
                 </span>
                 <textarea name="long_description_${langCode}" rows="5" 
+                          placeholder="${text.longDescriptionPlaceholder}"
                           class="w-full rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-white placeholder-slate-500 transition hover:border-white/20 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20">${longValue}</textarea>
                 <small class="block font-mono text-[10px] text-slate-500">${helps.long_description}</small>
             </label>
@@ -341,6 +355,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${text.languageKeywords}
                 </span>
                 <input type="text" name="tags_${langCode}" value="${tagsValue}"
+                      placeholder="${text.languageKeywordsPlaceholder}"
                        class="w-full rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-white placeholder-slate-500 transition hover:border-white/20 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20">
                 <small class="block font-mono text-[10px] text-slate-500">${text.languageKeywordsHelp}</small>
             </label>
@@ -350,6 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${text.languageProducts}
                 </span>
                 <textarea name="products_${langCode}" rows="5"
+                          placeholder="${text.languageProductsPlaceholder}"
                           class="w-full rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-white placeholder-slate-500 transition hover:border-white/20 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20">${productsValue}</textarea>
                 <small class="block font-mono text-[10px] text-slate-500">${text.languageProductsHelp}</small>
             </label>

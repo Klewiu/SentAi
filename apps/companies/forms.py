@@ -174,6 +174,11 @@ class OrganizationForm(forms.ModelForm):
 
         if "name" in self.fields:
             self.fields["name"].label = "Nazwa brandu" if ui_language == "pl" else "Brand name"
+            self.fields["name"].widget.attrs.update(
+                {
+                    "placeholder": "np. XOAILA" if ui_language == "pl" else "e.g. XOAILA",
+                }
+            )
 
         if "website_url" in self.fields:
             self.fields["website_url"].widget.attrs.update(
@@ -185,6 +190,48 @@ class OrganizationForm(forms.ModelForm):
                 }
             )
 
+        if "contact_email" in self.fields:
+            self.fields["contact_email"].widget.attrs.update(
+                {
+                    "placeholder": "kontakt@twojadomena.pl" if ui_language == "pl" else "contact@yourdomain.com",
+                }
+            )
+
+        if "phone_number" in self.fields:
+            self.fields["phone_number"].widget.attrs.update(
+                {
+                    "placeholder": "+48 123 456 789" if ui_language == "pl" else "+1 555 123 4567",
+                }
+            )
+
+        if "address_line" in self.fields:
+            self.fields["address_line"].widget.attrs.update(
+                {
+                    "placeholder": "ul. Przykładowa 12" if ui_language == "pl" else "221B Baker Street",
+                }
+            )
+
+        if "city" in self.fields:
+            self.fields["city"].widget.attrs.update(
+                {
+                    "placeholder": "Warszawa" if ui_language == "pl" else "London",
+                }
+            )
+
+        if "postal_code" in self.fields:
+            self.fields["postal_code"].widget.attrs.update(
+                {
+                    "placeholder": "00-001" if ui_language == "pl" else "SW1A 1AA",
+                }
+            )
+
+        if "country" in self.fields:
+            self.fields["country"].widget.attrs.update(
+                {
+                    "placeholder": "Polska" if ui_language == "pl" else "United Kingdom",
+                }
+            )
+
         if "featured_entry_url" in self.fields:
             self.fields["featured_entry_url"].widget.attrs.update(
                 {
@@ -192,6 +239,17 @@ class OrganizationForm(forms.ModelForm):
                     "inputmode": "url",
                     "autocomplete": "url",
                     "placeholder": "twojadomena.pl/faq" if ui_language == "pl" else "yourdomain.com/faq",
+                }
+            )
+
+        if "featured_entry_summary" in self.fields:
+            self.fields["featured_entry_summary"].widget.attrs.update(
+                {
+                    "placeholder": (
+                        "np. Jak nasze rozwiązanie pomaga skrócić czas obsługi klienta o 30%."
+                        if ui_language == "pl"
+                        else "e.g. How our solution helps reduce customer handling time by 30%."
+                    )
                 }
             )
 
