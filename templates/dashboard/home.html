@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block content %}
+{% if request.user.plan_tier != 'PRO' %}
 <section class="relative overflow-hidden rounded-lg border border-white/[0.07] bg-[#0d1117] p-6 glow-teal">
     <!-- corner accent lines -->
     <div class="pointer-events-none absolute left-0 top-0 h-px w-24 bg-gradient-to-r from-[#00d4aa] to-transparent" aria-hidden="true"></div>
@@ -83,6 +84,70 @@
         </div>
     </div>
 </section>
+{% endif %}
+
+<section class="relative overflow-hidden rounded-lg border border-white/[0.07] bg-[#0d1117] p-6 glow-teal-sm">
+    <div class="pointer-events-none absolute left-0 top-0 h-px w-24 bg-gradient-to-r from-[#00d4aa]/70 to-transparent" aria-hidden="true"></div>
+    <div class="pointer-events-none absolute right-0 top-0 h-24 w-px bg-gradient-to-b from-[#6366f1]/50 to-transparent" aria-hidden="true"></div>
+
+    <div class="grid gap-6 lg:grid-cols-[1.05fr_1.2fr] lg:items-center">
+        <div class="space-y-4">
+            <span class="inline-flex items-center gap-1.5 rounded border border-[#00d4aa]/30 bg-[#00d4aa]/5 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-[#00d4aa]">
+                <span class="h-1.5 w-1.5 rounded-full bg-[#00d4aa] animate-pulse"></span>
+                {% if request.LANGUAGE_CODE == 'pl' %}Jak to działa{% else %}How it works{% endif %}
+            </span>
+
+            <h2 class="font-display text-2xl font-semibold leading-tight tracking-tight text-white sm:text-3xl">
+                {% if request.LANGUAGE_CODE == 'pl' %}
+                    Zadbaj, by AI czytało Twoją firmę tak, jak chcesz być opisywany.
+                {% else %}
+                    Make AI read your business exactly the way you want it described.
+                {% endif %}
+            </h2>
+
+            <p class="text-sm leading-relaxed text-slate-300 sm:text-base">
+                {% if request.LANGUAGE_CODE == 'pl' %}
+                    Aplikacja prowadzi Cię od danych firmy do gotowych endpointów publicznych, które są łatwoczytelne dla modeli AI. Bez zgadywania, bez technicznego chaosu.
+                {% else %}
+                    The app takes you from company data to production-ready public endpoints that are easy for AI models to read. No guesswork, no technical chaos.
+                {% endif %}
+            </p>
+
+            <ul class="space-y-2 font-mono text-xs text-slate-300 sm:text-sm">
+                <li>
+                    {% if request.LANGUAGE_CODE == 'pl' %}
+                        • Tworzy nowoczesne formaty: <span class="text-[#00d4aa]">JSON</span>, <span class="text-[#00d4aa]">JSON-LD</span> i <span class="text-[#00d4aa]">llms.txt</span>.
+                    {% else %}
+                        • Generates modern formats: <span class="text-[#00d4aa]">JSON</span>, <span class="text-[#00d4aa]">JSON-LD</span>, and <span class="text-[#00d4aa]">llms.txt</span>.
+                    {% endif %}
+                </li>
+                <li>
+                    {% if request.LANGUAGE_CODE == 'pl' %}
+                        • Porządkuje informacje o ofercie i marce tak, by AI mogło je cytować i rekomendować.
+                    {% else %}
+                        • Structures your offer and brand data so AI can cite and recommend it.
+                    {% endif %}
+                </li>
+                <li>
+                    {% if request.LANGUAGE_CODE == 'pl' %}
+                        • Dziś te formaty są dla AI tym, czym dawniej było SEO dla Google.
+                    {% else %}
+                        • Today, these formats are to AI what SEO used to be for Google.
+                    {% endif %}
+                </li>
+            </ul>
+        </div>
+
+        <figure class="relative overflow-hidden rounded-lg border border-white/[0.08] bg-black/20">
+            <img
+                src="{% if request.LANGUAGE_CODE == 'pl' %}{% get_media_prefix %}flow_PL.jpg{% else %}{% get_media_prefix %}flow_EN.jpg{% endif %}"
+                alt="{% if request.LANGUAGE_CODE == 'pl' %}Schemat działania aplikacji{% else %}Application workflow diagram{% endif %}"
+                class="h-full w-full object-cover"
+                loading="lazy"
+            >
+        </figure>
+    </div>
+</section>
 
 <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
     {% for organization in organizations %}
@@ -156,7 +221,7 @@
             </h2>
             <p class="mx-auto mt-3 max-w-xl text-sm text-slate-400">
                 {% if request.LANGUAGE_CODE == 'pl' %}
-                    Zacznij od podstawowych danych firmy. Po zapisie otrzymasz gotowe publiczne ścieżki JSON do udostępnienia.
+                    Utwórz domenę, którą chcesz promować i wprowadź dane związane ze swoim brandem. W zależności od wybranego planu możesz dodać do 3 domen na jednym koncie użytkownika.
                 {% else %}
                     Start with core company details. After saving, you get ready-to-share public JSON paths.
                 {% endif %}
