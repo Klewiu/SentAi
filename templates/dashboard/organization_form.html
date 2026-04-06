@@ -97,7 +97,7 @@
 
                 <div class="mb-5 grid gap-4 md:grid-cols-2 md:items-start">
                     <label class="block space-y-2 self-start">
-                        <span class="inline-flex min-h-5 items-center gap-2 font-mono text-xs font-medium uppercase leading-5 tracking-widest text-slate-400">{{ form.primary_language.label }}</span>
+                        <span class="inline-flex h-5 w-full items-center gap-2 whitespace-nowrap font-mono text-xs font-medium uppercase leading-5 tracking-widest text-slate-400">{{ form.primary_language.label }}</span>
                         <div class="hidden">{{ form.primary_language }}</div>
                         <div id="primary-language-picker" class="relative"></div>
                         {% if form.primary_language.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.primary_language.help_text }}</small>{% endif %}
@@ -105,10 +105,10 @@
                     </label>
 
                     <div class="space-y-2 self-start">
-                        <span class="inline-flex min-h-5 items-center gap-2 font-mono text-xs font-medium uppercase leading-5 tracking-widest text-slate-400">
+                        <span class="inline-flex h-5 w-full items-center gap-2 whitespace-nowrap font-mono text-xs font-medium uppercase leading-5 tracking-widest text-slate-400">
                             {% if request.LANGUAGE_CODE == 'pl' %}Dodaj kolejny język{% else %}Add another language{% endif %}
                         </span>
-                        <div id="add-language-buttons" class="w-full"></div>
+                        <div id="add-language-buttons" class="w-full pt-0"></div>
                         <small class="block font-mono text-[10px] text-slate-500">
                             {% if request.LANGUAGE_CODE == 'pl' %}Możesz dodać język(y) zgodnie z limitem planu.{% else %}You can add language(s) within your plan limit.{% endif %}
                         </small>
@@ -409,7 +409,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderLanguagePicker() {
         const unavailable = config.availableLanguages.filter((lang) => !selectedLanguages.includes(lang));
         const wrapper = document.createElement('div');
-        wrapper.className = 'flex w-full items-center gap-2';
+        wrapper.className = 'flex w-full items-start gap-2';
 
         const pickerWrap = document.createElement('div');
         pickerWrap.className = 'relative min-w-0 flex-1';
@@ -418,7 +418,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const trigger = document.createElement('button');
         trigger.type = 'button';
-        trigger.className = 'w-full inline-flex items-center justify-between rounded border border-[#00d4aa]/40 bg-[#0d1117] px-3 py-2 font-mono text-xs text-slate-200 transition hover:border-[#00d4aa]/60 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20';
+        trigger.className = 'h-10 w-full inline-flex items-center justify-between rounded border border-[#00d4aa]/40 bg-[#0d1117] px-3 font-mono text-xs text-slate-200 transition hover:border-[#00d4aa]/60 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20';
         trigger.innerHTML = `<span>${text.chooseLanguage}</span><span class="text-[#00d4aa]">▾</span>`;
 
         const menu = document.createElement('div');
@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const addBtn = document.createElement('button');
         addBtn.type = 'button';
-        addBtn.className = 'inline-flex min-h-10 shrink-0 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-4 py-2 font-mono text-xs font-semibold text-[#00d4aa] transition hover:bg-[#00d4aa]/20';
+        addBtn.className = 'inline-flex h-10 shrink-0 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-4 font-mono text-xs font-semibold text-[#00d4aa] transition hover:bg-[#00d4aa]/20';
         addBtn.textContent = text.addLanguage;
 
         addBtn.addEventListener('click', (e) => {
@@ -495,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const trigger = document.createElement('button');
         trigger.type = 'button';
-        trigger.className = 'w-full inline-flex items-center justify-between rounded border border-[#00d4aa]/40 bg-[#0d1117] px-3 py-2 font-mono text-xs text-slate-200 transition hover:border-[#00d4aa]/60 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20';
+        trigger.className = 'h-10 w-full inline-flex items-center justify-between rounded border border-[#00d4aa]/40 bg-[#0d1117] px-3 font-mono text-xs text-slate-200 transition hover:border-[#00d4aa]/60 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20';
 
         const menu = document.createElement('div');
         menu.className = 'language-picker-menu absolute left-0 top-full z-30 mt-2 hidden max-h-56 w-full overflow-auto rounded border border-[#00d4aa]/40 bg-[#0d1117] p-1 shadow-[0_10px_30px_rgba(0,0,0,0.35)]';
@@ -612,7 +612,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (canAddMore && unavailable.length > 0) {
             const row = document.createElement('div');
-            row.className = 'flex w-full items-center gap-2';
+            row.className = 'flex w-full items-start gap-2';
             row.appendChild(renderLanguagePicker());
             buttonsContainer.appendChild(row);
         } else {
