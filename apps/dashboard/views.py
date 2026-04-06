@@ -650,8 +650,17 @@ class SellerSettlementCreateView(AdminRequiredMixin, View):
 class SellerActivityReportView(AdminRequiredMixin, TemplateView):
     template_name = "dashboard/report_seller_activities.html"
 
+    def _show_all_history(self) -> bool:
+        return self.request.GET.get("scope") == "all"
+
     def _selected_month(self) -> str:
-        return self.request.GET.get("month", "").strip()
+        if self._show_all_history():
+            return ""
+
+        selected_month = self.request.GET.get("month", "").strip()
+        if selected_month:
+            return selected_month
+        return timezone.localdate().strftime("%Y-%m")
 
     def _month_range(self, month_value: str) -> tuple[date, date] | None:
         if not month_value:
@@ -704,6 +713,7 @@ class SellerActivityReportView(AdminRequiredMixin, TemplateView):
         context["selected_period_label"] = selected_period_label
         context["total_activities"] = total_activities
         context["active_sellers"] = active_sellers
+        context["show_all_history"] = self._show_all_history()
         return context
 
 

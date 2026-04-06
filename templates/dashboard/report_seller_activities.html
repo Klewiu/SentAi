@@ -42,8 +42,8 @@
                     class="inline-flex min-h-10 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-4 font-mono text-sm font-semibold text-[#00d4aa] transition hover:bg-[#00d4aa]/20">
                 {% if request.LANGUAGE_CODE == 'pl' %}Pokaż raport{% else %}Show report{% endif %}
             </button>
-            {% if selected_month %}
-                <a href="{% url 'dashboard:report-seller-activities' %}"
+            {% if selected_month or show_all_history %}
+                <a href="{% url 'dashboard:report-seller-activities' %}?scope=all"
                    class="inline-flex min-h-10 items-center justify-center rounded border border-white/10 bg-white/5 px-4 font-mono text-sm font-medium text-slate-300 transition hover:border-white/20 hover:text-white">
                     {% if request.LANGUAGE_CODE == 'pl' %}Cała historia{% else %}All history{% endif %}
                 </a>

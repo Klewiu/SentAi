@@ -306,6 +306,22 @@ class SellerManagementTests(TestCase):
         self.assertContains(response, 'value="2026-03"')
         self.assertContains(response, 'id="seller-activity-chart"')
 
+    def test_admin_report_defaults_to_current_month(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("dashboard:report-seller-activities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'value="{timezone.localdate():%Y-%m}"')
+
+    def test_admin_report_can_show_all_history(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("dashboard:report-seller-activities"), {"scope": "all"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "All history")
+
     def test_admin_can_create_seller_with_login_and_password(self):
         self.client.force_login(self.admin)
 
