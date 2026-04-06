@@ -96,16 +96,16 @@
                 </h3>
 
                 <div class="mb-5 grid gap-4 md:grid-cols-2 md:items-start">
-                    <label class="block space-y-2">
-                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.primary_language.label }}</span>
+                    <label class="block space-y-2 self-start">
+                        <span class="inline-flex min-h-5 items-center gap-2 font-mono text-xs font-medium uppercase leading-5 tracking-widest text-slate-400">{{ form.primary_language.label }}</span>
                         <div class="hidden">{{ form.primary_language }}</div>
                         <div id="primary-language-picker" class="relative"></div>
                         {% if form.primary_language.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.primary_language.help_text }}</small>{% endif %}
                         {% if form.primary_language.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.primary_language.errors|striptags }}</small>{% endif %}
                     </label>
 
-                    <div class="space-y-2">
-                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">
+                    <div class="space-y-2 self-start">
+                        <span class="inline-flex min-h-5 items-center gap-2 font-mono text-xs font-medium uppercase leading-5 tracking-widest text-slate-400">
                             {% if request.LANGUAGE_CODE == 'pl' %}Dodaj kolejny język{% else %}Add another language{% endif %}
                         </span>
                         <div id="add-language-buttons" class="w-full"></div>
