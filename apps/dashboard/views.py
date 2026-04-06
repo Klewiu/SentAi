@@ -1,3 +1,5 @@
+from datetime import date
+
 import stripe
 from django.conf import settings
 from django.contrib import messages
@@ -643,6 +645,68 @@ class SellerSettlementCreateView(AdminRequiredMixin, View):
                 messages.info(request, "This client has already been settled.")
 
         return redirect("dashboard:seller-settlements")
+
+
+class SellerActivityReportView(AdminRequiredMixin, TemplateView):
+    template_name = "dashboard/report_seller_activities.html"
+
+    def _selected_month(self) -> str:
+        return self.request.GET.get("month", "").strip()
+
+    def _month_range(self, month_value: str) -> tuple[date, date] | None:
+        if not month_value:
+            return None
+        try:
+            year_str, month_str = month_value.split("-", 1)
+            year = int(year_str)
+            month = int(month_str)
+            month_start = date(year, month, 1)
+        except (TypeError, ValueError):
+            return None
+
+        if month == 12:
+            next_month = date(year + 1, 1, 1)
+        else:
+            next_month = date(year, month + 1, 1)
+        return month_start, next_month
+
+    def get_context_data(self, **kwargs):
+        from apps.sales.models import ProspectActivity
+
+        context = super().get_context_data(**kwargs)
+        selected_month = self._selected_month()
+        month_range = self._month_range(selected_month)
+
+        activity_filter = models.Q()
+        selected_period_label = (
+            "Cała historia" if self.request.LANGUAGE_CODE == "pl" else "All history"
+        )
+
+        if month_range is not None:
+            month_start, next_month = month_range
+            activity_filter &= models.Q(
+                prospect_activities__activity_date__gte=month_start,
+                prospect_activities__activity_date__lt=next_month,
+            )
+            selected_period_label = month_start.strftime("%Y-%m")
+
+        sellers = list(
+            User.objects.filter(account_type=AccountType.STAFF, is_superuser=False)
+            .annotate(activity_count=models.Count("prospect_activities", filter=activity_filter))
+            .order_by("-activity_count", "username")
+        )
+
+        total_activities = sum(seller.activity_count for seller in sellers)
+        active_sellers = sum(1 for seller in sellers if seller.activity_count > 0)
+
+        context["report_rows"] = sellers
+        context["chart_labels"] = [seller.username for seller in sellers]
+        context["chart_values"] = [seller.activity_count for seller in sellers]
+        context["selected_month"] = selected_month if month_range is not None else ""
+        context["selected_period_label"] = selected_period_label
+        context["total_activities"] = total_activities
+        context["active_sellers"] = active_sellers
+        return context
 
 
 # ===== Seller Workspace Views =====

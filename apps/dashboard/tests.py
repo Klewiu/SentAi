@@ -9,7 +9,7 @@ from django.utils.translation import override
 
 from apps.accounts.models import AccountType, UserPlanTier
 from apps.companies.models import Organization
-from apps.sales.models import ProspectClient, SellerSettlement
+from apps.sales.models import ProspectActivity, ProspectClient, SellerSettlement
 
 
 User = get_user_model()
@@ -242,6 +242,68 @@ class SellerManagementTests(TestCase):
         response = self.client.get(reverse("dashboard:seller-list"))
 
         self.assertEqual(response.status_code, 200)
+
+    def test_admin_home_shows_reports_quick_action(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("dashboard:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("dashboard:report-seller-activities"))
+
+    def test_admin_report_shows_activity_counts_and_month_filter(self):
+        other_seller = User.objects.create_user(
+            username="seller-second",
+            email="seller-second@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.STAFF,
+        )
+        prospect_one = ProspectClient.objects.create(
+            seller=self.seller,
+            company_name="Lead One",
+            contact_person="Alice",
+            email="alice@example.com",
+            phone="123456789",
+        )
+        prospect_two = ProspectClient.objects.create(
+            seller=other_seller,
+            company_name="Lead Two",
+            contact_person="Bob",
+            email="bob@example.com",
+            phone="123456789",
+        )
+        ProspectActivity.objects.create(
+            prospect=prospect_one,
+            seller=self.seller,
+            activity_type="call",
+            activity_date="2026-03-10",
+            activity_description="March call",
+        )
+        ProspectActivity.objects.create(
+            prospect=prospect_one,
+            seller=self.seller,
+            activity_type="email",
+            activity_date="2026-03-15",
+            activity_description="March email",
+        )
+        ProspectActivity.objects.create(
+            prospect=prospect_two,
+            seller=other_seller,
+            activity_type="meeting",
+            activity_date="2026-04-02",
+            activity_description="April meeting",
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("dashboard:report-seller-activities"), {"month": "2026-03"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "seller-home")
+        self.assertContains(response, ">2<", html=False)
+        self.assertContains(response, "seller-second")
+        self.assertContains(response, ">0<", html=False)
+        self.assertContains(response, 'value="2026-03"')
+        self.assertContains(response, 'id="seller-activity-chart"')
 
     def test_admin_can_create_seller_with_login_and_password(self):
         self.client.force_login(self.admin)
