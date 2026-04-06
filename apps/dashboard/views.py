@@ -671,8 +671,6 @@ class SellerActivityReportView(AdminRequiredMixin, TemplateView):
         return month_start, next_month
 
     def get_context_data(self, **kwargs):
-        from apps.sales.models import ProspectActivity
-
         context = super().get_context_data(**kwargs)
         selected_month = self._selected_month()
         month_range = self._month_range(selected_month)

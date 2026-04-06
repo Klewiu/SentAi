@@ -33,7 +33,7 @@ class DashboardPlanLimitTests(TestCase):
         response = self.client.get(reverse("dashboard:home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "+ add company")
+        self.assertContains(response, reverse("dashboard:organization-create"))
 
     def test_add_company_button_hidden_when_basic_limit_reached(self):
         Organization.objects.create(
@@ -45,7 +45,7 @@ class DashboardPlanLimitTests(TestCase):
         response = self.client.get(reverse("dashboard:home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, "Add company")
+        self.assertNotContains(response, reverse("dashboard:organization-create"))
 
     def test_create_view_redirects_when_basic_limit_reached(self):
         Organization.objects.create(
@@ -232,7 +232,8 @@ class SellerManagementTests(TestCase):
         response = self.client.get(reverse("dashboard:home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Seller workspace")
+        self.assertContains(response, reverse("dashboard:seller-clients"))
+        self.assertContains(response, reverse("dashboard:seller-prospects"))
         self.assertNotContains(response, reverse("dashboard:plan-update"))
         self.assertNotContains(response, "0/1")
 
