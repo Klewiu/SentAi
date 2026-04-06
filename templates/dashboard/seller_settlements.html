@@ -25,12 +25,51 @@
         <form method="get" class="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
             <div>
                 <label class="mb-1 block font-mono text-[10px] uppercase tracking-widest text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Handlowiec{% else %}Sales rep{% endif %}</label>
-                <select name="seller" class="min-w-0 flex-1 rounded border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-sm text-slate-100 outline-none transition focus:border-[#00d4aa]/50 focus:ring-1 focus:ring-[#00d4aa]/30">
-                    <option value="">{% if request.LANGUAGE_CODE == 'pl' %}Wszyscy{% else %}All{% endif %}</option>
-                    {% for seller in sellers %}
-                        <option value="{{ seller.pk }}" {% if selected_seller and seller.pk == selected_seller.pk %}selected{% endif %}>{{ seller.username }}</option>
-                    {% endfor %}
-                </select>
+                <div class="relative" data-custom-select>
+                    <input type="hidden" name="seller" value="{% if selected_seller %}{{ selected_seller.pk }}{% endif %}" data-custom-select-input>
+                    <button type="button"
+                            class="flex min-h-10 w-full items-center justify-between rounded border border-white/10 bg-white/[0.04] px-3 py-2 text-left font-mono text-sm text-slate-100 outline-none transition hover:border-[#00d4aa]/30 focus:border-[#00d4aa]/50 focus:ring-1 focus:ring-[#00d4aa]/30"
+                            aria-haspopup="listbox"
+                            aria-expanded="false"
+                            data-custom-select-trigger>
+                        <span data-custom-select-label>
+                            {% if selected_seller %}
+                                {{ selected_seller.username }}
+                            {% else %}
+                                {% if request.LANGUAGE_CODE == 'pl' %}Wszyscy{% else %}All{% endif %}
+                            {% endif %}
+                        </span>
+                        <svg class="h-4 w-4 text-slate-500 transition" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" data-custom-select-icon>
+                            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <div class="absolute z-20 mt-2 hidden w-full overflow-hidden rounded-lg border border-white/[0.07] bg-[#0f1621] shadow-[0_20px_50px_rgba(0,0,0,0.35)]" data-custom-select-menu>
+                        <div class="max-h-72 overflow-y-auto py-1" role="listbox">
+                            <button type="button"
+                                    class="flex w-full items-center justify-between px-3 py-2 text-left font-mono text-sm text-slate-200 transition hover:bg-white/[0.04] hover:text-[#00d4aa]"
+                                    data-custom-select-option
+                                    data-value=""
+                                    data-label="{% if request.LANGUAGE_CODE == 'pl' %}Wszyscy{% else %}All{% endif %}">
+                                <span>{% if request.LANGUAGE_CODE == 'pl' %}Wszyscy{% else %}All{% endif %}</span>
+                                {% if not selected_seller %}
+                                    <span class="text-[#00d4aa]">•</span>
+                                {% endif %}
+                            </button>
+                            {% for seller in sellers %}
+                                <button type="button"
+                                        class="flex w-full items-center justify-between px-3 py-2 text-left font-mono text-sm text-slate-200 transition hover:bg-white/[0.04] hover:text-[#00d4aa]"
+                                        data-custom-select-option
+                                        data-value="{{ seller.pk }}"
+                                        data-label="{{ seller.username }}">
+                                    <span>{{ seller.username }}</span>
+                                    {% if selected_seller and seller.pk == selected_seller.pk %}
+                                        <span class="text-[#00d4aa]">•</span>
+                                    {% endif %}
+                                </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
             </div>
             <button type="submit"
                     class="inline-flex min-h-10 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-4 font-mono text-sm font-semibold text-[#00d4aa] transition hover:bg-[#00d4aa]/20">
@@ -119,4 +158,69 @@
         </div>
     </div>
 </section>
+<script>
+    (() => {
+        const customSelects = document.querySelectorAll('[data-custom-select]');
+
+        const closeAll = () => {
+            customSelects.forEach((selectRoot) => {
+                const menu = selectRoot.querySelector('[data-custom-select-menu]');
+                const trigger = selectRoot.querySelector('[data-custom-select-trigger]');
+                const icon = selectRoot.querySelector('[data-custom-select-icon]');
+                menu.classList.add('hidden');
+                trigger.setAttribute('aria-expanded', 'false');
+                icon.classList.remove('rotate-180');
+            });
+        };
+
+        customSelects.forEach((selectRoot) => {
+            const trigger = selectRoot.querySelector('[data-custom-select-trigger]');
+            const label = selectRoot.querySelector('[data-custom-select-label]');
+            const input = selectRoot.querySelector('[data-custom-select-input]');
+            const menu = selectRoot.querySelector('[data-custom-select-menu]');
+            const icon = selectRoot.querySelector('[data-custom-select-icon]');
+            const options = selectRoot.querySelectorAll('[data-custom-select-option]');
+
+            trigger.addEventListener('click', () => {
+                const isOpen = !menu.classList.contains('hidden');
+                closeAll();
+                if (!isOpen) {
+                    menu.classList.remove('hidden');
+                    trigger.setAttribute('aria-expanded', 'true');
+                    icon.classList.add('rotate-180');
+                }
+            });
+
+            options.forEach((option) => {
+                option.addEventListener('click', () => {
+                    input.value = option.dataset.value;
+                    label.textContent = option.dataset.label;
+                    options.forEach((item) => {
+                        const marker = item.lastElementChild;
+                        if (marker && marker.textContent.trim() === '•') {
+                            marker.remove();
+                        }
+                    });
+                    const marker = document.createElement('span');
+                    marker.className = 'text-[#00d4aa]';
+                    marker.textContent = '•';
+                    option.appendChild(marker);
+                    closeAll();
+                });
+            });
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('[data-custom-select]')) {
+                closeAll();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeAll();
+            }
+        });
+    })();
+</script>
 {% endblock %}

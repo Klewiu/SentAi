@@ -25,45 +25,154 @@
                 {{ form.non_field_errors|striptags }}
             </div>
         {% endif %}
-        <div class="grid gap-4 md:grid-cols-2">
-            {% for field in form %}
-                {% if field.name != 'content_languages' %}
+        <div class="space-y-8">
+            <div class="border-t border-white/10 pt-6">
+                <h3 class="mb-4 font-mono text-sm font-semibold uppercase tracking-widest text-slate-300">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Dane firmy{% else %}Company details{% endif %}
+                </h3>
+                <div class="grid gap-4 md:grid-cols-2">
                     <label class="block space-y-2 md:col-span-2">
-                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">
-                            {{ field.label }}
-                        </span>
-                        {% if field.name == 'company_type' %}
-                            <div class="hidden">{{ field }}</div>
-                            <div id="company-type-picker" class="relative"></div>
-                        {% else %}
-                            {{ field }}
-                        {% endif %}
-                        {% if field.help_text %}
-                            <small class="block font-mono text-[10px] text-slate-500">{{ field.help_text }}</small>
-                        {% endif %}
-                        {% if field.errors %}
-                            <small class="block font-mono text-[10px] font-semibold text-rose-400">{{ field.errors|striptags }}</small>
-                        {% endif %}
+                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.name.label }}</span>
+                        {{ form.name }}
+                        {% if form.name.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.name.help_text }}</small>{% endif %}
+                        {% if form.name.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.name.errors|striptags }}</small>{% endif %}
                     </label>
-                {% endif %}
-            {% endfor %}
-        </div>
 
-        <!-- Dynamic description fields -->
-        <div class="mt-8 space-y-6">
+                    <label class="block space-y-2 md:col-span-2">
+                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.company_type.label }}</span>
+                        <div class="hidden">{{ form.company_type }}</div>
+                        <div id="company-type-picker" class="relative"></div>
+                        {% if form.company_type.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.company_type.help_text }}</small>{% endif %}
+                        {% if form.company_type.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.company_type.errors|striptags }}</small>{% endif %}
+                    </label>
+
+                    <label class="block space-y-2 md:col-span-2">
+                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.website_url.label }}</span>
+                        {{ form.website_url }}
+                        {% if form.website_url.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.website_url.help_text }}</small>{% endif %}
+                        {% if form.website_url.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.website_url.errors|striptags }}</small>{% endif %}
+                    </label>
+
+                    <label class="block space-y-2 md:col-span-2">
+                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.phone_number.label }}</span>
+                        {{ form.phone_number }}
+                        {% if form.phone_number.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.phone_number.help_text }}</small>{% endif %}
+                        {% if form.phone_number.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.phone_number.errors|striptags }}</small>{% endif %}
+                    </label>
+
+                    <label class="block space-y-2 md:col-span-2">
+                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.address_line.label }}</span>
+                        {{ form.address_line }}
+                        {% if form.address_line.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.address_line.help_text }}</small>{% endif %}
+                        {% if form.address_line.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.address_line.errors|striptags }}</small>{% endif %}
+                    </label>
+
+                    <label class="block space-y-2 md:col-span-1">
+                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.city.label }}</span>
+                        {{ form.city }}
+                        {% if form.city.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.city.help_text }}</small>{% endif %}
+                        {% if form.city.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.city.errors|striptags }}</small>{% endif %}
+                    </label>
+
+                    <label class="block space-y-2 md:col-span-1">
+                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.postal_code.label }}</span>
+                        {{ form.postal_code }}
+                        {% if form.postal_code.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.postal_code.help_text }}</small>{% endif %}
+                        {% if form.postal_code.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.postal_code.errors|striptags }}</small>{% endif %}
+                    </label>
+
+                    <label class="block space-y-2 md:col-span-2">
+                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.country.label }}</span>
+                        {{ form.country }}
+                        {% if form.country.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.country.help_text }}</small>{% endif %}
+                        {% if form.country.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.country.errors|striptags }}</small>{% endif %}
+                    </label>
+                </div>
+            </div>
+
             <div class="border-t border-white/10 pt-6">
                 <h3 class="font-mono text-sm font-semibold uppercase tracking-widest text-slate-300 mb-4">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Opisy firmy{% else %}Company descriptions{% endif %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}Języki feedu i opisy{% else %}Feed languages and descriptions{% endif %}
                 </h3>
 
-                <div id="descriptions-container" class="space-y-6">
-                    <!-- Будет заполнено JavaScript -->
+                <div class="mb-5 grid gap-4 md:grid-cols-2 md:items-start">
+                    <label class="block space-y-2">
+                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.primary_language.label }}</span>
+                        <div class="hidden">{{ form.primary_language }}</div>
+                        <div id="primary-language-picker" class="relative"></div>
+                        {% if form.primary_language.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.primary_language.help_text }}</small>{% endif %}
+                        {% if form.primary_language.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.primary_language.errors|striptags }}</small>{% endif %}
+                    </label>
+
+                    <div class="space-y-2">
+                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Dodaj kolejny język{% else %}Add another language{% endif %}
+                        </span>
+                        <div id="add-language-buttons" class="w-full"></div>
+                        <small class="block font-mono text-[10px] text-slate-500">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Możesz dodać język(y) zgodnie z limitem planu.{% else %}You can add language(s) within your plan limit.{% endif %}
+                        </small>
+                    </div>
                 </div>
 
-                <!-- Add language buttons -->
-                <div id="add-language-buttons" class="mt-6 space-y-2">
-                    <!-- Будет заполнено JavaScript -->
+                <div id="language-tabs" class="mb-4 flex flex-wrap gap-2"></div>
+
+                <div id="descriptions-container" class="space-y-6">
+                    <!-- Filled dynamically via JavaScript -->
                 </div>
+            </div>
+
+            <div class="border-t border-white/10 pt-6">
+                <h3 class="mb-4 font-mono text-sm font-semibold uppercase tracking-widest text-slate-300">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Materiał wiedzy o firmie{% else %}Knowledge content{% endif %}
+                </h3>
+                <details class="rounded border border-white/10 bg-white/[0.02] p-4" {% if form.featured_entry_type.value or form.featured_entry_summary.value or form.featured_entry_url.value or form.featured_entry_type.errors or form.featured_entry_summary.errors or form.featured_entry_url.errors %}open{% endif %}>
+                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 font-mono text-xs uppercase tracking-widest text-slate-300">
+                        <span>{% if request.LANGUAGE_CODE == 'pl' %}Rozwiń sekcję materiału wiedzy{% else %}Expand knowledge content section{% endif %}</span>
+                        <span class="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">{% if request.LANGUAGE_CODE == 'pl' %}opcjonalne{% else %}optional{% endif %}</span>
+                    </summary>
+                    <div class="mt-4 grid gap-4 md:grid-cols-2">
+                        <label class="block space-y-2 md:col-span-2">
+                            <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.featured_entry_type.label }}</span>
+                            <div class="hidden">{{ form.featured_entry_type }}</div>
+                            <div id="featured-entry-type-picker" class="relative"></div>
+                            {% if form.featured_entry_type.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.featured_entry_type.help_text }}</small>{% endif %}
+                            {% if form.featured_entry_type.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.featured_entry_type.errors|striptags }}</small>{% endif %}
+                        </label>
+
+                        <label class="block space-y-2 md:col-span-2">
+                            <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.featured_entry_summary.label }}</span>
+                            {{ form.featured_entry_summary }}
+                            {% if form.featured_entry_summary.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.featured_entry_summary.help_text }}</small>{% endif %}
+                            {% if form.featured_entry_summary.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.featured_entry_summary.errors|striptags }}</small>{% endif %}
+                        </label>
+
+                        <label class="block space-y-2 md:col-span-2">
+                            <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.featured_entry_url.label }}</span>
+                            {{ form.featured_entry_url }}
+                            {% if form.featured_entry_url.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.featured_entry_url.help_text }}</small>{% endif %}
+                            {% if form.featured_entry_url.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.featured_entry_url.errors|striptags }}</small>{% endif %}
+                        </label>
+                    </div>
+                </details>
+            </div>
+
+            <div class="border-t border-white/10 pt-6">
+                <h3 class="mb-4 font-mono text-sm font-semibold uppercase tracking-widest text-slate-300">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Media społecznościowe{% else %}Social media{% endif %}
+                </h3>
+                <details class="rounded border border-white/10 bg-white/[0.02] p-4" {% if form.social_profiles_text.value or form.social_profiles_text.errors %}open{% endif %}>
+                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 font-mono text-xs uppercase tracking-widest text-slate-300">
+                        <span>{% if request.LANGUAGE_CODE == 'pl' %}Rozwiń sekcję social media{% else %}Expand social media section{% endif %}</span>
+                        <span class="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">{% if request.LANGUAGE_CODE == 'pl' %}opcjonalne{% else %}optional{% endif %}</span>
+                    </summary>
+                    <label class="mt-4 block space-y-2 md:col-span-2">
+                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.social_profiles_text.label }}</span>
+                        {{ form.social_profiles_text }}
+                        {% if form.social_profiles_text.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.social_profiles_text.help_text }}</small>{% endif %}
+                        {% if form.social_profiles_text.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.social_profiles_text.errors|striptags }}</small>{% endif %}
+                    </label>
+                </details>
             </div>
         </div>
 
@@ -81,9 +190,9 @@
     </form>
     <p class="mt-6 font-mono text-[10px] text-slate-600">
         {% if request.LANGUAGE_CODE == 'pl' %}
-            // Tagi, social media, produkty i wpisy zarządzasz przez endpointy DRF przypisane do organizacji.
+            // Wersja FULL: w tym formularzu uzupełniasz dane domeny, słowa kluczowe, profile social, główny produkt i wyróżniony wpis do kanałów AI.
         {% else %}
-            // Manage tags, social profiles, products, and entries through the organization-specific DRF endpoints.
+            // Full mode: this form lets you fill domain data, keywords, social profiles, main product, and featured content for AI feeds.
         {% endif %}
     </p>
 </section>
@@ -120,25 +229,47 @@ document.addEventListener('DOMContentLoaded', function() {
         descriptionHelps: jsonData.description_helps,
         languageButtonHelp: jsonData.languageButtonHelp,
         availableLanguages: jsonData.availableLanguages,
-        initialDescriptions: jsonData.initialDescriptions || {}
+        initialDescriptions: jsonData.initialDescriptions || {},
+        initialLanguageTags: jsonData.initialLanguageTags || {},
+        initialLanguageProducts: jsonData.initialLanguageProducts || {}
     };
 
     const container = document.getElementById('descriptions-container');
+    const tabsContainer = document.getElementById('language-tabs');
     const buttonsContainer = document.getElementById('add-language-buttons');
     const contentLanguagesField = document.getElementById('id_content_languages');
+    const primaryLanguageField = document.getElementById('id_primary_language');
+    const primaryLanguagePicker = document.getElementById('primary-language-picker');
     const companyTypeField = document.getElementById('id_company_type');
     const companyTypePicker = document.getElementById('company-type-picker');
+    const featuredEntryTypeField = document.getElementById('id_featured_entry_type');
+    const featuredEntryTypePicker = document.getElementById('featured-entry-type-picker');
 
     let selectedLanguages = [...config.selectedLanguages];
+    let activeLanguage = selectedLanguages[0] || 'pl';
 
     const text = {
         shortDescription: config.uiLanguage === 'pl' ? 'Krótki opis' : 'Short description',
         longDescription: config.uiLanguage === 'pl' ? 'Pełny opis' : 'Long description',
+        languageKeywords: config.uiLanguage === 'pl' ? 'Słowa kluczowe dla tego języka' : 'Keywords for this language',
+        languageKeywordsHelp: config.uiLanguage === 'pl'
+            ? 'Opcjonalnie: wpisz słowa kluczowe oddzielone przecinkami dla tego języka.'
+            : 'Optional: enter comma-separated keywords for this language.',
+        languageProducts: config.uiLanguage === 'pl' ? 'Produkty/usługi dla tego języka' : 'Products/services for this language',
+        languageProductsHelp: config.uiLanguage === 'pl'
+            ? 'Jedna linia = jeden produkt. Format: Nazwa | Krótki opis | opcjonalny link.'
+            : 'One line = one product. Format: Name | Short description | optional URL.',
         remove: config.uiLanguage === 'pl' ? '✕ Usuń' : '✕ Remove',
         chooseLanguage: config.uiLanguage === 'pl' ? 'Wybierz język' : 'Choose language',
         selectLanguage: config.uiLanguage === 'pl' ? 'Wybierz język' : 'Select a language',
         cancel: config.uiLanguage === 'pl' ? 'Anuluj' : 'Cancel',
         addLanguage: config.uiLanguage === 'pl' ? 'Dodaj język' : 'Add language',
+        defaultLanguageLimitReached: config.uiLanguage === 'pl'
+            ? 'Nie można ustawić tego języka jako domyślnego, ponieważ Twój plan nie pozwala na dodanie kolejnego języka.'
+            : 'Cannot set this as default language because your plan limit does not allow adding another language.',
+        languageLimitReached: config.uiLanguage === 'pl'
+            ? 'Osiągnięto limit języków dla planu.'
+            : 'Your plan language limit has been reached.',
     };
 
     function getNthLanguageLabel(nextCount) {
@@ -159,6 +290,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const initial = config.initialDescriptions[langCode] || {};
         const shortValue = initial.short || '';
         const longValue = initial.long || '';
+        const tagsValue = config.initialLanguageTags[langCode] || '';
+        const productsValue = config.initialLanguageProducts[langCode] || '';
 
         const section = document.createElement('div');
         section.className = 'language-section space-y-3 rounded border border-white/10 bg-white/5 p-4';
@@ -191,6 +324,24 @@ document.addEventListener('DOMContentLoaded', function() {
                           class="w-full rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-white placeholder-slate-500 transition hover:border-white/20 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20">${longValue}</textarea>
                 <small class="block font-mono text-[10px] text-slate-500">${helps.long_description}</small>
             </label>
+
+            <label class="block space-y-1">
+                <span class="font-mono text-xs font-medium uppercase tracking-widest text-slate-400">
+                    ${text.languageKeywords}
+                </span>
+                <input type="text" name="tags_${langCode}" value="${tagsValue}"
+                       class="w-full rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-white placeholder-slate-500 transition hover:border-white/20 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20">
+                <small class="block font-mono text-[10px] text-slate-500">${text.languageKeywordsHelp}</small>
+            </label>
+
+            <label class="block space-y-1">
+                <span class="font-mono text-xs font-medium uppercase tracking-widest text-slate-400">
+                    ${text.languageProducts}
+                </span>
+                <textarea name="products_${langCode}" rows="5"
+                          class="w-full rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-white placeholder-slate-500 transition hover:border-white/20 focus:border-[#00d4aa] focus:outline-none focus:ring-2 focus:ring-[#00d4aa]/20">${productsValue}</textarea>
+                <small class="block font-mono text-[10px] text-slate-500">${text.languageProductsHelp}</small>
+            </label>
         `;
 
         const removeBtn = section.querySelector('.remove-language-btn');
@@ -204,9 +355,41 @@ document.addEventListener('DOMContentLoaded', function() {
         container.appendChild(section);
     }
 
+    function renderLanguageTabs() {
+        if (!tabsContainer) {
+            return;
+        }
+
+        tabsContainer.innerHTML = '';
+        selectedLanguages.forEach((langCode) => {
+            const tabButton = document.createElement('button');
+            tabButton.type = 'button';
+            const isActive = langCode === activeLanguage;
+            tabButton.className = isActive
+                ? 'inline-flex min-h-9 items-center justify-center rounded border border-[#00d4aa]/60 bg-[#00d4aa]/15 px-3 py-1.5 font-mono text-xs font-semibold text-[#00d4aa]'
+                : 'inline-flex min-h-9 items-center justify-center rounded border border-white/10 bg-white/5 px-3 py-1.5 font-mono text-xs font-medium text-slate-300 hover:border-[#00d4aa]/40 hover:text-[#00d4aa]';
+            tabButton.textContent = config.languageLabels[langCode] || langCode.toUpperCase();
+            tabButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                activeLanguage = langCode;
+                updateVisibleLanguageSection();
+                renderLanguageTabs();
+            });
+            tabsContainer.appendChild(tabButton);
+        });
+    }
+
+    function updateVisibleLanguageSection() {
+        const sections = container.querySelectorAll('.language-section');
+        sections.forEach((section) => {
+            section.classList.toggle('hidden', section.dataset.language !== activeLanguage);
+        });
+    }
+
     function addLanguage(langCode) {
         if (!selectedLanguages.includes(langCode)) {
             selectedLanguages.push(langCode);
+            activeLanguage = langCode;
             renderLanguageSection(langCode);
             updateUI();
         }
@@ -216,6 +399,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedLanguages.length > 1) {
             selectedLanguages = selectedLanguages.filter(l => l !== langCode);
             container.querySelector(`[data-language="${langCode}"]`)?.remove();
+            if (activeLanguage === langCode) {
+                activeLanguage = selectedLanguages[0];
+            }
             updateUI();
         }
     }
@@ -223,10 +409,10 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderLanguagePicker() {
         const unavailable = config.availableLanguages.filter((lang) => !selectedLanguages.includes(lang));
         const wrapper = document.createElement('div');
-        wrapper.className = 'flex items-center gap-2';
+        wrapper.className = 'flex w-full items-center gap-2';
 
         const pickerWrap = document.createElement('div');
-        pickerWrap.className = 'relative min-w-56';
+        pickerWrap.className = 'relative min-w-0 flex-1';
 
         let selectedLanguage = '';
 
@@ -276,7 +462,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const addBtn = document.createElement('button');
         addBtn.type = 'button';
-        addBtn.className = 'inline-flex min-h-10 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-4 py-2 font-mono text-xs font-semibold text-[#00d4aa] transition hover:bg-[#00d4aa]/20';
+        addBtn.className = 'inline-flex min-h-10 shrink-0 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-4 py-2 font-mono text-xs font-semibold text-[#00d4aa] transition hover:bg-[#00d4aa]/20';
         addBtn.textContent = text.addLanguage;
 
         addBtn.addEventListener('click', (e) => {
@@ -292,17 +478,17 @@ document.addEventListener('DOMContentLoaded', function() {
         return wrapper;
     }
 
-    function renderCompanyTypePicker() {
-        if (!companyTypeField || !companyTypePicker) {
+    function renderCustomSelectPicker(field, pickerContainer, onValueChange = null) {
+        if (!field || !pickerContainer) {
             return;
         }
 
-        const options = Array.from(companyTypeField.options).filter((option) => option.value);
+        const options = Array.from(field.options);
         if (options.length === 0) {
             return;
         }
 
-        companyTypePicker.innerHTML = '';
+        pickerContainer.innerHTML = '';
 
         const pickerWrap = document.createElement('div');
         pickerWrap.className = 'relative';
@@ -315,7 +501,7 @@ document.addEventListener('DOMContentLoaded', function() {
         menu.className = 'language-picker-menu absolute left-0 top-full z-30 mt-2 hidden max-h-56 w-full overflow-auto rounded border border-[#00d4aa]/40 bg-[#0d1117] p-1 shadow-[0_10px_30px_rgba(0,0,0,0.35)]';
 
         function getSelectedOption() {
-            return options.find((option) => option.value === companyTypeField.value) || options[0];
+            return options.find((option) => option.value === field.value) || options[0];
         }
 
         function updateTrigger() {
@@ -331,8 +517,11 @@ document.addEventListener('DOMContentLoaded', function() {
             optionBtn.textContent = option.textContent;
             optionBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                companyTypeField.value = option.value;
-                companyTypeField.dispatchEvent(new Event('change', { bubbles: true }));
+                field.value = option.value;
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+                if (typeof onValueChange === 'function') {
+                    onValueChange(option.value);
+                }
                 updateTrigger();
                 menu.classList.add('hidden');
             });
@@ -357,12 +546,63 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 0);
         });
 
-        companyTypeField.addEventListener('change', updateTrigger);
+        field.addEventListener('change', updateTrigger);
 
         updateTrigger();
         pickerWrap.appendChild(trigger);
         pickerWrap.appendChild(menu);
-        companyTypePicker.appendChild(pickerWrap);
+        pickerContainer.appendChild(pickerWrap);
+    }
+
+    function syncPrimaryLanguagePicker() {
+        if (!primaryLanguageField || !primaryLanguagePicker) {
+            return;
+        }
+
+        const currentValue = primaryLanguageField.value;
+        primaryLanguageField.innerHTML = '';
+
+        config.availableLanguages.forEach((langCode) => {
+            const option = document.createElement('option');
+            option.value = langCode;
+            option.textContent = config.languageLabels[langCode] || langCode.toUpperCase();
+            primaryLanguageField.appendChild(option);
+        });
+
+        if (currentValue && config.availableLanguages.includes(currentValue)) {
+            primaryLanguageField.value = currentValue;
+        } else if (selectedLanguages.length > 0) {
+            primaryLanguageField.value = selectedLanguages[0];
+        } else {
+            primaryLanguageField.value = config.availableLanguages[0] || 'pl';
+        }
+
+        renderCustomSelectPicker(primaryLanguageField, primaryLanguagePicker, (selectedValue) => {
+            if (selectedLanguages.includes(selectedValue)) {
+                selectedLanguages = [
+                    selectedValue,
+                    ...selectedLanguages.filter((lang) => lang !== selectedValue),
+                ];
+                activeLanguage = selectedValue;
+                updateVisibleLanguageSection();
+                renderLanguageTabs();
+                updateUI();
+                return;
+            }
+
+            const previousDefault = selectedLanguages[0];
+            if (previousDefault) {
+                selectedLanguages[0] = selectedValue;
+                container.querySelector(`[data-language="${previousDefault}"]`)?.remove();
+                renderLanguageSection(selectedValue);
+            } else {
+                selectedLanguages = [selectedValue];
+                renderLanguageSection(selectedValue);
+            }
+
+            activeLanguage = selectedValue;
+            updateUI();
+        });
     }
 
     function updateUI() {
@@ -371,26 +611,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const unavailable = config.availableLanguages.filter((lang) => !selectedLanguages.includes(lang));
 
         if (canAddMore && unavailable.length > 0) {
-            const nextCount = selectedLanguages.length + 1;
-
-            const title = document.createElement('div');
-            title.className = 'group relative w-fit rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-4 py-2 font-mono text-xs font-semibold text-[#00d4aa]';
-            title.innerHTML = `
-                ${getNthLanguageLabel(nextCount)}
-                <span class="pointer-events-none absolute left-0 top-full mt-2 z-20 hidden w-80 rounded border border-[#00d4aa]/30 bg-[#0d1117] p-3 font-sans text-xs font-normal text-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.35)] group-hover:block group-focus-within:block">
-                    ${config.languageButtonHelp}
-                </span>
-            `;
-
             const row = document.createElement('div');
-            row.className = 'flex flex-wrap items-center gap-2';
-
-            buttonsContainer.appendChild(title);
+            row.className = 'flex w-full items-center gap-2';
             row.appendChild(renderLanguagePicker());
             buttonsContainer.appendChild(row);
+        } else {
+            const limitInfo = document.createElement('div');
+            limitInfo.className = 'rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-[11px] text-slate-400';
+            limitInfo.textContent = text.languageLimitReached;
+            buttonsContainer.appendChild(limitInfo);
         }
 
         contentLanguagesField.value = JSON.stringify(selectedLanguages);
+        syncPrimaryLanguagePicker();
+        renderLanguageTabs();
+        updateVisibleLanguageSection();
     }
 
     if (!Array.isArray(selectedLanguages) || selectedLanguages.length === 0) {
@@ -404,7 +639,8 @@ document.addEventListener('DOMContentLoaded', function() {
     selectedLanguages.forEach(langCode => {
         renderLanguageSection(langCode);
     });
-    renderCompanyTypePicker();
+    renderCustomSelectPicker(companyTypeField, companyTypePicker);
+    renderCustomSelectPicker(featuredEntryTypeField, featuredEntryTypePicker);
     updateUI();
 });
 </script>

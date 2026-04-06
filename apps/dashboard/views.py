@@ -12,6 +12,8 @@ from django.utils import timezone
 from apps.accounts.models import AccountType, User, UserPlanTier
 from apps.companies.forms import OrganizationForm
 from apps.companies.models import Organization
+from apps.companies.services import public_feed_urls
+from apps.subscriptions.models import Subscription
 
 from .forms import SellerCreateForm, UserPlanUpdateForm, ProspectClientForm, ProspectActivityForm
 from .forms import ProspectLinkClientForm
@@ -231,6 +233,7 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
             self.request.user.plan_tier = selected_tier
             self.request.user.paid_plan_started_at = None
             self.request.user.save(update_fields=["plan_tier", "paid_plan_started_at"])
+            Subscription.objects.filter(organization__owner=self.request.user).update(tier=selected_tier)
             if self.request.LANGUAGE_CODE == "pl":
                 messages.success(self.request, "Plan został zaktualizowany.")
             else:
@@ -338,6 +341,7 @@ class PlanCheckoutSuccessView(LoginRequiredMixin, View):
             if request.user.paid_plan_started_at is None:
                 request.user.paid_plan_started_at = timezone.now()
             request.user.save(update_fields=["plan_tier", "paid_plan_started_at"])
+            Subscription.objects.filter(organization__owner=request.user).update(tier=selected_tier)
 
         if request.LANGUAGE_CODE == "pl":
             messages.success(request, "Płatność zakończona sukcesem. Plan został aktywowany.")
@@ -401,9 +405,51 @@ class ClientDetailView(AdminRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        client = get_object_or_404(User, pk=self.kwargs["pk"], is_superuser=False)
+        client = get_object_or_404(
+            User.objects.select_related("seller_settlement__seller", "attributed_prospect__seller"),
+            pk=self.kwargs["pk"],
+            is_superuser=False,
+            account_type=AccountType.CLIENT,
+        )
+        organizations = list(client.organizations.all().order_by("name"))
+        settlement = getattr(client, "seller_settlement", None)
+        attributed_prospect = getattr(client, "attributed_prospect", None)
+        seller = None
+        if settlement is not None:
+            seller = settlement.seller
+        elif attributed_prospect is not None:
+            seller = attributed_prospect.seller
+
+        primary_organization = organizations[0] if organizations else None
+        phone_number = ""
+        address_parts = []
+        if attributed_prospect is not None and attributed_prospect.phone:
+            phone_number = attributed_prospect.phone
+        elif primary_organization is not None:
+            phone_number = primary_organization.phone_number
+
+        if primary_organization is not None:
+            address_parts = [
+                primary_organization.address_line,
+                primary_organization.postal_code,
+                primary_organization.city,
+                primary_organization.country,
+            ]
+
         context["client"] = client
-        context["organizations"] = client.organizations.all().order_by("name")
+        context["client_seller"] = seller
+        context["client_prospect"] = attributed_prospect
+        context["client_phone_number"] = phone_number
+        context["client_address"] = ", ".join(part for part in address_parts if part)
+        context["organizations"] = [
+            {
+                "organization": organization,
+                "public_urls": public_feed_urls(organization, self.request),
+                "supports_jsonld": organization.supports_advanced_formats,
+                "supports_llms_txt": organization.supports_llms_txt,
+            }
+            for organization in organizations
+        ]
         return context
 
 

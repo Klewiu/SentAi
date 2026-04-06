@@ -54,13 +54,75 @@
                 </p>
                 <p class="font-mono text-sm text-slate-200">{{ client.company_name|default:"—" }}</p>
             </div>
+            <div class="rounded-lg border border-white/[0.07] bg-white/[0.02] px-4 py-3 space-y-0.5">
+                <p class="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Klient od{% else %}Client since{% endif %}
+                </p>
+                <p class="font-mono text-sm text-slate-200">{{ client.date_joined|date:"Y-m-d H:i" }}</p>
+            </div>
+            <div class="rounded-lg border border-white/[0.07] bg-white/[0.02] px-4 py-3 space-y-0.5">
+                <p class="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Ostatnie logowanie{% else %}Last login{% endif %}
+                </p>
+                <p class="font-mono text-sm text-slate-200">{{ client.last_login|date:"Y-m-d H:i"|default:"—" }}</p>
+            </div>
+            <div class="rounded-lg border border-white/[0.07] bg-white/[0.02] px-4 py-3 space-y-0.5">
+                <p class="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Zmiana planu{% else %}Plan changed{% endif %}
+                </p>
+                <p class="font-mono text-sm text-slate-200">{{ client.paid_plan_started_at|date:"Y-m-d H:i"|default:"—" }}</p>
+            </div>
+            <div class="rounded-lg border border-white/[0.07] bg-white/[0.02] px-4 py-3 space-y-0.5 sm:col-span-2">
+                <p class="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Opiekun{% else %}Account owner{% endif %}
+                </p>
+                <p class="font-mono text-sm text-slate-200">
+                    {% if client_seller %}
+                        {{ client_seller.username }}{% if client_seller.email %} · {{ client_seller.email }}{% endif %}
+                    {% else %}
+                        —
+                    {% endif %}
+                </p>
+            </div>
+            <div class="rounded-lg border border-white/[0.07] bg-white/[0.02] px-4 py-3 space-y-0.5">
+                <p class="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Kraj{% else %}Country{% endif %}
+                </p>
+                <p class="font-mono text-sm text-slate-200">{{ client.country|default:"—" }}</p>
+            </div>
         </div>
 
-        <!-- Organizations / Domains -->
+        <div class="rounded-lg border border-white/[0.07] bg-white/[0.02] p-4">
+            <h2 class="mb-4 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                {% if request.LANGUAGE_CODE == 'pl' %}Dane kontaktowe{% else %}Contact details{% endif %}
+            </h2>
+            <div class="space-y-3">
+                <div>
+                    <p class="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Osoba kontaktowa{% else %}Contact person{% endif %}
+                    </p>
+                    <p class="mt-1 text-sm text-slate-200">{{ client_prospect.contact_person|default:"—" }}</p>
+                </div>
+                <div>
+                    <p class="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Telefon{% else %}Phone{% endif %}
+                    </p>
+                    <p class="mt-1 text-sm text-slate-200">{{ client_phone_number|default:"—" }}</p>
+                </div>
+                <div>
+                    <p class="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Adres{% else %}Address{% endif %}
+                    </p>
+                    <p class="mt-1 text-sm text-slate-200">{{ client_address|default:"—" }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Organizations / Pages -->
         <div>
             <h2 class="mb-3 font-mono text-[10px] uppercase tracking-widest text-slate-500">
-                {% if request.LANGUAGE_CODE == 'pl' %}Zarezerwowane domeny{% else %}Reserved domains{% endif %}
-                <span class="ml-2 rounded bg-white/[0.06] px-1.5 py-0.5 text-slate-400">{{ organizations.count }}</span>
+                {% if request.LANGUAGE_CODE == 'pl' %}Strony klienta{% else %}Client pages{% endif %}
+                <span class="ml-2 rounded bg-white/[0.06] px-1.5 py-0.5 text-slate-400">{{ organizations|length }}</span>
             </h2>
 
             <div class="overflow-x-auto rounded-lg border border-white/[0.07]">
@@ -68,33 +130,42 @@
                     <thead>
                         <tr class="border-b border-white/[0.07] bg-white/[0.03]">
                             <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                                {% if request.LANGUAGE_CODE == 'pl' %}Domena (slug){% else %}Domain (slug){% endif %}
+                                {% if request.LANGUAGE_CODE == 'pl' %}Strona{% else %}Page{% endif %}
                             </th>
                             <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                                {% if request.LANGUAGE_CODE == 'pl' %}Nazwa brandu{% else %}Brand name{% endif %}
+                                {% if request.LANGUAGE_CODE == 'pl' %}WWW{% else %}Website{% endif %}
                             </th>
                             <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                                {% if request.LANGUAGE_CODE == 'pl' %}E-mail kontaktowy{% else %}Contact email{% endif %}
+                                {% if request.LANGUAGE_CODE == 'pl' %}Kontakt{% else %}Contact{% endif %}
                             </th>
                             <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
                                 {% if request.LANGUAGE_CODE == 'pl' %}Widoczna{% else %}Public{% endif %}
                             </th>
+                            <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Kanały{% else %}Feeds{% endif %}
+                            </th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/[0.04]">
-                        {% for org in organizations %}
+                        {% for item in organizations %}
                         <tr class="transition hover:bg-white/[0.03]">
-                            <td class="px-4 py-3 font-mono text-[#00d4aa]">
-                                {{ org.slug }}
-                            </td>
                             <td class="px-4 py-3 text-slate-200">
-                                {{ org.name }}
+                                {{ item.organization.name }}
                             </td>
                             <td class="px-4 py-3 font-mono text-slate-400">
-                                {{ client.email|default:"—" }}
+                                {% if item.organization.website_url %}
+                                    <a href="{{ item.organization.website_url }}" target="_blank" rel="noopener" class="text-[#00d4aa] hover:text-[#5eead4]">
+                                        {{ item.organization.website_url }}
+                                    </a>
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 font-mono text-slate-400">
+                                {{ item.organization.phone_number|default:client.email|default:"—" }}
                             </td>
                             <td class="px-4 py-3">
-                                {% if org.public %}
+                                {% if item.organization.public %}
                                     <span class="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest text-[#00d4aa]">
                                         <span class="h-1.5 w-1.5 rounded-full bg-[#00d4aa]"></span>
                                         {% if request.LANGUAGE_CODE == 'pl' %}Tak{% else %}Yes{% endif %}
@@ -106,11 +177,31 @@
                                     </span>
                                 {% endif %}
                             </td>
+                            <td class="px-4 py-3">
+                                <div class="flex flex-wrap gap-2">
+                                    <a href="{{ item.public_urls.company_json }}" target="_blank" rel="noopener"
+                                       class="inline-flex min-h-7 items-center justify-center rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]">
+                                        JSON
+                                    </a>
+                                    {% if item.supports_jsonld %}
+                                        <a href="{{ item.public_urls.company_jsonld }}" target="_blank" rel="noopener"
+                                           class="inline-flex min-h-7 items-center justify-center rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]">
+                                            JSON-LD
+                                        </a>
+                                    {% endif %}
+                                    {% if item.supports_llms_txt %}
+                                        <a href="{{ item.public_urls.llms_txt }}" target="_blank" rel="noopener"
+                                           class="inline-flex min-h-7 items-center justify-center rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]">
+                                            LLMs.txt
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="px-4 py-8 text-center font-mono text-sm text-slate-500">
-                                {% if request.LANGUAGE_CODE == 'pl' %}Brak zarezerwowanych domen.{% else %}No reserved domains.{% endif %}
+                            <td colspan="5" class="px-4 py-8 text-center font-mono text-sm text-slate-500">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Brak uruchomionych stron.{% else %}No active pages.{% endif %}
                             </td>
                         </tr>
                         {% endfor %}

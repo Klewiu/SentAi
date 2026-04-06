@@ -136,6 +136,15 @@ LANGUAGES = [
     ("en", "English"),
     ("pl", "Polski"),
 ]
+# Languages available for company feed content (independent from app UI locales).
+FEED_LANGUAGES = [
+    ("pl", "Polski"),
+    ("en", "English"),
+    ("de", "Deutsch"),
+    ("es", "Espanol"),
+    ("it", "Italiano"),
+    ("fr", "Francais"),
+]
 TIME_ZONE = os.getenv("DJANGO_TIME_ZONE", "Europe/Warsaw")
 USE_I18N = True
 USE_TZ = True

@@ -27,8 +27,14 @@ class Organization(models.Model):
     city = models.CharField(max_length=120, blank=True)
     postal_code = models.CharField(max_length=24, blank=True)
     country = models.CharField(max_length=120, blank=True)
-    primary_language = models.CharField(max_length=2, choices=settings.LANGUAGES, default="pl")
+    primary_language = models.CharField(
+        max_length=2,
+        choices=getattr(settings, "FEED_LANGUAGES", settings.LANGUAGES),
+        default="pl",
+    )
     content_languages = models.JSONField(default=list, help_text="Selected content languages for this organization")
+    descriptions_by_language = models.JSONField(default=dict, blank=True)
+    products_by_language = models.JSONField(default=dict, blank=True)
     short_description_en = models.CharField(max_length=280, blank=True)
     short_description_pl = models.CharField(max_length=280, blank=True)
     long_description_en = models.TextField(blank=True)
@@ -66,6 +72,10 @@ class Organization(models.Model):
         from apps.subscriptions.models import Subscription
 
         subscription, _ = Subscription.objects.get_or_create(organization=self)
+        owner_tier = getattr(self.owner, "plan_tier", None)
+        if owner_tier and subscription.tier != owner_tier:
+            subscription.tier = owner_tier
+            subscription.save(update_fields=["tier"])
         return subscription
 
     @property
@@ -83,6 +93,19 @@ class Organization(models.Model):
     def localized_text(self, field_prefix: str, language_code: str | None = None) -> str:
         language = (language_code or self.primary_language or "en")[:2]
         fallback = "pl" if language == "en" else "en"
+        language_payload = self.descriptions_by_language or {}
+        field_key = "short" if field_prefix == "short_description" else "long"
+
+        primary_payload = language_payload.get(language, {})
+        fallback_payload = language_payload.get(fallback, {})
+        primary_json_value = (primary_payload.get(field_key) or "").strip()
+        fallback_json_value = (fallback_payload.get(field_key) or "").strip()
+
+        if primary_json_value:
+            return primary_json_value
+        if fallback_json_value:
+            return fallback_json_value
+
         primary_value = getattr(self, f"{field_prefix}_{language}", "")
         fallback_value = getattr(self, f"{field_prefix}_{fallback}", "")
         return primary_value or fallback_value or ""
