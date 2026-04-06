@@ -89,6 +89,76 @@
                 </button>
             </form>
         </div>
+
+        <div>
+            <h2 class="mb-3 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                {% if request.LANGUAGE_CODE == 'pl' %}Aktywności sprzedawcy{% else %}Seller activities{% endif %}
+                <span class="ml-2 rounded bg-white/[0.06] px-1.5 py-0.5 text-slate-400">{{ activities|length }}</span>
+            </h2>
+
+            <div class="overflow-x-auto rounded-lg border border-white/[0.07]">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="border-b border-white/[0.07] bg-white/[0.03]">
+                            <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Firma{% else %}Company{% endif %}
+                            </th>
+                            <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Klient{% else %}Client{% endif %}
+                            </th>
+                            <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Typ{% else %}Type{% endif %}
+                            </th>
+                            <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Data aktywności{% else %}Activity date{% endif %}
+                            </th>
+                            <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Dodano o{% else %}Created at{% endif %}
+                            </th>
+                            <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Notatka{% else %}Note{% endif %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/[0.04]">
+                        {% for activity in activities %}
+                        <tr class="align-top transition hover:bg-white/[0.03]">
+                            <td class="px-4 py-3 text-slate-200">
+                                <a href="{% url 'dashboard:prospect-detail' activity.prospect.pk %}" class="hover:text-[#00d4aa]">
+                                    {{ activity.prospect.company_name }}
+                                </a>
+                            </td>
+                            <td class="px-4 py-3 font-mono text-xs text-slate-400">
+                                {% if activity.prospect.registered_client %}
+                                    {{ activity.prospect.registered_client.company_name|default:activity.prospect.registered_client.email }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3">
+                                {% if activity.activity_type == 'call' %}
+                                    <span class="inline-flex items-center rounded border border-[#00d4aa]/30 bg-[#00d4aa]/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[#00d4aa]">{% if request.LANGUAGE_CODE == 'pl' %}Telefon{% else %}Call{% endif %}</span>
+                                {% elif activity.activity_type == 'email' %}
+                                    <span class="inline-flex items-center rounded border border-[#6366f1]/30 bg-[#6366f1]/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[#818cf8]">Email</span>
+                                {% else %}
+                                    <span class="inline-flex items-center rounded border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-slate-400">{% if request.LANGUAGE_CODE == 'pl' %}Spotkanie{% else %}Meeting{% endif %}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 font-mono text-xs text-slate-400">{{ activity.activity_date|date:"Y-m-d" }}</td>
+                            <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ activity.created_at|date:"Y-m-d H:i" }}</td>
+                            <td class="px-4 py-3 text-slate-300">{{ activity.activity_description }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-4 py-8 text-center font-mono text-sm text-slate-500">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Brak aktywności dla tego sprzedawcy.{% else %}No activities for this seller yet.{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </section>
 {% endblock %}

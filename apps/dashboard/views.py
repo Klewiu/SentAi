@@ -488,7 +488,7 @@ class SellerListView(AdminRequiredMixin, FormView):
         if self.request.LANGUAGE_CODE == "pl":
             messages.success(self.request, f"Dodano sprzedawcę: {seller.username}.")
         else:
-            messages.success(self.request, f"Seller created: {seller.username}.")
+            messages.success(self.request, f"Seller added: {seller.username}.")
         return super().form_valid(form)
 
 
@@ -496,6 +496,8 @@ class SellerDetailView(AdminRequiredMixin, TemplateView):
     template_name = "dashboard/seller_detail.html"
 
     def get_context_data(self, **kwargs):
+        from apps.sales.models import ProspectActivity
+
         context = super().get_context_data(**kwargs)
         seller = get_object_or_404(
             User,
@@ -504,6 +506,15 @@ class SellerDetailView(AdminRequiredMixin, TemplateView):
             is_superuser=False,
         )
         context["seller"] = seller
+        context["activities"] = ProspectActivity.objects.select_related(
+            "prospect",
+            "prospect__registered_client",
+        ).filter(
+            seller=seller,
+        ).order_by(
+            "-activity_date",
+            "-created_at",
+        )
         return context
 
 
@@ -759,7 +770,7 @@ class ProspectDetailView(SellerOrAdminRequiredMixin, TemplateView):
         
         can_link_client = prospect.seller == self.request.user
         context["prospect"] = prospect
-        context["activities"] = prospect.activities.order_by('-activity_date')
+        context["activities"] = prospect.activities.order_by("-activity_date", "-created_at")
         context["can_link_client"] = can_link_client
         context["link_client_form"] = ProspectLinkClientForm(
             language_code=self.request.LANGUAGE_CODE,
@@ -799,10 +810,18 @@ class ProspectLinkClientView(SellerRequiredMixin, View):
         return redirect("dashboard:prospect-detail", pk=prospect.pk)
 
 
-class ProspectActivityAddView(SellerRequiredMixin, FormView):
+class ProspectActivityAddView(SellerOrAdminRequiredMixin, FormView):
     """Add activity to prospect."""
     form_class = ProspectActivityForm
     template_name = "dashboard/prospect_activity_form.html"
+
+    def get_prospect(self):
+        from apps.sales.models import ProspectClient
+
+        filters = {"pk": self.kwargs["prospect_pk"]}
+        if not self.request.user.is_superuser:
+            filters["seller"] = self.request.user
+        return get_object_or_404(ProspectClient, **filters)
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -810,22 +829,14 @@ class ProspectActivityAddView(SellerRequiredMixin, FormView):
         return kwargs
 
     def get_context_data(self, **kwargs):
-        from apps.sales.models import ProspectClient
-        
         context = super().get_context_data(**kwargs, **kwargs)
-        context["prospect"] = get_object_or_404(
-            ProspectClient,
-            pk=self.kwargs["prospect_pk"]
-        )
+        context["prospect"] = self.get_prospect()
         return context
 
     def form_valid(self, form):
-        from apps.sales.models import ProspectClient, ProspectActivity
-        
-        prospect = get_object_or_404(
-            ProspectClient,
-            pk=self.kwargs["prospect_pk"]
-        )
+        from apps.sales.models import ProspectActivity
+
+        prospect = self.get_prospect()
         
         ProspectActivity.objects.create(
             prospect=prospect,

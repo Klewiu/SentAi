@@ -26,10 +26,15 @@
             </div>
         {% endif %}
         <div class="space-y-8">
-            <div class="border-t border-white/10 pt-6">
-                <h3 class="mb-4 font-mono text-sm font-semibold uppercase tracking-widest text-slate-300">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Dane firmy{% else %}Company details{% endif %}
-                </h3>
+            <details class="rounded-xl border border-[#00d4aa]/30 bg-white/[0.05] p-5 shadow-[0_2px_8px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(0,212,170,0.10)]">
+                <summary class="mb-4 flex cursor-pointer list-none items-center justify-between gap-3">
+                    <h3 class="font-mono text-sm font-semibold uppercase tracking-widest text-slate-200">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Dane podstawowe{% else %}Basic details{% endif %}
+                    </h3>
+                    <span class="rounded border border-[#00d4aa]/30 bg-[#00d4aa]/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[#00d4aa]">
+                        {% if request.LANGUAGE_CODE == 'pl' %}sekcja{% else %}section{% endif %}
+                    </span>
+                </summary>
                 <div class="grid gap-4 md:grid-cols-2">
                     <label class="block space-y-2 md:col-span-2">
                         <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.name.label }}</span>
@@ -51,6 +56,13 @@
                         {{ form.website_url }}
                         {% if form.website_url.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.website_url.help_text }}</small>{% endif %}
                         {% if form.website_url.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.website_url.errors|striptags }}</small>{% endif %}
+                    </label>
+
+                    <label class="block space-y-2 md:col-span-2">
+                        <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.contact_email.label }}</span>
+                        {{ form.contact_email }}
+                        {% if form.contact_email.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.contact_email.help_text }}</small>{% endif %}
+                        {% if form.contact_email.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.contact_email.errors|striptags }}</small>{% endif %}
                     </label>
 
                     <label class="block space-y-2 md:col-span-2">
@@ -88,12 +100,17 @@
                         {% if form.country.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.country.errors|striptags }}</small>{% endif %}
                     </label>
                 </div>
-            </div>
+            </details>
 
-            <div class="border-t border-white/10 pt-6">
-                <h3 class="font-mono text-sm font-semibold uppercase tracking-widest text-slate-300 mb-4">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Języki feedu i opisy{% else %}Feed languages and descriptions{% endif %}
-                </h3>
+            <details class="rounded-xl border border-[#00d4aa]/30 bg-white/[0.05] p-5 shadow-[0_2px_8px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(0,212,170,0.10)]">
+                <summary class="mb-4 flex cursor-pointer list-none items-center justify-between gap-3">
+                    <h3 class="font-mono text-sm font-semibold uppercase tracking-widest text-slate-200">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Języki feedu i opisy{% else %}Feed languages and descriptions{% endif %}
+                    </h3>
+                    <span class="rounded border border-[#00d4aa]/30 bg-[#00d4aa]/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[#00d4aa]">
+                        {% if request.LANGUAGE_CODE == 'pl' %}sekcja{% else %}section{% endif %}
+                    </span>
+                </summary>
 
                 <div class="mb-5 grid gap-4 md:grid-cols-2 md:items-start">
                     <label class="block space-y-2 self-start">
@@ -120,18 +137,16 @@
                 <div id="descriptions-container" class="space-y-6">
                     <!-- Filled dynamically via JavaScript -->
                 </div>
-            </div>
+            </details>
 
-            <div class="border-t border-white/10 pt-6">
-                <h3 class="mb-4 font-mono text-sm font-semibold uppercase tracking-widest text-slate-300">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Materiał wiedzy o firmie{% else %}Knowledge content{% endif %}
-                </h3>
-                <details class="rounded border border-white/10 bg-white/[0.02] p-4" {% if form.featured_entry_type.value or form.featured_entry_summary.value or form.featured_entry_url.value or form.featured_entry_type.errors or form.featured_entry_summary.errors or form.featured_entry_url.errors %}open{% endif %}>
-                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 font-mono text-xs uppercase tracking-widest text-slate-300">
-                        <span>{% if request.LANGUAGE_CODE == 'pl' %}Rozwiń sekcję materiału wiedzy{% else %}Expand knowledge content section{% endif %}</span>
-                        <span class="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">{% if request.LANGUAGE_CODE == 'pl' %}opcjonalne{% else %}optional{% endif %}</span>
-                    </summary>
-                    <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <details class="rounded-xl border border-[#00d4aa]/30 bg-white/[0.05] p-5 shadow-[0_2px_8px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(0,212,170,0.10)]">
+                <summary class="mb-4 flex cursor-pointer list-none items-center justify-between gap-3">
+                    <h3 class="font-mono text-sm font-semibold uppercase tracking-widest text-slate-200">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Materiał wiedzy o firmie{% else %}Knowledge content{% endif %}
+                    </h3>
+                    <span class="rounded border border-[#00d4aa]/30 bg-[#00d4aa]/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[#00d4aa]">{% if request.LANGUAGE_CODE == 'pl' %}opcjonalne{% else %}optional{% endif %}</span>
+                </summary>
+                <div class="grid gap-4 md:grid-cols-2">
                         <label class="block space-y-2 md:col-span-2">
                             <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.featured_entry_type.label }}</span>
                             <div class="hidden">{{ form.featured_entry_type }}</div>
@@ -153,27 +168,23 @@
                             {% if form.featured_entry_url.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.featured_entry_url.help_text }}</small>{% endif %}
                             {% if form.featured_entry_url.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.featured_entry_url.errors|striptags }}</small>{% endif %}
                         </label>
-                    </div>
-                </details>
-            </div>
+                </div>
+            </details>
 
-            <div class="border-t border-white/10 pt-6">
-                <h3 class="mb-4 font-mono text-sm font-semibold uppercase tracking-widest text-slate-300">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Media społecznościowe{% else %}Social media{% endif %}
-                </h3>
-                <details class="rounded border border-white/10 bg-white/[0.02] p-4" {% if form.social_profiles_text.value or form.social_profiles_text.errors %}open{% endif %}>
-                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 font-mono text-xs uppercase tracking-widest text-slate-300">
-                        <span>{% if request.LANGUAGE_CODE == 'pl' %}Rozwiń sekcję social media{% else %}Expand social media section{% endif %}</span>
-                        <span class="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">{% if request.LANGUAGE_CODE == 'pl' %}opcjonalne{% else %}optional{% endif %}</span>
-                    </summary>
-                    <label class="mt-4 block space-y-2 md:col-span-2">
+            <details class="rounded-xl border border-[#00d4aa]/30 bg-white/[0.05] p-5 shadow-[0_2px_8px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(0,212,170,0.10)]">
+                <summary class="mb-4 flex cursor-pointer list-none items-center justify-between gap-3">
+                    <h3 class="font-mono text-sm font-semibold uppercase tracking-widest text-slate-200">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Media społecznościowe{% else %}Social media{% endif %}
+                    </h3>
+                    <span class="rounded border border-[#00d4aa]/30 bg-[#00d4aa]/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[#00d4aa]">{% if request.LANGUAGE_CODE == 'pl' %}opcjonalne{% else %}optional{% endif %}</span>
+                </summary>
+                <label class="block space-y-2 md:col-span-2">
                         <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.social_profiles_text.label }}</span>
                         {{ form.social_profiles_text }}
                         {% if form.social_profiles_text.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.social_profiles_text.help_text }}</small>{% endif %}
                         {% if form.social_profiles_text.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.social_profiles_text.errors|striptags }}</small>{% endif %}
-                    </label>
-                </details>
-            </div>
+                </label>
+            </details>
         </div>
 
         <!-- Hidden field for selected languages -->
@@ -294,7 +305,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const productsValue = config.initialLanguageProducts[langCode] || '';
 
         const section = document.createElement('div');
-        section.className = 'language-section space-y-3 rounded border border-white/10 bg-white/5 p-4';
+        section.className = 'language-section space-y-3 rounded border border-[#00d4aa]/25 bg-white/[0.05] p-4 shadow-[0_2px_6px_rgba(0,0,0,0.3),inset_0_0_0_1px_rgba(0,212,170,0.08)]';
         section.dataset.language = langCode;
 
         section.innerHTML = `
@@ -617,7 +628,7 @@ document.addEventListener('DOMContentLoaded', function() {
             buttonsContainer.appendChild(row);
         } else {
             const limitInfo = document.createElement('div');
-            limitInfo.className = 'rounded border border-white/10 bg-white/5 px-3 py-2 font-mono text-[11px] text-slate-400';
+            limitInfo.className = 'rounded border border-[#00d4aa]/25 bg-[#00d4aa]/10 px-3 py-2 font-mono text-[11px] text-slate-200';
             limitInfo.textContent = text.languageLimitReached;
             buttonsContainer.appendChild(limitInfo);
         }

@@ -41,7 +41,7 @@
                 </h1>
                 <p class="mt-1 font-mono text-sm text-slate-400">{{ prospect.contact_person }} ({{ prospect.email }})</p>
             </div>
-            <a href="{% url 'dashboard:seller-prospects' %}"
+            <a href="{% if request.user.is_superuser %}{% if prospect.registered_client %}{% url 'dashboard:client-detail' prospect.registered_client.pk %}{% else %}{% url 'dashboard:client-list' %}{% endif %}{% else %}{% url 'dashboard:seller-prospects' %}{% endif %}"
                class="inline-flex min-h-9 items-center justify-center rounded border border-white/10 bg-white/5 px-4 py-2 font-mono text-xs font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]">
                 ← {% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}
             </a>

@@ -50,7 +50,7 @@ class ProspectActivity(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-activity_date"]
+        ordering = ["-activity_date", "-created_at"]
 
     def __str__(self) -> str:
         return f"{self.prospect.company_name} - {self.activity_date}"
