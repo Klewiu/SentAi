@@ -10,10 +10,11 @@ from django.views import View
 from django.views.generic import CreateView, FormView, TemplateView, UpdateView
 from django.db import models
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from apps.accounts.models import AccountType, User, UserPlanTier
 from apps.companies.forms import OrganizationForm
-from apps.companies.models import Organization
+from apps.companies.models import Organization, VerificationStatus
 from apps.companies.services import public_feed_urls
 from apps.subscriptions.models import Subscription
 
@@ -384,10 +385,23 @@ class ClientListView(AdminRequiredMixin, TemplateView):
         linked_seller_subquery = ProspectClient.objects.filter(
             registered_client=models.OuterRef("pk")
         ).values("seller__username")[:1]
+        first_organization_name_subquery = Organization.objects.filter(
+            owner=models.OuterRef("pk")
+        ).order_by("name").values("name")[:1]
+        first_organization_website_subquery = Organization.objects.filter(
+            owner=models.OuterRef("pk")
+        ).order_by("name").values("website_url")[:1]
+        verified_organization_subquery = Organization.objects.filter(
+            owner=models.OuterRef("pk"),
+            verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED,
+        )
         qs = (
             User.objects.filter(is_superuser=False, account_type=AccountType.CLIENT)
             .annotate(linked_prospect_id=models.Subquery(linked_prospect_subquery))
             .annotate(linked_seller_username=models.Subquery(linked_seller_subquery))
+            .annotate(primary_organization_name=models.Subquery(first_organization_name_subquery))
+            .annotate(primary_organization_website=models.Subquery(first_organization_website_subquery))
+            .annotate(is_verified=models.Exists(verified_organization_subquery))
             .prefetch_related("organizations")
             .order_by("email")
         )
@@ -400,6 +414,43 @@ class ClientListView(AdminRequiredMixin, TemplateView):
         context["clients"] = qs
         context["search_query"] = q
         return context
+
+
+class ClientVerifyView(AdminRequiredMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        client = get_object_or_404(
+            User,
+            pk=pk,
+            is_superuser=False,
+            account_type=AccountType.CLIENT,
+        )
+        organizations = list(client.organizations.all().order_by("name"))
+        if not organizations:
+            if request.LANGUAGE_CODE == "pl":
+                messages.error(request, "Ten klient nie ma jeszcze zadnej strony do weryfikacji.")
+            else:
+                messages.error(request, "This client does not have any company page to verify yet.")
+            return redirect(self._next_url(request))
+
+        for organization in organizations:
+            organization.verification_status = VerificationStatus.HUMAN_ADMIN_VERIFIED
+            if organization.verified_at is None:
+                organization.verified_at = timezone.now()
+            if organization.verified_by_id is None:
+                organization.verified_by = request.user
+            organization.save(update_fields=["verification_status", "verified_at", "verified_by", "updated_at"])
+
+        if request.LANGUAGE_CODE == "pl":
+            messages.success(request, "Klient zostal oznaczony jako verified.")
+        else:
+            messages.success(request, "Client has been marked as verified.")
+        return redirect(self._next_url(request))
+
+    def _next_url(self, request):
+        next_url = request.POST.get("next") or reverse("dashboard:client-list")
+        if url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            return next_url
+        return reverse("dashboard:client-list")
 
 
 class ClientDetailView(AdminRequiredMixin, TemplateView):

@@ -220,6 +220,7 @@ def build_basic_feed(organization, request=None) -> dict:
                     "available_description_languages": list(descriptions.keys()),
                 },
                 "descriptions": descriptions,
+                "ai_summary": organization.ai_summary,
             },
             "discovery": {
                 "keywords": _company_keywords(organization),
@@ -231,6 +232,12 @@ def build_basic_feed(organization, request=None) -> dict:
             "visibility": {
                 "public": organization.public,
                 "allow_ai_indexing": organization.allow_ai_indexing,
+            },
+            "provenance": {
+                "source_type": organization.source_type,
+                "source_url": organization.source_url,
+                "verification_status": organization.verification_status,
+                "verified_at": organization.verified_at.isoformat() if organization.verified_at else None,
             },
             "ai_access": {
                 "subscription_tier": subscription.tier,

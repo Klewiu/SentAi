@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils.translation import override
 
 from apps.accounts.models import AccountType, UserPlanTier
-from apps.companies.models import Organization
+from apps.companies.models import Organization, VerificationStatus
 from apps.sales.models import ProspectActivity, ProspectClient, SellerSettlement
 
 
@@ -504,6 +504,53 @@ class SellerManagementTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.seller.username)
+
+    def test_admin_client_list_shows_verified_badge_when_client_has_verified_organization(self):
+        client_user = User.objects.create_user(
+            username="client-verified",
+            email="client-verified@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+        )
+        Organization.objects.create(
+            owner=client_user,
+            name="Verified Org",
+            slug="verified-org",
+            verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("dashboard:client-list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Verified")
+
+    def test_admin_can_verify_client_from_client_list_action(self):
+        client_user = User.objects.create_user(
+            username="client-to-verify",
+            email="client-to-verify@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+        )
+        organization = Organization.objects.create(
+            owner=client_user,
+            name="Needs Verification",
+            slug="needs-verification",
+            verification_status=VerificationStatus.UNVERIFIED,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("dashboard:client-verify", args=[client_user.pk]),
+            {"next": reverse("dashboard:client-list")},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard:client-list"))
+        organization.refresh_from_db()
+        self.assertEqual(organization.verification_status, VerificationStatus.HUMAN_ADMIN_VERIFIED)
+        self.assertIsNotNone(organization.verified_at)
+        self.assertEqual(organization.verified_by, self.admin)
 
     def test_seller_clients_list_shows_linked_seller_username(self):
         client_user = User.objects.create_user(
