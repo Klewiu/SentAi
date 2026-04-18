@@ -23,6 +23,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "city",
             "postal_code",
             "country",
+            "ai_summary",
             "primary_language",
             "short_description_en",
             "short_description_pl",

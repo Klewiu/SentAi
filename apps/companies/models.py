@@ -12,6 +12,15 @@ class OrganizationType(models.TextChoices):
     OTHER = "other", "Other"
 
 
+class SourceType(models.TextChoices):
+    USER_SUBMITTED = "user_submitted", "User submitted"
+
+
+class VerificationStatus(models.TextChoices):
+    UNVERIFIED = "unverified", "Unverified"
+    HUMAN_ADMIN_VERIFIED = "human_admin_verified", "Human admin verified"
+
+
 class Organization(models.Model):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -28,6 +37,22 @@ class Organization(models.Model):
     city = models.CharField(max_length=120, blank=True)
     postal_code = models.CharField(max_length=24, blank=True)
     country = models.CharField(max_length=120, blank=True)
+    ai_summary = models.CharField(max_length=280, blank=True)
+    source_type = models.CharField(max_length=32, choices=SourceType.choices, default=SourceType.USER_SUBMITTED)
+    source_url = models.URLField(blank=True)
+    verification_status = models.CharField(
+        max_length=32,
+        choices=VerificationStatus.choices,
+        default=VerificationStatus.UNVERIFIED,
+    )
+    verified_at = models.DateTimeField(blank=True, null=True)
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="verified_organizations",
+        blank=True,
+        null=True,
+    )
     primary_language = models.CharField(
         max_length=2,
         choices=getattr(settings, "FEED_LANGUAGES", settings.LANGUAGES),
@@ -58,6 +83,8 @@ class Organization(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = self.build_unique_slug()
+        self.source_type = SourceType.USER_SUBMITTED
+        self.source_url = self.website_url or ""
         super().save(*args, **kwargs)
 
     def build_unique_slug(self) -> str:
@@ -82,6 +109,10 @@ class Organization(models.Model):
     @property
     def subscription_tier(self) -> str:
         return self.get_subscription().tier
+
+    @property
+    def is_verified(self) -> bool:
+        return self.verification_status == VerificationStatus.HUMAN_ADMIN_VERIFIED
 
     @property
     def supports_advanced_formats(self) -> bool:

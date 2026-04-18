@@ -5,7 +5,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import UserPlanTier
 from apps.companies.forms import OrganizationForm
-from apps.companies.models import ContentEntry, Organization, OrganizationType, Product, SocialProfile, Tag
+from apps.companies.models import ContentEntry, Organization, OrganizationType, Product, SocialProfile, Tag, VerificationStatus
 from apps.subscriptions.models import PlanTier
 
 
@@ -99,6 +99,28 @@ class CompanyApiTests(TestCase):
         self.assertEqual(payload["discovery"]["tags"][0]["name"], "ai search")
         self.assertEqual(payload["discovery"]["products"][0]["name"], "Visibility Audit")
         self.assertEqual(payload["discovery"]["content_entries"][0]["title"], "How we improve AI visibility")
+
+    def test_basic_feed_includes_provenance_and_verification_fields(self):
+        organization = self.create_organization(
+            website_url="https://acme.example",
+            verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED,
+        )
+
+        response = self.api_client.get(f"/api/public/{organization.slug}/company.json")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["provenance"]["source_type"], "user_submitted")
+        self.assertEqual(payload["provenance"]["source_url"], "https://acme.example")
+        self.assertEqual(payload["provenance"]["verification_status"], "human_admin_verified")
+
+    def test_source_url_tracks_current_website_url(self):
+        organization = self.create_organization(website_url="https://old.example")
+        organization.website_url = "https://new.example"
+        organization.save()
+
+        organization.refresh_from_db()
+        self.assertEqual(organization.source_url, "https://new.example")
 
     def test_multiple_organizations_get_separate_feed_urls_by_slug(self):
         first = self.create_organization(name="Alpha", slug="alpha")
@@ -204,6 +226,7 @@ class OrganizationFormLocalizationTests(TestCase):
         self.assertEqual(form.fields["name"].label, "Nazwa firmy")
         self.assertEqual(form.fields["company_type"].label, "Typ firmy")
         self.assertEqual(form.fields["website_url"].label, "Adres strony WWW")
+        self.assertEqual(form.fields["ai_summary"].label, "Dla jakich klient\u00f3w/projekt\u00f3w ta firma jest najlepsza?")
         self.assertNotIn("slug", form.fields)
         self.assertNotIn("legal_name", form.fields)
         self.assertEqual(

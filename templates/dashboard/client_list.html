@@ -15,22 +15,21 @@
                     {% if request.LANGUAGE_CODE == 'pl' %}Klienci{% else %}Clients{% endif %}
                 </span>
                 <h1 class="mt-3 font-display text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Tabela klientów{% else %}Customers table{% endif %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}Tabela klientow{% else %}Customers table{% endif %}
                 </h1>
             </div>
             <a href="{% url 'dashboard:home' %}"
                class="inline-flex min-h-9 items-center justify-center rounded border border-white/10 bg-white/5 px-4 py-2 font-mono text-xs font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]">
-                ← {% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}
+                {% if request.LANGUAGE_CODE == 'pl' %}Powrot{% else %}Back{% endif %}
             </a>
         </div>
 
-        <!-- Search bar -->
         <form method="get" action="" class="flex gap-2">
             <input
                 type="search"
                 name="q"
                 value="{{ search_query }}"
-                placeholder="{% if request.LANGUAGE_CODE == 'pl' %}Szukaj po nazwie firmy, e-mailu…{% else %}Search by company name, email…{% endif %}"
+                placeholder="{% if request.LANGUAGE_CODE == 'pl' %}Szukaj po nazwie firmy lub e-mailu{% else %}Search by company name or email{% endif %}"
                 class="min-w-0 flex-1 rounded border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-sm text-slate-100 placeholder-slate-600 outline-none transition focus:border-[#00d4aa]/50 focus:ring-1 focus:ring-[#00d4aa]/30"
             >
             <button type="submit"
@@ -40,16 +39,17 @@
             {% if search_query %}
                 <a href="{% url 'dashboard:client-list' %}"
                    class="inline-flex min-h-10 items-center justify-center rounded border border-white/10 bg-white/5 px-4 font-mono text-sm font-medium text-slate-400 transition hover:text-slate-200">
-                    ✕
+                    X
                 </a>
             {% endif %}
         </form>
+
         {% if search_query %}
             <p class="font-mono text-xs text-slate-500">
                 {% if request.LANGUAGE_CODE == 'pl' %}
-                    Wyniki dla: <span class="text-[#00d4aa]">{{ search_query }}</span> — {{ clients|length }} {% if clients|length == 1 %}klient{% else %}klientów{% endif %}
+                    Wyniki dla: <span class="text-[#00d4aa]">{{ search_query }}</span> - {{ clients|length }}
                 {% else %}
-                    Results for: <span class="text-[#00d4aa]">{{ search_query }}</span> — {{ clients|length }} client{% if clients|length != 1 %}s{% endif %}
+                    Results for: <span class="text-[#00d4aa]">{{ search_query }}</span> - {{ clients|length }}
                 {% endif %}
             </p>
         {% endif %}
@@ -66,6 +66,9 @@
                         </th>
                         <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
                             {% if request.LANGUAGE_CODE == 'pl' %}Plan{% else %}Plan{% endif %}
+                        </th>
+                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Weryfikacja{% else %}Verification{% endif %}
                         </th>
                         <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
                             {% if request.LANGUAGE_CODE == 'pl' %}Handlowiec{% else %}Sales rep{% endif %}
@@ -89,7 +92,7 @@
                     {% for client in clients %}
                     <tr class="transition hover:bg-white/[0.03]">
                         <td class="px-4 py-3 font-medium text-slate-200">
-                            {{ client.company_name|default:"—" }}
+                            {{ client.company_name|default:"-" }}
                         </td>
                         <td class="px-4 py-3 font-mono text-slate-400">
                             {{ client.email }}
@@ -103,11 +106,31 @@
                                 <span class="inline-flex items-center rounded border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-400">BASIC</span>
                             {% endif %}
                         </td>
+                        <td class="px-4 py-3">
+                            {% if client.is_verified %}
+                                <span class="inline-flex items-center rounded border border-[#00d4aa]/30 bg-[#00d4aa]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#00d4aa]">Verified</span>
+                            {% elif client.primary_organization_name %}
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center rounded border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-amber-300 transition hover:border-amber-300/60 hover:text-amber-200"
+                                    data-verify-trigger
+                                    data-client-id="{{ client.pk }}"
+                                    data-verify-url="{% url 'dashboard:client-verify' client.pk %}"
+                                    data-client-name="{{ client.company_name|default:client.email }}"
+                                    data-company-name="{{ client.primary_organization_name }}"
+                                    data-company-website="{{ client.primary_organization_website|default:'' }}"
+                                >
+                                    Unverified
+                                </button>
+                            {% else %}
+                                <span class="inline-flex items-center rounded border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-400">No page</span>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 font-mono text-slate-400">
-                            {{ client.linked_seller_username|default:"—" }}
+                            {{ client.linked_seller_username|default:"-" }}
                         </td>
                         <td class="px-4 py-3 text-slate-400">
-                            {{ client.country|default:"—" }}
+                            {{ client.country|default:"-" }}
                         </td>
                         <td class="px-4 py-3 font-mono text-slate-500">
                             {{ client.organizations.count }}
@@ -116,25 +139,25 @@
                             {{ client.date_joined|date:"Y-m-d" }}
                         </td>
                         <td class="px-4 py-3 font-mono text-slate-500 text-xs">
-                            {{ client.last_login|date:"Y-m-d H:i"|default:"—" }}
+                            {{ client.last_login|date:"Y-m-d H:i"|default:"-" }}
                         </td>
                         <td class="px-4 py-3 text-right">
                             {% if client.linked_prospect_id %}
                                 <a href="{% url 'dashboard:prospect-detail' client.linked_prospect_id %}"
                                    class="mr-1 inline-flex min-h-7 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-3 py-1 font-mono text-xs font-medium text-[#00d4aa] transition hover:bg-[#00d4aa]/20">
-                                    {% if request.LANGUAGE_CODE == 'pl' %}Aktywności{% else %}Activities{% endif %}
+                                    {% if request.LANGUAGE_CODE == 'pl' %}Aktywnosci{% else %}Activities{% endif %}
                                 </a>
                             {% endif %}
                             <a href="{% url 'dashboard:client-detail' client.pk %}"
                                class="inline-flex min-h-7 items-center justify-center rounded border border-white/10 bg-white/5 px-3 py-1 font-mono text-xs font-medium text-slate-300 transition hover:border-[#00d4aa]/40 hover:text-[#00d4aa]">
-                                {% if request.LANGUAGE_CODE == 'pl' %}Szczegóły{% else %}Details{% endif %} →
+                                {% if request.LANGUAGE_CODE == 'pl' %}Szczegoly{% else %}Details{% endif %} ->
                             </a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="px-4 py-8 text-center font-mono text-sm text-slate-500">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Brak klientów.{% else %}No clients yet.{% endif %}
+                        <td colspan="10" class="px-4 py-8 text-center font-mono text-sm text-slate-500">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Brak klientow.{% else %}No clients yet.{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -143,4 +166,104 @@
         </div>
     </div>
 </section>
+
+<div id="verify-client-modal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-[#020617]/80 backdrop-blur-sm" data-verify-close></div>
+    <div class="relative flex min-h-screen items-center justify-center px-4 py-8">
+        <div class="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0d1117] p-6 shadow-[0_0_0_1px_rgba(0,212,170,0.12),0_24px_80px_rgba(2,6,23,0.75)]">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-[#00d4aa]">
+                        Verification
+                    </p>
+                    <h2 class="mt-2 font-display text-2xl font-semibold text-white">
+                        Confirm company verification
+                    </h2>
+                </div>
+                <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 transition hover:border-white/20 hover:text-white" data-verify-close>
+                    X
+                </button>
+            </div>
+
+            <div class="mt-6 space-y-4">
+                <div class="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
+                    <p class="font-mono text-[10px] uppercase tracking-widest text-slate-500">Client</p>
+                    <p id="verify-client-name" class="mt-1 text-sm text-slate-200"></p>
+                </div>
+                <div class="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
+                    <p class="font-mono text-[10px] uppercase tracking-widest text-slate-500">Company page</p>
+                    <p id="verify-company-name" class="mt-1 text-sm text-slate-200"></p>
+                    <p id="verify-company-website" class="mt-2 font-mono text-xs text-[#00d4aa]"></p>
+                </div>
+                <div class="rounded-xl border border-[#00d4aa]/20 bg-[#00d4aa]/6 p-4 text-sm text-slate-200">
+                    Website and company info has been verified.
+                </div>
+            </div>
+
+            <form id="verify-client-form" method="post" class="mt-6 flex items-center justify-end gap-3">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button
+                    type="button"
+                    class="inline-flex min-h-10 items-center justify-center rounded border border-white/10 bg-white/5 px-4 font-mono text-sm font-medium text-slate-300 transition hover:border-white/20 hover:text-white"
+                    data-verify-close
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    class="inline-flex min-h-10 items-center justify-center rounded border border-[#00d4aa]/40 bg-[#00d4aa]/10 px-4 font-mono text-sm font-semibold text-[#00d4aa] transition hover:bg-[#00d4aa]/20"
+                >
+                    Verify
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    (() => {
+        const modal = document.getElementById("verify-client-modal");
+        if (!modal) {
+            return;
+        }
+
+        const form = document.getElementById("verify-client-form");
+        const clientName = document.getElementById("verify-client-name");
+        const companyName = document.getElementById("verify-company-name");
+        const companyWebsite = document.getElementById("verify-company-website");
+        const triggers = document.querySelectorAll("[data-verify-trigger]");
+        const closeButtons = document.querySelectorAll("[data-verify-close]");
+
+        const openModal = (trigger) => {
+            form.action = trigger.dataset.verifyUrl;
+            clientName.textContent = trigger.dataset.clientName || "-";
+            companyName.textContent = trigger.dataset.companyName || "-";
+            companyWebsite.textContent = trigger.dataset.companyWebsite || "";
+            modal.classList.remove("hidden");
+            modal.setAttribute("aria-hidden", "false");
+            document.body.classList.add("overflow-hidden");
+        };
+
+        const closeModal = () => {
+            modal.classList.add("hidden");
+            modal.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("overflow-hidden");
+        };
+
+        triggers.forEach((trigger) => {
+            trigger.addEventListener("click", () => openModal(trigger));
+        });
+
+        closeButtons.forEach((button) => {
+            button.addEventListener("click", closeModal);
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && modal.getAttribute("aria-hidden") === "false") {
+                closeModal();
+            }
+        });
+    })();
+</script>
 {% endblock %}

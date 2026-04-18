@@ -163,6 +163,13 @@
                         </label>
 
                         <label class="block space-y-2 md:col-span-2">
+                            <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.ai_summary.label }}</span>
+                            {{ form.ai_summary }}
+                            {% if form.ai_summary.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.ai_summary.help_text }}</small>{% endif %}
+                            {% if form.ai_summary.errors %}<small class="block font-mono text-[10px] font-semibold text-rose-400">{{ form.ai_summary.errors|striptags }}</small>{% endif %}
+                        </label>
+
+                        <label class="block space-y-2 md:col-span-2">
                             <span class="inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-widest text-slate-400">{{ form.featured_entry_url.label }}</span>
                             {{ form.featured_entry_url }}
                             {% if form.featured_entry_url.help_text %}<small class="block font-mono text-[10px] text-slate-500">{{ form.featured_entry_url.help_text }}</small>{% endif %}

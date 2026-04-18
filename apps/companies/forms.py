@@ -43,7 +43,7 @@ LANGUAGE_LABELS = {
 }
 
 POLISH_FIELD_LABELS = {
-    "name": "Nazwa brandu",
+    "name": "Nazwa firmy",
     "company_type": "Typ firmy",
     "website_url": "Adres strony WWW",
     "contact_email": "E-mail kontaktowy",
@@ -104,6 +104,7 @@ class OrganizationForm(forms.ModelForm):
     social_profiles_text = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 4}))
     featured_entry_type = forms.ChoiceField(required=False, choices=[("", "---------")] + list(EntryType.choices))
     featured_entry_summary = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    ai_summary = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
     featured_entry_url = forms.CharField(required=False, widget=forms.TextInput())
 
     def __init__(self, *args, language_code: str | None = None, organization: Organization | None = None, **kwargs):
@@ -148,6 +149,7 @@ class OrganizationForm(forms.ModelForm):
         self.fields.pop("content_languages", None)
 
         if "primary_language" in self.fields:
+            self.fields["primary_language"].required = False
             self.fields["primary_language"].choices = [
                 (code, self.language_labels.get(code, code.upper()))
                 for code in self.AVAILABLE_LANGUAGES
@@ -173,7 +175,7 @@ class OrganizationForm(forms.ModelForm):
             )
 
         if "name" in self.fields:
-            self.fields["name"].label = "Nazwa brandu" if ui_language == "pl" else "Brand name"
+            self.fields["name"].label = "Nazwa firmy" if ui_language == "pl" else "Brand name"
             self.fields["name"].widget.attrs.update(
                 {
                     "placeholder": "np. XOAILA" if ui_language == "pl" else "e.g. XOAILA",
@@ -253,6 +255,17 @@ class OrganizationForm(forms.ModelForm):
                 }
             )
 
+        if "ai_summary" in self.fields:
+            self.fields["ai_summary"].widget.attrs.update(
+                {
+                    "placeholder": (
+                        'np. "Dobra do MVP dla startupów, aplikacji SaaS i projektów Django"'
+                        if ui_language == "pl"
+                        else 'e.g. "Great for startup MVPs, SaaS apps, and Django projects"'
+                    )
+                }
+            )
+
         if "social_profiles_text" in self.fields:
             self.fields["social_profiles_text"].widget.attrs.update(
                 {
@@ -308,12 +321,15 @@ class OrganizationForm(forms.ModelForm):
                 "featured_entry_summary": "1-3 zdania: co klient znajdzie w materiale i dla kogo jest ta treść.",
                 "featured_entry_url": "Pełny adres URL do konkretnego artykułu, FAQ lub case study na Twojej stronie.",
             }
+            labels["ai_summary"] = "Dla jakich klient\u00f3w/projekt\u00f3w ta firma jest najlepsza?"
+            helps["ai_summary"] = "Kr\u00f3tko opisz, dla jakich klient\u00f3w, bran\u017c albo projekt\u00f3w ta firma pasuje najlepiej."
         else:
             labels = {
                 "primary_language": "Default feed language",
                 "social_profiles_text": "Social profiles (links)",
                 "featured_entry_type": "Knowledge content about the company (optional) - type",
                 "featured_entry_summary": "Knowledge content about the company (optional) - short summary",
+                "ai_summary": "What clients/projects is this company best for?",
                 "featured_entry_url": "Knowledge content about the company (optional) - URL",
             }
             helps = {
@@ -321,6 +337,7 @@ class OrganizationForm(forms.ModelForm):
                 "social_profiles_text": "Paste only existing profile links (one per line). Supported: Facebook, Instagram, LinkedIn, X, TikTok, YouTube.",
                 "featured_entry_type": "Optional. Use this if you have educational content such as FAQ, guide, case study, or update.",
                 "featured_entry_summary": "1-3 sentences about what users will learn and who the content is for.",
+                "ai_summary": "Briefly describe what kinds of clients, industries, or projects this company fits best.",
                 "featured_entry_url": "Direct URL to the article, FAQ, guide, or case study on your website.",
             }
 
@@ -872,5 +889,6 @@ class OrganizationForm(forms.ModelForm):
             "social_profiles_text",
             "featured_entry_type",
             "featured_entry_summary",
+            "ai_summary",
             "featured_entry_url",
         ]

@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     ClientDetailView,
     ClientListView,
+    ClientVerifyView,
     DashboardHomeView,
     PlanCheckoutCancelView,
     PlanCheckoutSuccessView,
@@ -37,6 +38,7 @@ urlpatterns = [
     path("organizations/<int:pk>/edit/", OrganizationUpdateView.as_view(), name="organization-edit"),
     path("organizations/<int:pk>/delete/", OrganizationDeleteView.as_view(), name="organization-delete"),
     path("clients/", ClientListView.as_view(), name="client-list"),
+    path("clients/<int:pk>/verify/", ClientVerifyView.as_view(), name="client-verify"),
     path("clients/<int:pk>/", ClientDetailView.as_view(), name="client-detail"),
     path("sellers/", SellerListView.as_view(), name="seller-list"),
     path("reports/seller-activities/", SellerActivityReportView.as_view(), name="report-seller-activities"),
