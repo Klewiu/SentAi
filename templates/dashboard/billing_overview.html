@@ -38,30 +38,161 @@
             <p class="mt-2 font-display text-2xl font-semibold text-[#284b63]">{{ canceling_subscription_count }} / {{ problem_subscription_count }}</p>
         </div>
     </div>
+
+    <form class="mt-6 flex flex-col gap-2 sm:flex-row" method="get">
+        <input type="hidden" name="manual_sort" value="{{ manual_sort }}">
+        <input type="hidden" name="subscription_sort" value="{{ subscription_sort }}">
+        <input
+            class="min-h-10 min-w-0 flex-1 rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-sm text-[#353535] placeholder-[#353535]/30 outline-none transition focus:border-[#5ca197] focus:ring-1 focus:ring-[#5ca197]/20"
+            type="search"
+            name="q"
+            value="{{ billing_search_query }}"
+            placeholder="{% if request.LANGUAGE_CODE == 'pl' %}Szukaj po kliencie, planie, statusie, fakturze lub tytule przelewu{% else %}Search by customer, plan, status, invoice or payment reference{% endif %}"
+        >
+        <button class="inline-flex min-h-10 items-center justify-center rounded bg-[#284b63] px-4 font-mono text-sm font-semibold text-white transition hover:bg-[#1e3a4f]" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Szukaj{% else %}Search{% endif %}</button>
+        {% if billing_search_query %}
+            <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:billing-overview' %}?manual_sort={{ manual_sort }}&subscription_sort={{ subscription_sort }}">X</a>
+        {% endif %}
+    </form>
 </section>
 
 <section class="min-w-0 rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
-    <h2 class="font-display text-2xl font-semibold tracking-tight text-[#284b63]">Subscriptions</h2>
+    <h2 class="font-display text-2xl font-semibold tracking-tight text-[#284b63]">Pro Manual</h2>
+    <p class="mt-1 text-sm text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}R&#281;czne p&#322;atno&#347;ci roczne. Przeterminowane zam&#243;wienia wymagaj&#261; r&#281;cznego wy&#322;&#261;czenia.{% else %}Manual annual payments. Overdue orders require manual deactivation.{% endif %}</p>
+    <div class="mt-4 overflow-x-auto">
+        <table class="w-full min-w-[1280px] table-fixed divide-y divide-[#d9d9d9] text-left font-mono text-[11px]">
+            <colgroup><col class="w-[18%]"><col class="w-[8%]"><col class="w-[7%]"><col class="w-[8%]"><col class="w-[10%]"><col class="w-[10%]"><col class="w-[14%]"><col class="w-[7%]"><col class="w-[9%]"><col class="w-[9%]"></colgroup>
+            <thead><tr class="text-[10px] uppercase tracking-widest text-[#353535]/40"><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.customer }}">{% if request.LANGUAGE_CODE == 'pl' %}Klient{% else %}Customer{% endif %}</a></th><th class="px-3 py-3">Plan</th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.amount }}">{% if request.LANGUAGE_CODE == 'pl' %}Kwota{% else %}Amount{% endif %}</a></th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.status }}">Status</a></th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.payment_due }}">{% if request.LANGUAGE_CODE == 'pl' %}Termin p&#322;atno&#347;ci{% else %}Payment due{% endif %}</a></th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.access }}">{% if request.LANGUAGE_CODE == 'pl' %}Dost&#281;p do{% else %}Access until{% endif %}</a></th><th class="px-3 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Tytu&#322; przelewu{% else %}Payment reference{% endif %}</th><th class="px-3 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Akcje{% else %}Actions{% endif %}</th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.invoice }}">{% if request.LANGUAGE_CODE == 'pl' %}Status faktury{% else %}Invoice status{% endif %}</a></th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.invoice }}">{% if request.LANGUAGE_CODE == 'pl' %}Faktura{% else %}Invoice{% endif %}</a></th></tr></thead>
+            <tbody class="divide-y divide-[#d9d9d9]">
+                {% for order in manual_plan_orders %}
+                    <tr class="{% if order.is_overdue %}bg-rose-50{% endif %}">
+                        <td class="break-all px-3 py-3 pr-5 leading-5 text-[#353535]">{{ order.user.email }}</td>
+                        <td class="px-3 py-3 pl-4 leading-5 text-[#353535]/75">Pro Manual</td>
+                        <td class="px-3 py-3">{{ order.formatted_amount }}</td>
+                        <td class="px-3 py-3">{% if order.status == 'awaiting_payment' %}{% if request.LANGUAGE_CODE == 'pl' %}oczekuje{% else %}awaiting payment{% endif %}{% elif order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}op&#322;acony{% else %}paid{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}wy&#322;&#261;czony{% else %}disabled{% endif %}{% endif %}{% if order.is_overdue %} / overdue{% endif %}</td>
+                        <td class="px-3 py-3">{{ order.payment_due_at|date:'Y-m-d H:i' }}</td>
+                        <td class="px-3 py-3">{{ order.access_until|date:'Y-m-d H:i' }}</td>
+                        <td class="break-words px-2 py-3 text-[10px] leading-4">{{ order.payment_reference }}</td>
+                        <td class="px-2 py-3 align-top">
+                            {% if order.status == 'awaiting_payment' %}
+                                <button class="whitespace-nowrap rounded bg-[#5ca197] px-2 py-1.5 text-[10px] font-semibold text-white" type="button" data-manual-confirm data-action="{% url 'dashboard:manual-plan-mark-paid' order.pk %}" data-title="{% if request.LANGUAGE_CODE == 'pl' %}Potwierdzi&#263; p&#322;atno&#347;&#263;?{% else %}Confirm payment?{% endif %}" data-description="{% if request.LANGUAGE_CODE == 'pl' %}Kwota {{ order.formatted_amount }} zostanie doliczona do obrotu jako op&#322;acona.{% else %}The amount {{ order.formatted_amount }} will be added to turnover as paid.{% endif %}">{% if request.LANGUAGE_CODE == 'pl' %}Potwierd&#378;{% else %}Confirm{% endif %}</button>
+                            {% endif %}
+                            {% if order.status == 'awaiting_payment' or order.status == 'paid' %}
+                                <button class="mt-1 whitespace-nowrap rounded border border-rose-300 bg-white px-2 py-1.5 text-[10px] font-semibold text-rose-500" type="button" data-manual-confirm data-action="{% url 'dashboard:manual-plan-disable' order.pk %}" data-title="{% if request.LANGUAGE_CODE == 'pl' %}Wy&#322;&#261;czy&#263; plan?{% else %}Disable plan?{% endif %}" data-description="{% if request.LANGUAGE_CODE == 'pl' %}Klient {{ order.user.email }} zostanie przeniesiony do planu BASIC.{% else %}Customer {{ order.user.email }} will be moved to the BASIC plan.{% endif %}">{% if request.LANGUAGE_CODE == 'pl' %}Wy&#322;&#261;cz{% else %}Disable{% endif %}</button>
+                            {% endif %}
+                        </td>
+                        <td class="px-2 py-3 align-top">
+                            {% if order.latest_manual_invoice %}
+                                {% if order.latest_manual_invoice.sent %}
+                                    <span class="inline-flex rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2.5 py-1 text-[#397b72]">{% if request.LANGUAGE_CODE == 'pl' %}Wys&#322;ana{% else %}Sent{% endif %}{% if order.latest_manual_invoice.sent_at %} / {{ order.latest_manual_invoice.sent_at|date:"Y-m-d" }}{% endif %}</span>
+                                {% else %}
+                                    <span class="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-amber-700">{% if request.LANGUAGE_CODE == 'pl' %}Wystawiona{% else %}Issued{% endif %}</span>
+                                {% endif %}
+                            {% elif order.status == 'paid' %}
+                                <span class="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2.5 py-1 text-rose-600">{% if request.LANGUAGE_CODE == 'pl' %}Brak faktury{% else %}No invoice{% endif %}</span>
+                            {% else %}
+                                <span class="text-[#353535]/45">{% if request.LANGUAGE_CODE == 'pl' %}Po potwierdzeniu p&#322;atno&#347;ci{% else %}Available after payment confirmation{% endif %}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-2 py-3 align-top">
+                            {% if order.latest_manual_invoice %}
+                                <a class="font-mono text-[10px] font-semibold text-[#5ca197] hover:underline" href="{% url 'dashboard:billing-customer-invoices' order.user.pk %}">{{ order.latest_manual_invoice.invoice_number }}</a>
+                            {% elif order.status == 'paid' %}
+                                <a class="font-mono text-[10px] font-semibold text-rose-500 hover:underline" href="{% url 'dashboard:billing-invoices-admin' %}">{% if request.LANGUAGE_CODE == 'pl' %}Wgraj faktur&#281;{% else %}Upload invoice{% endif %}</a>
+                            {% else %}
+                                <span class="text-[#353535]/45">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}<tr><td class="px-3 py-5 text-[#353535]/45" colspan="10">{% if request.LANGUAGE_CODE == 'pl' %}Brak zam&#243;wie&#324; Pro Manual.{% else %}No Pro Manual orders.{% endif %}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div id="manual-action-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#353535]/60 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="manual-action-title">
+    <div class="w-full max-w-md rounded-xl border border-[#d9d9d9] bg-white p-6 shadow-xl">
+        <p class="font-mono text-[10px] uppercase tracking-widest text-rose-500">{% if request.LANGUAGE_CODE == 'pl' %}Potwierdzenie operacji{% else %}Action confirmation{% endif %}</p>
+        <h2 id="manual-action-title" class="mt-2 font-display text-2xl font-semibold text-[#284b63]"></h2>
+        <p id="manual-action-description" class="mt-3 text-sm leading-6 text-[#353535]/65"></p>
+        <div class="mt-5 rounded border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3">
+            <div class="flex items-center justify-between"><span class="font-mono text-xs text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}Przycisk odblokuje si&#281; za{% else %}Button unlocks in{% endif %}</span><span class="font-mono text-lg font-semibold text-[#284b63]"><span id="manual-action-countdown">5</span>s</span></div>
+            <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-[#d9d9d9]"><div id="manual-action-progress" class="h-full w-0 rounded-full bg-rose-400 transition-all duration-1000"></div></div>
+        </div>
+        <form id="manual-action-form" class="mt-6 flex justify-end gap-2" method="post">
+            {% csrf_token %}
+            <button id="manual-action-cancel" type="button" class="min-h-10 rounded border border-[#d9d9d9] px-4 py-2 font-mono text-xs">{% if request.LANGUAGE_CODE == 'pl' %}Anuluj{% else %}Cancel{% endif %}</button>
+            <button id="manual-action-submit" type="submit" disabled class="min-h-10 rounded bg-rose-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">{% if request.LANGUAGE_CODE == 'pl' %}Potwierd&#378;{% else %}Confirm{% endif %}</button>
+        </form>
+    </div>
+</div>
+
+<script>
+(() => {
+    const modal = document.getElementById("manual-action-modal");
+    const form = document.getElementById("manual-action-form");
+    const title = document.getElementById("manual-action-title");
+    const description = document.getElementById("manual-action-description");
+    const countdown = document.getElementById("manual-action-countdown");
+    const progress = document.getElementById("manual-action-progress");
+    const submit = document.getElementById("manual-action-submit");
+    const cancel = document.getElementById("manual-action-cancel");
+    let timer = null;
+
+    const close = () => {
+        clearInterval(timer);
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+    };
+    document.querySelectorAll("[data-manual-confirm]").forEach((button) => button.addEventListener("click", () => {
+        clearInterval(timer);
+        let remaining = 5;
+        form.action = button.dataset.action;
+        title.textContent = button.dataset.title;
+        description.textContent = button.dataset.description;
+        countdown.textContent = remaining;
+        progress.style.width = "0%";
+        submit.disabled = true;
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+        timer = setInterval(() => {
+            remaining -= 1;
+            countdown.textContent = Math.max(remaining, 0);
+            progress.style.width = `${((5 - remaining) / 5) * 100}%`;
+            if (remaining <= 0) {
+                clearInterval(timer);
+                submit.disabled = false;
+            }
+        }, 1000);
+    }));
+    cancel.addEventListener("click", close);
+    modal.addEventListener("click", (event) => { if (event.target === modal) close(); });
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
+})();
+</script>
+
+<section class="min-w-0 rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
+    <h2 class="font-display text-2xl font-semibold tracking-tight text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Subskrypcje{% else %}Subscriptions{% endif %}</h2>
     <div class="mt-4 max-w-full overflow-x-auto">
         <table class="min-w-full divide-y divide-[#d9d9d9] text-left">
             <thead>
                 <tr class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
-                    <th class="px-4 py-3">Customer</th>
-                    <th class="px-4 py-3">Plan</th>
-                    <th class="px-4 py-3">Status</th>
-                    <th class="px-4 py-3">Price</th>
-                    <th class="px-4 py-3">Current public price</th>
-                    <th class="px-4 py-3">Next renewal</th>
-                    <th class="px-4 py-3">Last payment</th>
-                    <th class="px-4 py-3">Invoice status</th>
-                    <th class="px-4 py-3">Invoice details</th>
+                    <th class="px-4 py-3"><a class="hover:text-[#5ca197]" href="{{ subscription_sort_urls.customer }}">{% if request.LANGUAGE_CODE == 'pl' %}Klient{% else %}Customer{% endif %}</a></th>
+                    <th class="px-4 py-3"><a class="hover:text-[#5ca197]" href="{{ subscription_sort_urls.plan }}">Plan</a></th>
+                    <th class="px-4 py-3"><a class="hover:text-[#5ca197]" href="{{ subscription_sort_urls.status }}">Status</a></th>
+                    <th class="px-4 py-3"><a class="hover:text-[#5ca197]" href="{{ subscription_sort_urls.price }}">{% if request.LANGUAGE_CODE == 'pl' %}Cena{% else %}Price{% endif %}</a></th>
+                    <th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Aktualna cena publiczna{% else %}Current public price{% endif %}</th>
+                    <th class="px-4 py-3"><a class="hover:text-[#5ca197]" href="{{ subscription_sort_urls.renewal }}">{% if request.LANGUAGE_CODE == 'pl' %}Nast&#281;pne odnowienie{% else %}Next renewal{% endif %}</a></th>
+                    <th class="px-4 py-3"><a class="hover:text-[#5ca197]" href="{{ subscription_sort_urls.payment }}">{% if request.LANGUAGE_CODE == 'pl' %}Ostatnia p&#322;atno&#347;&#263;{% else %}Last payment{% endif %}</a></th>
+                    <th class="px-4 py-3"><a class="hover:text-[#5ca197]" href="{{ subscription_sort_urls.invoice }}">{% if request.LANGUAGE_CODE == 'pl' %}Status faktury{% else %}Invoice status{% endif %}</a></th>
+                    <th class="px-4 py-3"><a class="hover:text-[#5ca197]" href="{{ subscription_sort_urls.invoice }}">{% if request.LANGUAGE_CODE == 'pl' %}Faktura{% else %}Invoice{% endif %}</a></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-[#d9d9d9] font-mono text-xs">
                 {% for sub in subscriptions %}
                     <tr>
                         <td class="px-4 py-3">{{ sub.user.email }}</td>
-                        <td class="px-4 py-3">{{ sub.tier }}</td>
+                        <td class="px-4 py-3">{{ sub.get_tier_display }}</td>
                         <td class="px-4 py-3">{{ sub.status }}{% if sub.cancel_at_period_end %} / canceling{% endif %}</td>
                         <td class="px-4 py-3">{% if sub.plan_price %}{{ sub.plan_price.formatted_amount }}{% else %}{{ sub.stripe_price_id }}{% endif %}</td>
                         <td class="px-4 py-3">{{ sub.current_public_price_label }}</td>
@@ -70,27 +201,23 @@
                         <td class="px-4 py-3">
                             {% if sub.latest_manual_invoice %}
                                 {% if sub.latest_manual_invoice.sent %}
-                                    <span class="inline-flex rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2.5 py-1 text-[#397b72]">Sent{% if sub.latest_manual_invoice.sent_at %} / {{ sub.latest_manual_invoice.sent_at|date:"Y-m-d" }}{% endif %}</span>
+                                    <span class="inline-flex rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2.5 py-1 text-[#397b72]">{% if request.LANGUAGE_CODE == 'pl' %}Wys&#322;ana{% else %}Sent{% endif %}{% if sub.latest_manual_invoice.sent_at %} / {{ sub.latest_manual_invoice.sent_at|date:"Y-m-d" }}{% endif %}</span>
                                 {% else %}
-                                    <span class="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-amber-700">Issued</span>
+                                    <span class="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-amber-700">{% if request.LANGUAGE_CODE == 'pl' %}Wystawiona{% else %}Issued{% endif %}</span>
                                 {% endif %}
                             {% elif sub.has_successful_payment %}
-                                <span class="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2.5 py-1 text-rose-600">No invoice</span>
+                                <span class="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2.5 py-1 text-rose-600">{% if request.LANGUAGE_CODE == 'pl' %}Brak faktury{% else %}No invoice{% endif %}</span>
                             {% else %}
-                                <span class="text-[#353535]/45">Waiting for paid Stripe payment</span>
+                                <span class="text-[#353535]/45">{% if request.LANGUAGE_CODE == 'pl' %}Oczekuje na op&#322;acon&#261; p&#322;atno&#347;&#263; Stripe{% else %}Waiting for paid Stripe payment{% endif %}</span>
                             {% endif %}
                         </td>
                         <td class="px-4 py-3">
-                            {% if sub.has_successful_payment %}
-                                <form class="grid w-[34rem] max-w-full grid-cols-[8.5rem_10rem_minmax(10rem,1fr)_auto] items-end gap-2" method="post" enctype="multipart/form-data" action="{% url 'dashboard:billing-invoice-add' sub.pk %}">
-                                    {% csrf_token %}
-                                    <label><span class="mb-1 block text-[9px] uppercase text-[#353535]/40">Invoice date</span><input type="date" name="issued_at" required></label>
-                                    <label><span class="mb-1 block text-[9px] uppercase text-[#353535]/40">Invoice number</span><input type="text" name="invoice_number" maxlength="100" placeholder="Invoice number" required></label>
-                                    <label><span class="mb-1 block text-[9px] uppercase text-[#353535]/40">Invoice PDF</span><input class="block min-h-9 w-full text-[10px] file:mr-2 file:rounded file:border-0 file:bg-[#f0f6f5] file:px-2 file:py-2" type="file" name="document" accept="application/pdf,.pdf" required></label>
-                                    <button class="min-h-9 rounded bg-[#5ca197] px-3 py-2 text-white hover:bg-[#4d8f85]" type="submit">Save invoice</button>
-                                </form>
+                            {% if sub.latest_manual_invoice %}
+                                <a class="font-mono text-[10px] font-semibold text-[#5ca197] hover:underline" href="{% url 'dashboard:billing-customer-invoices' sub.user.pk %}">{{ sub.latest_manual_invoice.invoice_number }}</a>
+                            {% elif sub.has_successful_payment %}
+                                <a class="font-mono text-[10px] font-semibold text-rose-500 hover:underline" href="{% url 'dashboard:billing-invoices-admin' %}">{% if request.LANGUAGE_CODE == 'pl' %}Wgraj faktur&#281;{% else %}Upload invoice{% endif %}</a>
                             {% else %}
-                                <span class="text-[#353535]/45">Available after payment</span>
+                                <span class="text-[#353535]/45">{% if request.LANGUAGE_CODE == 'pl' %}Dost&#281;pne po p&#322;atno&#347;ci{% else %}Available after payment{% endif %}</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -102,36 +229,4 @@
     </div>
 </section>
 
-<section class="min-w-0 rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
-    <div>
-        <h2 class="font-display text-2xl font-semibold tracking-tight text-[#284b63]">Issued invoices</h2>
-        <p class="mt-1 text-sm text-[#353535]/55">Manual invoices added for subscribed customers.</p>
-    </div>
-    <div class="mt-4 max-w-full overflow-x-auto">
-        <table class="min-w-full divide-y divide-[#d9d9d9] text-left">
-            <thead>
-                <tr class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
-                    <th class="px-4 py-3">Customer</th>
-                    <th class="px-4 py-3">Invoice number</th>
-                    <th class="px-4 py-3">Issued</th>
-                    <th class="px-4 py-3">Sent status</th>
-                    <th class="px-4 py-3">Document</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-[#d9d9d9] font-mono text-xs">
-                {% for invoice in invoices %}
-                    <tr>
-                        <td class="px-4 py-3">{{ invoice.user.email }}</td>
-                        <td class="px-4 py-3 font-semibold">{{ invoice.invoice_number }}</td>
-                        <td class="px-4 py-3">{{ invoice.issued_at|date:"Y-m-d" }}</td>
-                        <td class="px-4 py-3">{% if invoice.sent %}Sent{% if invoice.sent_at %} / {{ invoice.sent_at|date:"Y-m-d" }}{% endif %}{% else %}Not sent{% endif %}</td>
-                        <td class="px-4 py-3"><a class="text-[#5ca197] hover:underline" href="{% url 'dashboard:billing-invoice-admin-download' invoice.pk %}">Download PDF</a></td>
-                    </tr>
-                {% empty %}
-                    <tr><td class="px-4 py-6 text-[#353535]/45" colspan="5">No invoices added yet. Use the form next to a subscription above.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</section>
 {% endblock %}

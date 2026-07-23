@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+            <span class="font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">{% if request.LANGUAGE_CODE == 'pl' %}Powiadomienia{% else %}Notifications{% endif %}</span>
+            <h1 class="mt-2 font-display text-3xl font-bold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Centrum powiadomień admina{% else %}Admin notification center{% endif %}</h1>
+            <p class="mt-2 text-sm text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}Aktywne sprawy operacyjne: klienci, plany, płatności, faktury i Pro Manual.{% else %}Active operational items: customers, plans, payments, invoices and Pro Manual.{% endif %}</p>
+        </div>
+        <a class="rounded border border-[#d9d9d9] px-4 py-2 font-mono text-xs" href="{% url 'dashboard:home' %}">{% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}</a>
+    </div>
+
+    <div class="mt-6 grid gap-3 sm:grid-cols-2">
+        <div class="rounded-lg border border-[#d9d9d9] bg-[#f8fafa] p-4">
+            <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Aktywne{% else %}Active{% endif %}</p>
+            <p class="mt-2 font-display text-2xl font-semibold text-[#284b63]">{{ active_count }}</p>
+        </div>
+        <div class="rounded-lg border border-[#d9d9d9] bg-[#f8fafa] p-4">
+            <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Zamknięte{% else %}Closed{% endif %}</p>
+            <p class="mt-2 font-display text-2xl font-semibold text-[#284b63]">{{ closed_count }}</p>
+        </div>
+    </div>
+</section>
+
+<section class="rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
+    <form class="flex flex-col gap-2 sm:flex-row" method="get">
+        <input type="hidden" name="show" value="{{ show }}">
+        <select class="min-h-10 rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-sm text-[#353535]" name="type">
+            <option value="">{% if request.LANGUAGE_CODE == 'pl' %}Wszystkie typy{% else %}All types{% endif %}</option>
+            {% for value, label in type_choices %}
+                <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <input class="min-h-10 min-w-0 flex-1 rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-sm" type="search" name="q" value="{{ search_query }}" placeholder="{% if request.LANGUAGE_CODE == 'pl' %}Szukaj po tytule, treści lub kliencie{% else %}Search by title, message or customer{% endif %}">
+        <button class="rounded bg-[#284b63] px-4 py-2 font-mono text-sm font-semibold text-white" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Szukaj{% else %}Search{% endif %}</button>
+        {% if search_query or selected_type %}<a class="rounded border border-[#d9d9d9] px-4 py-2 font-mono text-sm" href="{% url 'dashboard:notifications' %}?show={{ show }}">X</a>{% endif %}
+    </form>
+
+    <div class="mt-4 flex flex-wrap gap-2">
+        <a class="rounded border px-3 py-1.5 font-mono text-xs {% if show == 'active' %}border-[#5ca197] text-[#5ca197]{% else %}border-[#d9d9d9] text-[#353535]/60{% endif %}" href="{% url 'dashboard:notifications' %}?show=active{% if selected_type %}&type={{ selected_type }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}">{% if request.LANGUAGE_CODE == 'pl' %}Aktywne{% else %}Active{% endif %}</a>
+        <a class="rounded border px-3 py-1.5 font-mono text-xs {% if show == 'closed' %}border-[#5ca197] text-[#5ca197]{% else %}border-[#d9d9d9] text-[#353535]/60{% endif %}" href="{% url 'dashboard:notifications' %}?show=closed">{% if request.LANGUAGE_CODE == 'pl' %}Zamknięte{% else %}Closed{% endif %}</a>
+        <a class="rounded border px-3 py-1.5 font-mono text-xs {% if show == 'all' %}border-[#5ca197] text-[#5ca197]{% else %}border-[#d9d9d9] text-[#353535]/60{% endif %}" href="{% url 'dashboard:notifications' %}?show=all">{% if request.LANGUAGE_CODE == 'pl' %}Wszystkie{% else %}All{% endif %}</a>
+    </div>
+
+    <div class="mt-5 space-y-3">
+        {% for notification in notifications %}
+            <article class="rounded-lg border {% if notification.closed_at %}border-[#d9d9d9] bg-[#f8fafa]{% elif notification.severity == 'urgent' %}border-rose-300 bg-rose-50{% elif notification.severity == 'warning' %}border-amber-300 bg-amber-50{% else %}border-[#d9d9d9] bg-white{% endif %} p-4">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="rounded-full border border-[#d9d9d9] bg-white px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[#353535]/55">{{ notification.get_category_display }}</span>
+                            <span class="rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest {% if notification.severity == 'urgent' %}bg-rose-100 text-rose-700{% elif notification.severity == 'warning' %}bg-amber-100 text-amber-700{% else %}bg-[#5ca197]/10 text-[#397b72]{% endif %}">{{ notification.get_severity_display }}</span>
+                            {% if notification.closed_at %}<span class="font-mono text-[10px] text-[#353535]/45">{% if request.LANGUAGE_CODE == 'pl' %}Zamknięte przez{% else %}Closed by{% endif %}: {{ notification.closed_by.email|default:"-" }} / {{ notification.closed_at|date:"Y-m-d H:i" }}</span>{% endif %}
+                        </div>
+                        <h2 class="mt-2 font-display text-xl font-semibold text-[#284b63]">{{ notification.display_title }}</h2>
+                        <p class="mt-1 text-sm leading-6 text-[#353535]/65">{{ notification.display_message }}</p>
+                        <p class="mt-2 font-mono text-[11px] text-[#353535]/45">{{ notification.created_at|date:"Y-m-d H:i" }}{% if notification.customer %} / {{ notification.customer.email }}{% endif %}</p>
+                    </div>
+                    <div class="flex shrink-0 flex-wrap gap-2">
+                        {% if notification.action_url %}<a class="rounded border border-[#5ca197]/30 bg-white px-3 py-2 font-mono text-xs text-[#5ca197]" href="{{ notification.action_url }}">{% if request.LANGUAGE_CODE == 'pl' %}Otwórz{% else %}Open{% endif %}</a>{% endif %}
+                        {% if not notification.closed_at %}
+                            <form method="post" action="{% url 'dashboard:notification-close' notification.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button class="rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-xs text-[#353535]/65" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Zamknij{% else %}Close{% endif %}</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </article>
+        {% empty %}
+            <p class="rounded-lg border border-[#d9d9d9] bg-[#f8fafa] p-6 text-sm text-[#353535]/45">{% if request.LANGUAGE_CODE == 'pl' %}Brak powiadomień w tym widoku.{% else %}No notifications in this view.{% endif %}</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

@@ -76,8 +76,9 @@ class RegisteredClientChoiceField(forms.ModelChoiceField):
 
 
 class UserPlanUpdateForm(forms.Form):
+    PRO_MANUAL = "PRO_MANUAL"
     plan_tier = forms.ChoiceField(
-        choices=UserPlanTier.choices,
+        choices=[*UserPlanTier.choices, (PRO_MANUAL, "Pro Manual")],
         widget=forms.RadioSelect(attrs={"class": "plan-tier-radio"}),
     )
     billing_currency = forms.ChoiceField(
@@ -100,7 +101,8 @@ class UserPlanUpdateForm(forms.Form):
             return selected_tier
 
         current_count = self.user.organizations.count()
-        new_limit = USER_PLAN_ORGANIZATION_LIMITS[selected_tier]
+        effective_tier = UserPlanTier.PRO if selected_tier == self.PRO_MANUAL else selected_tier
+        new_limit = USER_PLAN_ORGANIZATION_LIMITS[effective_tier]
         if current_count > new_limit:
             raise forms.ValidationError(
                 f"You currently have {current_count} company pages. "
@@ -279,11 +281,16 @@ class BillingPaymentInvoiceForm(forms.ModelForm):
 class BillingInvoiceForm(forms.ModelForm):
     class Meta:
         model = BillingInvoice
-        fields = ("issued_at", "invoice_number", "document")
+        fields = ("issued_at", "sent_at", "invoice_number", "document")
         widgets = {
             "issued_at": forms.DateInput(attrs={"type": "date"}),
+            "sent_at": forms.DateInput(attrs={"type": "date"}),
             "invoice_number": forms.TextInput(attrs={"placeholder": "Invoice number"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["sent_at"].required = True
 
 
 class BillingProfileForm(forms.ModelForm):
@@ -308,7 +315,7 @@ class BillingProfileForm(forms.ModelForm):
                 self.fields["company_name"].initial = self.user.company_name
         self.fields["country"].help_text = "Use PL for Polish customers. Other countries will use EUR checkout."
         self.fields["tax_id"].label = "VAT ID"
-        self.fields["tax_id"].help_text = "Use the country prefix, e.g. PL1234567890. If omitted, we add the selected country."
+        self.fields["tax_id"].help_text = "Use the country prefix, e.g. PL5260250995. If omitted, we add the selected country."
         self.fields["tax_id"].required = True
         self.fields["company_name"].required = True
 
@@ -329,7 +336,10 @@ class BillingProfileForm(forms.ModelForm):
         elif country and tax_id[:2].isalpha() and tax_id[:2] != country:
             self.add_error("tax_id", "VAT ID country prefix must match the selected billing country.")
         elif country == "PL" and not is_valid_polish_nip(tax_id):
-            self.add_error("tax_id", "Enter a valid Polish VAT ID/NIP, e.g. PL1234567890.")
+            self.add_error(
+                "tax_id",
+                "Enter a valid Polish VAT ID/NIP. It must contain 10 digits and pass the NIP checksum, e.g. PL5260250995.",
+            )
         elif country in EU_VAT_COUNTRY_CODES and not re.fullmatch(r"[A-Z]{2}[A-Z0-9]{2,13}", tax_id):
             self.add_error("tax_id", "Enter a valid EU VAT ID with country prefix, e.g. DE123456789.")
         elif not re.fullmatch(r"[A-Z]{2}[A-Z0-9]{2,20}", tax_id):

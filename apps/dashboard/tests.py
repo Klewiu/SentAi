@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -12,8 +13,9 @@ from django.urls import reverse
 from django.utils.translation import override
 
 from apps.accounts.models import AccountType, UserPlanTier
-from apps.billing.models import BillingInvoice, BillingPayment, BillingPlanPrice, BillingProfile, BillingSubscription
+from apps.billing.models import BillingInvoice, BillingPayment, BillingPlanPrice, BillingProfile, BillingSubscription, ManualPlanOrder, ManualPlanOrderStatus
 from apps.companies.models import Organization, VerificationStatus
+from apps.notifications.models import AdminNotification, CustomerNotification, NotificationCategory, NotificationSeverity
 from apps.sales.models import ProspectActivity, ProspectClient, SellerSettlement
 
 
@@ -74,6 +76,53 @@ class BillingInvoiceTrackingTests(TestCase):
         self.assertEqual(self.payment.invoice_sent_at.isoformat(), "2026-06-28")
         self.assertEqual(self.payment.invoice_number, "FV/2026/001")
 
+    def test_admin_notification_center_lists_and_closes_notifications(self):
+        page = self.client.get(reverse("dashboard:notifications"))
+
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "New customer account")
+        notification = AdminNotification.objects.filter(closed_at__isnull=True).first()
+
+        response = self.client.post(reverse("dashboard:notification-close", args=[notification.pk]))
+
+        self.assertRedirects(response, reverse("dashboard:notifications"))
+        notification.refresh_from_db()
+        self.assertIsNotNone(notification.closed_at)
+        self.assertEqual(notification.closed_by, self.admin)
+
+    def test_notification_scan_creates_invoice_needed_alert(self):
+        self.payment.status = "paid"
+        self.payment.paid_at = timezone.now()
+        self.payment.save(update_fields=["status", "paid_at", "updated_at"])
+
+        page = self.client.get(reverse("dashboard:notifications"), {"q": self.customer.email})
+
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "Stripe payment needs invoice")
+        self.assertTrue(AdminNotification.objects.filter(reference_key=f"payment:{self.payment.pk}:invoice-needed").exists())
+
+    def test_admin_notifications_can_filter_by_type(self):
+        AdminNotification.objects.create(
+            title="Manual alert",
+            message="Manual alert message",
+            category=NotificationCategory.MANUAL_PLAN,
+            severity=NotificationSeverity.WARNING,
+            customer=self.customer,
+        )
+        AdminNotification.objects.create(
+            title="Invoice alert",
+            message="Invoice alert message",
+            category=NotificationCategory.INVOICE,
+            severity=NotificationSeverity.WARNING,
+            customer=self.customer,
+        )
+
+        response = self.client.get(reverse("dashboard:notifications"), {"show": "all", "type": NotificationCategory.INVOICE})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Invoice alert")
+        self.assertNotContains(response, "Manual alert")
+
     def test_sent_invoice_requires_date_and_number(self):
         response = self.client.post(
             reverse("dashboard:billing-payment-invoice-update", args=[self.payment.pk]),
@@ -99,6 +148,60 @@ class BillingInvoiceTrackingTests(TestCase):
         self.assertContains(page, "FV/2026/002")
         self.assertEqual(download.status_code, 200)
         self.assertEqual(b"".join(download.streaming_content), b"%PDF-1.4 customer invoice")
+
+    def test_customer_notification_center_shows_welcome_and_invoice_notice(self):
+        invoice = BillingInvoice.objects.create(
+            user=self.customer,
+            issued_at="2026-07-08",
+            invoice_number="FV/CUSTOMER/001",
+            document=SimpleUploadedFile("customer-notice.pdf", b"%PDF-1.4 customer notice", content_type="application/pdf"),
+        )
+        self.client.force_login(self.customer)
+
+        response = self.client.get(reverse("dashboard:customer-notifications"), {"show": "all", "type": NotificationCategory.INVOICE})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "New invoice available")
+        self.assertContains(response, invoice.invoice_number)
+        self.assertTrue(CustomerNotification.objects.filter(user=self.customer, reference_key=f"customer:{self.customer.pk}:welcome").exists())
+
+    def test_customer_notifications_use_polish_content_when_language_is_polish(self):
+        self.client.force_login(self.customer)
+
+        with override("pl"):
+            response = self.client.get(reverse("dashboard:customer-notifications"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Uzupełnij dane do faktury")
+        self.assertContains(response, "Wybierz plan")
+        self.assertNotContains(response, "Complete billing details")
+        self.assertNotContains(response, "Choose a plan")
+
+    def test_customer_notifications_scan_renewal_reminders(self):
+        BillingSubscription.objects.create(
+            user=self.customer,
+            tier=UserPlanTier.PRO,
+            status="active",
+            current_period_end=timezone.now() + timedelta(days=10),
+        )
+        ManualPlanOrder.objects.create(
+            user=self.customer,
+            amount=48000,
+            currency="pln",
+            status=ManualPlanOrderStatus.PAID,
+            payment_reference="PRO-RENEW-customer",
+            payment_due_at=timezone.now() - timedelta(days=350),
+            access_until=timezone.now() + timedelta(days=10),
+            paid_at=timezone.now() - timedelta(days=350),
+        )
+        self.client.force_login(self.customer)
+
+        response = self.client.get(reverse("dashboard:customer-notifications"), {"show": "all"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Subscription renews soon")
+        self.assertContains(response, "Pro Manual ends in 30 days")
+        self.assertContains(response, "Pro Manual ends in 14 days")
 
     def test_customer_cannot_download_another_customers_invoice(self):
         invoice = BillingInvoice.objects.create(
@@ -154,6 +257,48 @@ class BillingInvoiceTrackingTests(TestCase):
         self.assertEqual(invoice.subscription, subscription)
         self.assertTrue(invoice.sent)
         self.assertEqual(invoice.sent_at.isoformat(), "2026-06-28")
+
+    def test_billing_overview_and_invoice_admin_accept_sorting_and_search(self):
+        now = timezone.now()
+        subscription = BillingSubscription.objects.create(
+            user=self.customer,
+            tier=UserPlanTier.PRO,
+            status="active",
+            current_period_end=now + timedelta(days=365),
+        )
+        BillingPayment.objects.create(
+            user=self.customer,
+            subscription=subscription,
+            stripe_invoice_id="in_sortable_subscription",
+            amount_paid=40000,
+            currency="pln",
+            status="paid",
+            paid_at=now,
+        )
+        ManualPlanOrder.objects.create(
+            user=self.customer,
+            amount=48000,
+            currency="pln",
+            status=ManualPlanOrderStatus.PAID,
+            payment_reference="PRO-SORT-client",
+            payment_due_at=now + timedelta(days=14),
+            access_until=now + timedelta(days=365),
+            paid_at=now,
+        )
+
+        overview = self.client.get(
+            reverse("dashboard:billing-overview"),
+            {"manual_sort": "customer", "subscription_sort": "-payment", "q": "PRO-SORT"},
+        )
+        invoices = self.client.get(reverse("dashboard:billing-invoices-admin"), {"sort": "-invoice", "q": self.customer.email})
+
+        self.assertEqual(overview.status_code, 200)
+        self.assertContains(overview, "manual_sort")
+        self.assertContains(overview, "subscription_sort")
+        self.assertContains(overview, "PRO-SORT")
+        self.assertEqual(invoices.status_code, 200)
+        self.assertContains(invoices, "sort")
+        self.assertContains(invoices, self.customer.email)
 
 
 class DashboardPlanLimitTests(TestCase):
@@ -281,6 +426,203 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Manage subscription")
         self.assertContains(response, "PLUS")
+
+    def test_customer_can_order_manual_pro_and_get_immediate_access(self):
+        self.create_billing_profile(country="PL")
+
+        response = self.client.post(
+            reverse("dashboard:plan-update"),
+            {"plan_tier": "PRO_MANUAL", "billing_currency": "pln", "subscription_terms_accepted": "on"},
+        )
+
+        self.assertRedirects(response, reverse("dashboard:manual-plan-confirm"))
+        self.assertFalse(ManualPlanOrder.objects.filter(user=self.user).exists())
+
+        confirmation = self.client.post(reverse("dashboard:manual-plan-confirm"))
+
+        self.assertRedirects(confirmation, reverse("dashboard:plan-update"))
+        self.user.refresh_from_db()
+        order = ManualPlanOrder.objects.get(user=self.user)
+        self.assertEqual(self.user.plan_tier, UserPlanTier.PRO)
+        self.assertEqual(order.amount, 48000)
+        self.assertEqual(order.currency, "pln")
+        self.assertEqual(order.status, ManualPlanOrderStatus.AWAITING_PAYMENT)
+        self.assertGreaterEqual((order.payment_due_at - order.created_at).days, 13)
+        self.assertIn("Client-Company", order.payment_reference)
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
+    @patch("apps.dashboard.views.stripe.checkout.Session.create")
+    def test_manual_pro_blocks_parallel_stripe_subscription(self, mock_checkout_create):
+        self.create_billing_profile(country="PL")
+        now = timezone.now()
+        ManualPlanOrder.objects.create(
+            user=self.user,
+            amount=48000,
+            currency="pln",
+            payment_reference="PRO-LOCK-client-bez-firmy",
+            payment_due_at=now + timedelta(days=14),
+            access_until=now + timedelta(days=365),
+        )
+        self.user.plan_tier = UserPlanTier.PRO
+        self.user.plan_selected_at = now
+        self.user.save(update_fields=["plan_tier", "plan_selected_at"])
+
+        response = self.client.post(
+            reverse("dashboard:plan-update"),
+            {"plan_tier": UserPlanTier.PLUS, "billing_currency": "pln", "subscription_terms_accepted": "on"},
+        )
+
+        self.assertRedirects(response, reverse("dashboard:plan-update"))
+        mock_checkout_create.assert_not_called()
+
+    def test_admin_can_disable_manual_pro(self):
+        now = timezone.now()
+        order = ManualPlanOrder.objects.create(
+            user=self.user,
+            amount=48000,
+            currency="pln",
+            payment_reference="PRO-DISABLE-client-bez-firmy",
+            payment_due_at=now + timedelta(days=14),
+            access_until=now + timedelta(days=365),
+        )
+        self.user.plan_tier = UserPlanTier.PRO
+        self.user.save(update_fields=["plan_tier"])
+        admin = User.objects.create_superuser("manual-admin", "manual-admin@example.com", "strong-pass-123")
+        self.client.force_login(admin)
+
+        response = self.client.post(reverse("dashboard:manual-plan-disable", args=[order.pk]))
+
+        self.assertRedirects(response, reverse("dashboard:billing-overview"))
+        self.user.refresh_from_db()
+        order.refresh_from_db()
+        self.assertEqual(self.user.plan_tier, UserPlanTier.BASIC)
+        self.assertEqual(order.status, ManualPlanOrderStatus.DISABLED)
+        self.assertEqual(order.disabled_by, admin)
+
+    def test_confirmed_manual_payment_counts_as_turnover_and_accepts_invoice(self):
+        now = timezone.now()
+        order = ManualPlanOrder.objects.create(
+            user=self.user,
+            amount=48000,
+            currency="pln",
+            payment_reference="PRO-PAID-client-bez-firmy",
+            payment_due_at=now + timedelta(days=14),
+            access_until=now + timedelta(days=365),
+        )
+        admin = User.objects.create_superuser("turnover-admin", "turnover-admin@example.com", "strong-pass-123")
+        self.client.force_login(admin)
+
+        confirmation = self.client.post(reverse("dashboard:manual-plan-mark-paid", args=[order.pk]))
+
+        self.assertRedirects(confirmation, reverse("dashboard:billing-overview"))
+        order.refresh_from_db()
+        self.assertEqual(order.status, ManualPlanOrderStatus.PAID)
+        overview = self.client.get(reverse("dashboard:billing-overview"))
+        self.assertContains(overview, "480.00 PLN", count=4)
+
+        invoice_response = self.client.post(
+            reverse("dashboard:manual-plan-invoice", args=[order.pk]),
+            {
+                "issued_at": "2026-07-06",
+                "sent_at": "2026-07-07",
+                "invoice_number": "FV/MANUAL/001",
+                "document": SimpleUploadedFile("manual.pdf", b"%PDF-1.4 manual", content_type="application/pdf"),
+            },
+        )
+
+        self.assertRedirects(invoice_response, reverse("dashboard:billing-invoices-admin"))
+        invoice = BillingInvoice.objects.get(manual_order=order)
+        self.assertEqual(invoice.user, self.user)
+        self.assertEqual(invoice.invoice_number, "FV/MANUAL/001")
+        self.assertEqual(invoice.sent_at.isoformat(), "2026-07-07")
+
+    def test_each_paid_stripe_payment_gets_separate_invoice_task(self):
+        subscription = BillingSubscription.objects.create(
+            user=self.user,
+            tier=UserPlanTier.PRO,
+            status="active",
+            stripe_subscription_id="sub_invoice_tasks",
+        )
+        first = BillingPayment.objects.create(
+            user=self.user,
+            subscription=subscription,
+            stripe_invoice_id="in_year_1",
+            amount_paid=40000,
+            currency="pln",
+            status="paid",
+            paid_at=timezone.now() - timedelta(days=365),
+        )
+        second = BillingPayment.objects.create(
+            user=self.user,
+            subscription=subscription,
+            stripe_invoice_id="in_year_2",
+            amount_paid=40000,
+            currency="pln",
+            status="paid",
+            paid_at=timezone.now(),
+        )
+        admin = User.objects.create_superuser("invoice-task-admin", "invoice-task-admin@example.com", "strong-pass-123")
+        self.client.force_login(admin)
+
+        page = self.client.get(reverse("dashboard:billing-invoices-admin"))
+
+        self.assertContains(page, "Upload invoice", count=2)
+        response = self.client.post(
+            reverse("dashboard:stripe-payment-invoice", args=[second.pk]),
+            {
+                "issued_at": "2026-07-06",
+                "sent_at": "2026-07-08",
+                "invoice_number": "FV/STRIPE/002",
+                "document": SimpleUploadedFile("stripe.pdf", b"%PDF-1.4 stripe", content_type="application/pdf"),
+            },
+        )
+        self.assertRedirects(response, reverse("dashboard:billing-invoices-admin"))
+        self.assertTrue(BillingInvoice.objects.filter(payment=second, invoice_number="FV/STRIPE/002").exists())
+        self.assertFalse(BillingInvoice.objects.filter(payment=first).exists())
+        detail = self.client.get(reverse("dashboard:billing-customer-invoices", args=[self.user.pk]))
+        self.assertContains(detail, "FV/STRIPE/002")
+        self.assertContains(detail, "2026-07-08")
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
+    @patch("apps.dashboard.views.stripe.billing_portal.Session.create")
+    def test_customer_can_open_stripe_portal_to_update_payment_method(self, mock_portal_create):
+        BillingSubscription.objects.create(
+            user=self.user,
+            tier=UserPlanTier.PLUS,
+            stripe_customer_id="cus_test_123",
+            stripe_subscription_id="sub_test_123",
+            status="past_due",
+        )
+        mock_portal_create.return_value = SimpleNamespace(url="https://billing.stripe.test/session")
+
+        response = self.client.get(reverse("dashboard:stripe-customer-portal"))
+
+        self.assertRedirects(response, "https://billing.stripe.test/session", fetch_redirect_response=False)
+        mock_portal_create.assert_called_once()
+        self.assertEqual(mock_portal_create.call_args.kwargs["customer"], "cus_test_123")
+
+    @override_settings(STRIPE_SECRET_KEY="")
+    def test_past_due_subscription_shows_failed_payment_recovery(self):
+        subscription = BillingSubscription.objects.create(
+            user=self.user,
+            tier=UserPlanTier.PLUS,
+            stripe_customer_id="cus_test_123",
+            stripe_subscription_id="sub_test_123",
+            status="past_due",
+        )
+        BillingPayment.objects.create(
+            user=self.user,
+            subscription=subscription,
+            stripe_invoice_id="in_failed_123",
+            status="open",
+            hosted_invoice_url="https://invoice.stripe.test/in_failed_123",
+        )
+
+        response = self.client.get(reverse("dashboard:billing-portal"))
+
+        self.assertContains(response, "Your renewal payment failed")
+        self.assertContains(response, reverse("dashboard:stripe-customer-portal"))
+        self.assertContains(response, "https://invoice.stripe.test/in_failed_123")
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
     @patch("apps.dashboard.views.stripe.Subscription.retrieve")
@@ -634,6 +976,23 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Enter a valid Polish VAT ID")
 
+    def test_billing_profile_accepts_polish_vat_id_with_valid_checksum(self):
+        response = self.client.post(
+            reverse("dashboard:billing-profile"),
+            {
+                "company_name": "Client Company",
+                "tax_id": "PL5260250995",
+                "street": "Test Street 1",
+                "postal_code": "00-001",
+                "city": "Warsaw",
+                "country": "PL",
+                "invoice_email": self.user.email,
+            },
+        )
+
+        self.assertRedirects(response, reverse("dashboard:plan-update"))
+        self.assertEqual(self.user.billing_profile.tax_id, "PL5260250995")
+
     def test_billing_profile_rejects_vat_prefix_that_does_not_match_country(self):
         response = self.client.post(
             reverse("dashboard:billing-profile"),
@@ -774,6 +1133,35 @@ class DashboardPlanLimitTests(TestCase):
         subscription.refresh_from_db()
         self.assertEqual(subscription.latest_invoice_id, "in_renewal_123")
         self.assertIsNotNone(subscription.latest_payment_at)
+
+    @override_settings(STRIPE_WEBHOOK_SECRET="")
+    def test_unpaid_subscription_webhook_revokes_paid_access(self):
+        self.user.plan_tier = UserPlanTier.PLUS
+        self.user.paid_plan_started_at = timezone.now()
+        self.user.save(update_fields=["plan_tier", "paid_plan_started_at"])
+        BillingSubscription.objects.create(
+            user=self.user,
+            tier=UserPlanTier.PLUS,
+            stripe_customer_id="cus_test_123",
+            stripe_subscription_id="sub_test_123",
+            status="past_due",
+        )
+        payload = {
+            "type": "customer.subscription.updated",
+            "data": {"object": {
+                "id": "sub_test_123",
+                "customer": "cus_test_123",
+                "status": "unpaid",
+                "metadata": {"user_id": str(self.user.pk), "plan_tier": UserPlanTier.PLUS},
+                "items": {"data": []},
+            }},
+        }
+
+        response = self.client.post(reverse("stripe-webhook"), data=json.dumps(payload), content_type="application/json")
+
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.plan_tier, UserPlanTier.BASIC)
 
     def test_user_can_downgrade_to_basic_without_payment(self):
         self.user.plan_tier = UserPlanTier.PLUS
@@ -1359,6 +1747,29 @@ class SellerManagementTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.seller.username)
+
+    def test_admin_client_list_shows_last_invoice_date(self):
+        client_user = User.objects.create_user(
+            username="client-with-last-invoice",
+            email="client-with-last-invoice@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+        )
+        BillingInvoice.objects.create(
+            user=client_user,
+            issued_at="2026-07-05",
+            sent=True,
+            sent_at="2026-07-08",
+            invoice_number="FV/LAST/001",
+            document=SimpleUploadedFile("last-invoice.pdf", b"%PDF-1.4 last", content_type="application/pdf"),
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("dashboard:client-list"), {"sort": "-invoice"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Last invoice")
+        self.assertContains(response, "2026-07-08")
 
     def test_admin_client_list_shows_verified_badge_when_client_has_verified_organization(self):
         client_user = User.objects.create_user(

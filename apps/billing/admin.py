@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import BillingInvoice, BillingPayment, BillingPlanPrice, BillingProfile, BillingSubscription
+from .models import BillingInvoice, BillingPayment, BillingPlanPrice, BillingProfile, BillingSubscription, ManualPlanOrder
+
+
+@admin.register(ManualPlanOrder)
+class ManualPlanOrderAdmin(admin.ModelAdmin):
+    list_display = ("payment_reference", "user", "amount", "currency", "status", "payment_due_at", "access_until")
+    list_filter = ("status", "currency")
+    search_fields = ("payment_reference", "user__email", "user__username")
 
 
 @admin.register(BillingPlanPrice)

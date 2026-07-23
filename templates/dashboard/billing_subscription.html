@@ -33,6 +33,26 @@
     </div>
 
     {% if billing_subscription %}
+        {% if billing_subscription.status == 'past_due' %}
+            <div class="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5 text-amber-950" role="alert">
+                <h2 class="font-display text-xl font-semibold">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Platnosc za odnowienie nie powiodla sie{% else %}Your renewal payment failed{% endif %}
+                </h2>
+                <p class="mt-2 text-sm leading-6">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Dostep pozostaje tymczasowo aktywny, gdy Stripe ponawia platnosc. Zaktualizuj metode platnosci, aby uniknac przejscia na plan BASIC.{% else %}Your access remains temporarily active while Stripe retries the payment. Update your payment method to avoid being moved to the BASIC plan.{% endif %}
+                </p>
+                <div class="mt-4 flex flex-wrap gap-3">
+                    <a class="inline-flex min-h-10 items-center justify-center rounded bg-[#284b63] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1e3a4f]" href="{% url 'dashboard:stripe-customer-portal' %}">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Zaktualizuj metode platnosci{% else %}Update payment method{% endif %}
+                    </a>
+                    {% if failed_payment.hosted_invoice_url %}
+                        <a class="inline-flex min-h-10 items-center justify-center rounded border border-amber-400 bg-white px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100" href="{{ failed_payment.hosted_invoice_url }}">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Oplac zalegla fakture{% else %}Pay outstanding invoice{% endif %}
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
         <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4">
                 <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Aktualny plan{% else %}Current plan{% endif %}</p>

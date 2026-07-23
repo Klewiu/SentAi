@@ -215,5 +215,9 @@ def record_invoice_payment(invoice: Any):
         billing_subscription.latest_invoice_id = payment.stripe_invoice_id
         billing_subscription.latest_payment_at = payment.paid_at or timezone.now()
         billing_subscription.save(update_fields=["latest_invoice_id", "latest_payment_at", "updated_at"])
+        from apps.notifications.services import notify_invoice_needed_for_payment
+
+        if not payment.invoices.exists():
+            notify_invoice_needed_for_payment(payment)
 
     return payment

@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="mx-auto max-w-3xl rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
+    <p class="font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">Pro Manual</p>
+    <h1 class="mt-2 font-display text-3xl font-bold text-[#284b63]">
+        {% if request.LANGUAGE_CODE == 'pl' %}Potwierd&#378; zam&#243;wienie planu rocznego{% else %}Confirm annual plan order{% endif %}
+    </h1>
+    <div class="mt-6 space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-5 text-sm leading-6 text-amber-950">
+        {% if request.LANGUAGE_CODE == 'pl' %}
+            <p>Plan PRO zostanie aktywowany natychmiast na 12 miesi&#281;cy w cenie <strong>{{ manual_pro_price_label }}</strong>.</p>
+            <p>Przelew musi zosta&#263; zaksi&#281;gowany w ci&#261;gu 14 dni. W przeciwnym razie administrator mo&#380;e r&#281;cznie wy&#322;&#261;czy&#263; plan.</p>
+            <p>Podczas aktywnego planu Pro Manual nie mo&#380;na uruchomi&#263; dodatkowej subskrypcji Stripe.</p>
+        {% else %}
+            <p>The PRO plan will be activated immediately for 12 months at a price of <strong>{{ manual_pro_price_label }}</strong>.</p>
+            <p>The transfer must be received within 14 days. Otherwise, the administrator can manually disable the plan.</p>
+            <p>You cannot start an additional Stripe subscription while Pro Manual is active.</p>
+        {% endif %}
+    </div>
+    <div class="mt-5 rounded-lg border border-[#d9d9d9] bg-[#f8fafa] p-5 text-sm">
+        <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Firma{% else %}Company{% endif %}:</strong> {{ billing_profile.company_name }}</p>
+        <p class="mt-2"><strong>VAT ID:</strong> {{ billing_profile.tax_id }}</p>
+        <p class="mt-2"><strong>{% if request.LANGUAGE_CODE == 'pl' %}Kwota{% else %}Amount{% endif %}:</strong> {{ manual_pro_price_label }}</p>
+        <p class="mt-2"><strong>{% if request.LANGUAGE_CODE == 'pl' %}Odbiorca{% else %}Recipient{% endif %}:</strong> {{ manual_payment_recipient }}</p>
+        <p class="mt-2"><strong>IBAN:</strong> {{ manual_payment_iban }}</p>
+        <p class="mt-2"><strong>Bank:</strong> {{ manual_payment_bank }}</p>
+    </div>
+    <div class="mt-6 flex flex-wrap justify-end gap-2">
+        <a class="inline-flex min-h-10 items-center rounded border border-[#d9d9d9] px-4 py-2 font-mono text-xs" href="{% url 'dashboard:plan-update' %}">{% if request.LANGUAGE_CODE == 'pl' %}Anuluj{% else %}Cancel{% endif %}</a>
+        <form method="post">{% csrf_token %}<button class="min-h-10 rounded bg-[#284b63] px-5 py-2 text-sm font-semibold text-white" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Potwierdzam zam&#243;wienie{% else %}Confirm order{% endif %}</button></form>
+    </div>
+</section>
+{% endblock %}

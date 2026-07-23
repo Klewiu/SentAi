@@ -83,6 +83,9 @@
                             <a class="hover:text-[#5ca197]" href="{{ sort_urls.login }}">{% if request.LANGUAGE_CODE == 'pl' %}Ostatnie logowanie{% else %}Last login{% endif %}</a>
                         </th>
                         <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/40">
+                            <a class="hover:text-[#5ca197]" href="{{ sort_urls.invoice }}">{% if request.LANGUAGE_CODE == 'pl' %}Ostatnia faktura{% else %}Last invoice{% endif %}</a>
+                        </th>
+                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/40">
                             <a class="hover:text-[#5ca197]" href="{{ sort_urls.reviewed }}">{% if request.LANGUAGE_CODE == 'pl' %}Ostatni przegląd{% else %}Reviewed{% endif %}</a>
                         </th>
                         <th class="px-4 py-3"></th>
@@ -141,6 +144,15 @@
                             {{ client.last_login|date:"Y-m-d H:i"|default:"-" }}
                         </td>
                         <td class="px-4 py-3 font-mono text-xs text-[#353535]/50">
+                            {% if client.last_invoice_sent_at %}
+                                {{ client.last_invoice_sent_at|date:"Y-m-d" }}
+                            {% elif client.last_invoice_issued_at %}
+                                {{ client.last_invoice_issued_at|date:"Y-m-d" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 font-mono text-xs text-[#353535]/50">
                             {{ client.last_reviewed_at|date:"Y-m-d H:i"|default:"-" }}
                         </td>
                         <td class="w-36 px-4 py-3 text-right">
@@ -158,7 +170,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="11" class="px-4 py-8 text-center font-mono text-sm text-[#353535]/40">
+                        <td colspan="12" class="px-4 py-8 text-center font-mono text-sm text-[#353535]/40">
                             {% if request.LANGUAGE_CODE == 'pl' %}Brak klient&#xF3;w.{% else %}No clients yet.{% endif %}
                         </td>
                     </tr>

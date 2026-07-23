@@ -126,7 +126,7 @@
                             </a>
                         </div>
                         {% if navbar_show_account_badges %}
-                            <div class="grid w-full {% if request.user.account_type == 'STAFF' %}grid-cols-1{% else %}grid-cols-4{% endif %} gap-2 sm:flex sm:w-auto">
+                            <div class="grid w-full {% if request.user.account_type == 'STAFF' %}grid-cols-1{% else %}grid-cols-5{% endif %} gap-2 sm:flex sm:w-auto">
                                 {% if request.user.account_type != 'STAFF' %}
                                     <a class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-2 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:px-3" href="{% url 'dashboard:plan-update' %}">
                                         <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -138,6 +138,14 @@
                                 {% if request.user.account_type != 'STAFF' %}
                                     <a class="inline-flex min-h-9 items-center justify-center rounded border border-[#d9d9d9] bg-white px-2 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:px-3" href="{% url 'dashboard:customer-invoices' %}">
                                         {% if request.LANGUAGE_CODE == 'pl' %}Faktury{% else %}Invoices{% endif %}
+                                    </a>
+                                {% endif %}
+                                {% if request.user.account_type != 'STAFF' %}
+                                    <a class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-2 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:px-3" href="{% url 'dashboard:customer-notifications' %}">
+                                        <span>{% if request.LANGUAGE_CODE == 'pl' %}Powiadomienia{% else %}Notifications{% endif %}</span>
+                                        {% if navbar_customer_notification_count %}
+                                            <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">{{ navbar_customer_notification_count }}</span>
+                                        {% endif %}
                                     </a>
                                 {% endif %}
                                 <a href="{% url 'accounts:profile' %}" class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-2 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:px-3">
@@ -165,6 +173,12 @@
                             </span>
                         {% endif %}
                         {% if request.user.is_superuser %}
+                            <a class="inline-flex min-h-9 w-full items-center justify-center gap-2 rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto" href="{% url 'dashboard:notifications' %}">
+                                <span>{% if request.LANGUAGE_CODE == 'pl' %}Powiadomienia{% else %}Notifications{% endif %}</span>
+                                {% if navbar_active_notification_count %}
+                                    <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">{{ navbar_active_notification_count }}</span>
+                                {% endif %}
+                            </a>
                             <a class="inline-flex min-h-9 w-full items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto" href="{% url 'admin:index' %}">Admin</a>
                             <a class="inline-flex min-h-9 w-full items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto" href="{% url 'companies_api:organization-list' %}">Api</a>
                         {% endif %}
