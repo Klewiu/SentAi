@@ -1,11 +1,15 @@
 from datetime import date, timedelta
 import uuid
+import logging
+from django.db import transaction
+
+logger = logging.getLogger(__name__)
 
 import stripe
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
@@ -28,8 +32,10 @@ from apps.billing.models import (
 )
 from apps.billing.services import (
     activate_paid_plan,
+    basic_price_amount,
     downgrade_to_basic,
     format_amount,
+    object_get,
     get_active_plan_price,
     normalize_billing_currency,
     plan_price_label,
@@ -46,7 +52,15 @@ from .forms import BillingInvoiceForm, BillingPaymentInvoiceForm, BillingPlanPri
 from .forms import ProspectLinkClientForm
 
 
-def create_manual_plan_order(user, currency):
+@transaction.atomic
+def create_manual_plan_order(user, currency, tier=UserPlanTier.PRO):
+    if tier != UserPlanTier.PRO:
+        raise ValueError("Unsupported manual plan")
+    user = User.objects.select_for_update().get(pk=user.pk)
+    if user.manual_plan_orders.filter(access_until__gt=timezone.now()).exists():
+        raise ValueError("A manual order already exists for this period.")
+    if BillingSubscription.objects.filter(user=user).exclude(status__in=["canceled", "incomplete_expired", "unpaid"]).exists():
+        raise ValueError("Cancel your existing subscription before creating a manual order.")
     now = timezone.now()
     billing_profile = getattr(user, "billing_profile", None)
     customer_name = (
@@ -57,17 +71,18 @@ def create_manual_plan_order(user, currency):
     )
     reference_token = uuid.uuid4().hex[:8].upper()
     safe_name = "-".join(customer_name.split())[:50]
-    payment_reference = f"PRO-{reference_token}-{safe_name}"[:255]
+    payment_reference = f"{tier}-{reference_token}-{safe_name}"[:255]
     amount = settings.MANUAL_PRO_PRICE_PLN if currency == "pln" else settings.MANUAL_PRO_PRICE_EUR
     order = ManualPlanOrder.objects.create(
         user=user,
+        tier=tier,
         amount=amount,
         currency=currency,
         payment_reference=payment_reference,
         payment_due_at=now + timedelta(days=14),
         access_until=now + timedelta(days=365),
     )
-    activate_paid_plan(user, UserPlanTier.PRO)
+    activate_paid_plan(user, tier)
     from apps.notifications.services import notify_manual_order_created
 
     notify_manual_order_created(order)
@@ -82,6 +97,11 @@ class LandingView(TemplateView):
         selected_currency = normalize_billing_currency(self.request.GET.get("currency"))
         context["selected_billing_currency"] = selected_currency
         context["billing_currencies"] = supported_billing_currencies()
+        context["basic_price"] = plan_price_label(
+            UserPlanTier.BASIC,
+            basic_price_amount(selected_currency),
+            selected_currency,
+        )
         context["plus_price"] = plan_price_label(
             UserPlanTier.PLUS,
             settings.STRIPE_PLUS_PRICE_AMOUNT,
@@ -132,10 +152,17 @@ class DashboardHomeView(UserOrganizationQuerysetMixin, TemplateView):
         verified_organization_count = organizations.filter(
             verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED
         ).count()
+        from apps.companies.services import profile_language_choices
+        for organization in organizations:
+            organization.profile_languages = profile_language_choices(organization)
+            from apps.billing.access import has_publication_access
+            organization.has_publication_access = has_publication_access(organization.owner)
         context["organizations"] = organizations
         context["organization_count"] = organizations.count()
         context["verified_organization_count"] = verified_organization_count
         context["pending_verification_count"] = organizations.count() - verified_organization_count
+        from apps.billing.access import has_publication_access
+        context["has_publication_access"] = has_publication_access(self.request.user)
         context["organization_limit"] = self.current_organization_limit()
         context["can_create_organization"] = self.can_create_organization()
         return context
@@ -185,8 +212,14 @@ class OrganizationCreateView(UserOrganizationQuerysetMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.owner = self.request.user
+        from django.core.exceptions import ValidationError
+        try:
+            response = super().form_valid(form)
+        except ValidationError as error:
+            form.add_error(None, error)
+            return self.form_invalid(form)
         messages.success(self.request, "Organization profile saved.")
-        return super().form_valid(form)
+        return response
 
 
 class OrganizationUpdateView(UserOrganizationQuerysetMixin, UpdateView):
@@ -202,8 +235,14 @@ class OrganizationUpdateView(UserOrganizationQuerysetMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
+        from django.core.exceptions import ValidationError
+        try:
+            response = super().form_valid(form)
+        except ValidationError as error:
+            form.add_error(None, error)
+            return self.form_invalid(form)
         messages.success(self.request, "Organization profile updated.")
-        return super().form_valid(form)
+        return response
 
 
 class OrganizationDeleteView(UserOrganizationQuerysetMixin, View):
@@ -227,7 +266,7 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
     form_class = UserPlanUpdateForm
     template_name = "dashboard/plan_form.html"
     success_url = reverse_lazy("dashboard:home")
-    paid_tiers = {UserPlanTier.PLUS, UserPlanTier.PRO}
+    paid_tiers = set(UserPlanTier.values)
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_superuser:
@@ -247,7 +286,7 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
             profile_currency = billing_profile.billing_currency() if billing_profile else None
             kwargs["initial"]["billing_currency"] = normalize_billing_currency(self.request.GET.get("currency") or profile_currency)
             if self.request.user.manual_plan_orders.filter(
-                status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID]
+                status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID], access_until__gt=timezone.now()
             ).exists():
                 kwargs["initial"]["plan_tier"] = UserPlanUpdateForm.PRO_MANUAL
         return kwargs
@@ -263,10 +302,16 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
         )
         plus_price = get_active_plan_price(UserPlanTier.PLUS, selected_currency)
         pro_price = get_active_plan_price(UserPlanTier.PRO, selected_currency)
+        basic_price = get_active_plan_price(UserPlanTier.BASIC, selected_currency)
         context["selected_billing_currency"] = selected_currency
         context["billing_currencies"] = supported_billing_currencies()
-        context["stripe_checkout_enabled"] = bool(settings.STRIPE_SECRET_KEY and (plus_price or pro_price))
+        context["stripe_checkout_enabled"] = bool(settings.STRIPE_SECRET_KEY and (basic_price or plus_price or pro_price))
         context["stripe_test_mode"] = settings.STRIPE_SECRET_KEY.startswith("sk_test_")
+        context["basic_price_label"] = plan_price_label(
+            UserPlanTier.BASIC,
+            basic_price_amount(selected_currency),
+            selected_currency,
+        )
         context["plus_price_label"] = plan_price_label(
             UserPlanTier.PLUS,
             settings.STRIPE_PLUS_PRICE_AMOUNT,
@@ -279,10 +324,11 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
         )
         context["plus_price_configured"] = bool(plus_price)
         context["pro_price_configured"] = bool(pro_price)
+        context["basic_price_configured"] = bool(basic_price)
         context["billing_subscription"] = getattr(self.request.user, "billing_subscription", None)
         context["billing_profile"] = getattr(self.request.user, "billing_profile", None)
         manual_plan_order = self.request.user.manual_plan_orders.filter(
-            status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID]
+            status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID], access_until__gt=timezone.now()
         ).first()
         context["manual_plan_order"] = manual_plan_order
         manual_currency = manual_plan_order.currency if manual_plan_order else selected_currency
@@ -297,7 +343,7 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
 
     @staticmethod
     def _format_price_label(unit_amount: int, currency: str) -> str:
-        return f"{unit_amount / 100:.2f} {currency.upper()}"
+        return format_amount(unit_amount, currency)
 
     def _build_checkout_urls(self) -> tuple[str, str]:
         success_url = (
@@ -308,6 +354,46 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
         return success_url, cancel_url
 
     def _create_checkout_session(self, selected_tier: str, plan_price: BillingPlanPrice):
+        from apps.billing.models import CheckoutAttempt
+        # Persist the request key before contacting Stripe, so retries after an
+        # application crash use the same key.
+        CheckoutAttempt.objects.get_or_create(user=self.request.user)
+        return self._create_locked_checkout_session(selected_tier, plan_price)
+
+    @transaction.atomic
+    def _create_locked_checkout_session(self, selected_tier, plan_price):
+        from apps.billing.models import CheckoutAttempt
+        from apps.billing.services import object_get
+        User.objects.select_for_update().get(pk=self.request.user.pk)
+        attempt = CheckoutAttempt.objects.select_for_update().get(user=self.request.user)
+        if ManualPlanOrder.objects.filter(user=self.request.user, access_until__gt=timezone.now()).exists():
+            raise ValueError("A manual plan order already covers this period.")
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        if selected_tier == UserPlanTier.BASIC:
+            remote_price = stripe.Price.retrieve(plan_price.stripe_price_id)
+            recurring = object_get(remote_price, "recurring", {}) or {}
+            if (object_get(remote_price, "unit_amount") != basic_price_amount(plan_price.currency) or object_get(remote_price, "currency") != plan_price.currency
+                    or object_get(recurring, "interval") != "year" or object_get(recurring, "interval_count", 1) != 1
+                    or not object_get(remote_price, "active", False)):
+                raise ValueError("Basic requires the configured annual Stripe price for the selected currency")
+        if attempt.session_id:
+            previous = stripe.checkout.Session.retrieve(attempt.session_id)
+            if object_get(previous, "status") == "open" and attempt.price_id == plan_price.stripe_price_id:
+                return previous
+            if object_get(previous, "status") == "complete":
+                subscription_id = object_get(previous, "subscription")
+                if subscription_id:
+                    previous_subscription = stripe.Subscription.retrieve(subscription_id)
+                    if object_get(previous_subscription, "status") not in {"canceled", "incomplete_expired"}:
+                        raise ValueError("The previous checkout completed. Manage the existing subscription.")
+                else:
+                    raise ValueError("The completed checkout needs billing review.")
+            if object_get(previous, "status") == "open":
+                stripe.checkout.Session.expire(attempt.session_id)
+            # Stable across rollback after Stripe accepted the replacement request.
+            attempt.request_key = uuid.uuid5(uuid.NAMESPACE_URL, f"checkout:{attempt.session_id}:{plan_price.stripe_price_id}")
+        if BillingSubscription.objects.filter(user=self.request.user).exclude(status__in=["canceled", "incomplete_expired"]).exists():
+            raise ValueError("A subscription already exists.")
         stripe.api_key = settings.STRIPE_SECRET_KEY
         success_url, cancel_url = self._build_checkout_urls()
         billing_profile = getattr(self.request.user, "billing_profile", None)
@@ -327,7 +413,8 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
             "billing_customer_type": billing_profile.customer_type,
         }
 
-        return stripe.checkout.Session.create(
+        checkout = stripe.checkout.Session.create(
+            idempotency_key=f"checkout:{attempt.request_key}",
             mode="subscription",
             payment_method_types=["card"],
             **customer_kwargs,
@@ -358,42 +445,16 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
             },
         )
 
-    def _create_plus_to_pro_upgrade_session(self, plan_price: BillingPlanPrice, billing_subscription: BillingSubscription):
-        stripe.api_key = settings.STRIPE_SECRET_KEY
-        success_url, cancel_url = self._build_checkout_urls()
-        customer_kwargs = {}
-        if billing_subscription.stripe_customer_id:
-            customer_kwargs["customer"] = billing_subscription.stripe_customer_id
-        else:
-            customer_kwargs["customer_email"] = self.request.user.email or None
+        attempt.session_id = object_get(checkout, "id", "")
+        attempt.price_id = plan_price.stripe_price_id
+        attempt.save()
+        return checkout
 
-        return stripe.checkout.Session.create(
-            mode="payment",
-            payment_method_types=["card"],
-            **customer_kwargs,
-            client_reference_id=str(self.request.user.pk),
-            line_items=[
-                {
-                    "price_data": {
-                        "currency": plan_price.currency,
-                        "unit_amount": plan_price.amount,
-                        "product_data": {
-                            "name": "PRO yearly subscription plan change",
-                        },
-                    },
-                    "quantity": 1,
-                }
-            ],
-            success_url=success_url,
-            cancel_url=cancel_url,
-            metadata={
-                "user_id": str(self.request.user.pk),
-                "plan_tier": UserPlanTier.PRO,
-                "upgrade_type": "plus_to_pro",
-                "billing_plan_price_id": str(plan_price.pk),
-                "stripe_subscription_id": billing_subscription.stripe_subscription_id,
-            },
-        )
+    def _create_plus_to_pro_upgrade_session(self, plan_price, billing_subscription):
+        from apps.billing.services import upgrade_subscription
+        from types import SimpleNamespace
+        url = upgrade_subscription(self.request.user, plan_price)
+        return SimpleNamespace(url=url or reverse("dashboard:billing-portal"))
 
     def form_valid(self, form):
         selected_tier = form.cleaned_data["plan_tier"]
@@ -401,23 +462,23 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
         user = self.request.user
         has_selected_plan = user.has_selected_plan()
         active_manual_order = user.manual_plan_orders.filter(
-            status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID]
+            status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID], access_until__gt=timezone.now()
         ).first()
 
         if active_manual_order and selected_tier != UserPlanUpdateForm.PRO_MANUAL:
-            messages.warning(self.request, "Plan Pro Manual jest aktywny. Inny plan będzie dostępny po jego wyłączeniu lub zakończeniu.")
+            messages.warning(self.request, "Plan Manual jest aktywny. Inny plan będzie dostępny po jego wyłączeniu lub zakończeniu.")
             return redirect("dashboard:plan-update")
 
         if selected_tier == UserPlanUpdateForm.PRO_MANUAL:
             if active_manual_order:
-                messages.info(self.request, "Masz już aktywny plan Pro Manual.")
+                messages.info(self.request, "Masz już aktywny plan Manual.")
                 return redirect("dashboard:plan-update")
             if user.manual_plan_orders.filter(access_until__gt=timezone.now()).exists():
-                messages.warning(self.request, "Nie można ponownie uruchomić Pro Manual przed końcem pierwotnego roku zamówienia.")
+                messages.warning(self.request, "Nie można ponownie uruchomić planu Manual przed końcem pierwotnego roku zamówienia.")
                 return redirect("dashboard:plan-update")
             existing_subscription = getattr(user, "billing_subscription", None)
             if existing_subscription and existing_subscription.stripe_subscription_id and existing_subscription.status in {"active", "trialing", "past_due"}:
-                messages.warning(self.request, "Nie można zamówić planu Pro Manual przy aktywnej subskrypcji Stripe.")
+                messages.warning(self.request, "Nie można zamówić planu Manual przy aktywnej subskrypcji Stripe.")
                 return redirect("dashboard:billing-portal")
             billing_profile = getattr(user, "billing_profile", None)
             if not billing_profile or not billing_profile.is_complete():
@@ -426,34 +487,12 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
                 return redirect(f"{reverse('dashboard:billing-profile')}?next={target}")
             return redirect("dashboard:manual-plan-confirm")
 
-        if user.plan_tier == selected_tier and has_selected_plan:
+        from apps.billing.access import has_publication_access
+        if user.plan_tier == selected_tier and has_selected_plan and has_publication_access(user):
             if self.request.LANGUAGE_CODE == "pl":
                 messages.info(self.request, "Wybrany plan jest już aktywny.")
             else:
                 messages.info(self.request, "This plan is already active.")
-            return super().form_valid(form)
-
-        if selected_tier == UserPlanTier.BASIC:
-            billing_subscription = getattr(user, "billing_subscription", None)
-            if (
-                billing_subscription
-                and billing_subscription.stripe_subscription_id
-                and billing_subscription.status in {"active", "trialing", "past_due"}
-            ):
-                if self.request.LANGUAGE_CODE == "pl":
-                    messages.info(self.request, "Zmiana na BASIC jest zablokowana w trakcie oplaconego okresu. Anuluj odnowienie i rozpocznij BASIC po zakonczeniu obecnego roku.")
-                else:
-                    messages.info(self.request, "Downgrading to BASIC is blocked during the paid period. Cancel renewal and start BASIC after the current year ends.")
-                return redirect("dashboard:billing-portal")
-
-            downgrade_to_basic(user)
-            from apps.notifications.services import notify_plan_selected
-
-            notify_plan_selected(user, UserPlanTier.BASIC)
-            if self.request.LANGUAGE_CODE == "pl":
-                messages.success(self.request, "Plan został zaktualizowany.")
-            else:
-                messages.success(self.request, "Plan updated successfully.")
             return super().form_valid(form)
 
         if selected_tier in self.paid_tiers:
@@ -470,23 +509,23 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
                         messages.info(self.request, "Downgrading from PRO to PLUS is not available during a paid period. Cancel renewal and start PLUS after the current year ends.")
                     return redirect("dashboard:billing-portal")
 
-                if user.plan_tier == UserPlanTier.PLUS and selected_tier == UserPlanTier.PRO:
+                if (user.plan_tier == UserPlanTier.BASIC and selected_tier in {UserPlanTier.PLUS, UserPlanTier.PRO}) or (user.plan_tier == UserPlanTier.PLUS and selected_tier == UserPlanTier.PRO):
                     billing_profile = getattr(user, "billing_profile", None)
                     selected_currency = (
                         existing_subscription.plan_price.currency
                         if existing_subscription.plan_price
                         else billing_profile.billing_currency() if billing_profile else form.cleaned_data["billing_currency"]
                     )
-                    plan_price = get_active_plan_price(UserPlanTier.PRO, selected_currency)
+                    plan_price = get_active_plan_price(selected_tier, selected_currency)
                     if not plan_price:
-                        messages.error(self.request, "No active PRO Stripe price is configured for your subscription currency.")
+                        messages.error(self.request, "No active Stripe price is configured for your subscription currency.")
                         return redirect("dashboard:plan-update")
                     try:
                         checkout_session = self._create_plus_to_pro_upgrade_session(plan_price, existing_subscription)
                     except Exception:
                         messages.error(self.request, "Could not create Stripe upgrade payment session.")
                         return redirect("dashboard:plan-update")
-                    checkout_url = getattr(checkout_session, "url", "")
+                    checkout_url = object_get(checkout_session, "url", "")
                     if not checkout_url:
                         messages.error(self.request, "Stripe returned an invalid response.")
                         return redirect("dashboard:plan-update")
@@ -537,7 +576,7 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
                     messages.error(self.request, "Could not create Stripe checkout session.")
                 return redirect("dashboard:plan-update")
 
-            checkout_url = getattr(checkout_session, "url", "")
+            checkout_url = object_get(checkout_session, "url", "")
             if not checkout_url:
                 if self.request.LANGUAGE_CODE == "pl":
                     messages.error(self.request, "Stripe zwrócił nieprawidłową odpowiedź.")
@@ -555,187 +594,33 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
 
 
 class PlanCheckoutSuccessView(LoginRequiredMixin, View):
-    paid_tiers = {UserPlanTier.PLUS, UserPlanTier.PRO}
-
     def get(self, request, *args, **kwargs):
-        checkout_session_id = request.GET.get("session_id")
-        if not checkout_session_id:
-            if request.LANGUAGE_CODE == "pl":
-                messages.error(request, "Brakuje identyfikatora sesji Stripe.")
-            else:
-                messages.error(request, "Missing Stripe session id.")
+        from apps.billing.services import object_get
+        session_id = request.GET.get("session_id", "")
+        if not settings.STRIPE_SECRET_KEY or not session_id.startswith("cs_"):
+            messages.error(request, "Payment confirmation is unavailable.")
             return redirect("dashboard:plan-update")
-
-        if not settings.STRIPE_SECRET_KEY:
-            if request.LANGUAGE_CODE == "pl":
-                messages.error(request, "Stripe nie jest skonfigurowany.")
-            else:
-                messages.error(request, "Stripe is not configured.")
-            return redirect("dashboard:plan-update")
-
         stripe.api_key = settings.STRIPE_SECRET_KEY
-
         try:
-            checkout_session = stripe.checkout.Session.retrieve(checkout_session_id)
-        except Exception:
-            if request.LANGUAGE_CODE == "pl":
-                messages.error(request, "Nie udało się zweryfikować płatności Stripe.")
-            else:
-                messages.error(request, "Could not verify Stripe payment.")
-            return redirect("dashboard:plan-update")
-
-        metadata = getattr(checkout_session, "metadata", {}) or {}
-        session_user_id = metadata.get("user_id")
-        selected_tier = metadata.get("plan_tier")
-        upgrade_type = metadata.get("upgrade_type", "")
-        payment_status = getattr(checkout_session, "payment_status", "")
-        stripe_subscription_id = getattr(checkout_session, "subscription", "") or ""
-        stripe_customer_id = getattr(checkout_session, "customer", "") or ""
-
-        if session_user_id != str(request.user.pk):
-            if request.LANGUAGE_CODE == "pl":
-                messages.error(request, "Ta sesja płatności nie należy do Twojego konta.")
-            else:
+            session = stripe.checkout.Session.retrieve(session_id)
+            metadata = object_get(session, "metadata", {}) or {}
+            if str(object_get(metadata, "user_id", "")) != str(request.user.pk):
                 messages.error(request, "This payment session does not belong to your account.")
-            return redirect("dashboard:plan-update")
-
-        if upgrade_type == "plus_to_pro":
-            if selected_tier != UserPlanTier.PRO:
-                messages.error(request, "Invalid upgrade returned from Stripe payment.")
                 return redirect("dashboard:plan-update")
-            if payment_status != "paid":
-                messages.warning(request, "Upgrade payment has not been confirmed yet.")
-                return redirect("dashboard:plan-update")
-
-            billing_subscription = getattr(request.user, "billing_subscription", None)
-            existing_subscription_id = metadata.get("stripe_subscription_id") or getattr(
-                billing_subscription,
-                "stripe_subscription_id",
-                "",
-            )
-            plan_price = BillingPlanPrice.objects.filter(pk=metadata.get("billing_plan_price_id")).first()
-            if not existing_subscription_id or not plan_price:
-                messages.error(request, "Could not find the subscription or PRO price for this upgrade.")
-                return redirect("dashboard:plan-update")
-
-            try:
-                stripe_subscription = stripe.Subscription.retrieve(existing_subscription_id)
-                items = getattr(getattr(stripe_subscription, "items", None), "data", None)
-                if items is None and isinstance(stripe_subscription, dict):
-                    items = stripe_subscription.get("items", {}).get("data", [])
-                first_item = items[0] if items else None
-                item_id = getattr(first_item, "id", None) if first_item is not None else None
-                if item_id is None and isinstance(first_item, dict):
-                    item_id = first_item.get("id")
-                if not item_id:
-                    raise ValueError("Missing Stripe subscription item id")
-
-                updated_subscription = stripe.Subscription.modify(
-                    existing_subscription_id,
-                    items=[{"id": item_id, "price": plan_price.stripe_price_id}],
-                    billing_cycle_anchor="now",
-                    proration_behavior="none",
-                    cancel_at_period_end=False,
-                    metadata={
-                        "user_id": str(request.user.pk),
-                        "plan_tier": UserPlanTier.PRO,
-                        "billing_plan_price_id": str(plan_price.pk),
-                    },
-                )
-                billing_subscription = sync_subscription_from_stripe(
-                    updated_subscription,
-                    fallback_user=request.user,
-                    fallback_tier=UserPlanTier.PRO,
-                )
-            except Exception:
-                if request.LANGUAGE_CODE == "pl":
-                    messages.error(request, "Platnosc upgrade zostala przyjeta, ale nie udalo sie zaktualizowac subskrypcji Stripe. Skontaktuj sie z obsluga.")
-                else:
-                    messages.error(request, "Upgrade payment was accepted, but the Stripe subscription could not be updated. Please contact support.")
+            subscription_id = object_get(session, "subscription", "")
+            if object_get(session, "mode") != "subscription" or object_get(session, "status") != "complete" or not subscription_id:
+                messages.warning(request, "Payment is pending or requires support review.")
                 return redirect("dashboard:billing-portal")
-
-            if not billing_subscription:
-                request.user.plan_tier = UserPlanTier.PRO
-                request.user.plan_selected_at = timezone.now()
-                request.user.paid_plan_started_at = timezone.now()
-                request.user.save(update_fields=["plan_tier", "plan_selected_at", "paid_plan_started_at"])
-
-            if request.LANGUAGE_CODE == "pl":
-                messages.success(request, "Upgrade do PRO zakonczony. Nowy okres subskrypcji zaczyna sie od dzisiaj.")
+            subscription = stripe.Subscription.retrieve(subscription_id)
+            billing = sync_subscription_from_stripe(subscription, fallback_user=request.user)
+            if billing and billing.is_active_for_access:
+                messages.success(request, "Your subscription is active.")
             else:
-                messages.success(request, "Upgrade to PRO completed. The new subscription period starts today.")
-            return redirect("dashboard:home")
-
-        if selected_tier not in self.paid_tiers:
-            if request.LANGUAGE_CODE == "pl":
-                messages.error(request, "Nieprawidłowy plan z płatności Stripe.")
-            else:
-                messages.error(request, "Invalid plan returned from Stripe payment.")
-            return redirect("dashboard:plan-update")
-
-        if payment_status != "paid" and not stripe_subscription_id:
-            if request.LANGUAGE_CODE == "pl":
-                messages.warning(request, "Płatność nie została jeszcze potwierdzona.")
-            else:
-                messages.warning(request, "Payment has not been confirmed yet.")
-            return redirect("dashboard:plan-update")
-
-        billing_subscription = None
-        if stripe_subscription_id:
-            try:
-                stripe_subscription = stripe.Subscription.retrieve(stripe_subscription_id)
-                billing_subscription = sync_subscription_from_stripe(
-                    stripe_subscription,
-                    fallback_user=request.user,
-                    fallback_tier=selected_tier,
-                )
-                latest_invoice = (
-                    stripe_subscription.get("latest_invoice")
-                    if isinstance(stripe_subscription, dict)
-                    else getattr(stripe_subscription, "latest_invoice", None)
-                )
-                latest_invoice_id = (
-                    latest_invoice.get("id")
-                    if isinstance(latest_invoice, dict)
-                    else getattr(latest_invoice, "id", latest_invoice)
-                )
-                if latest_invoice_id:
-                    try:
-                        record_invoice_payment(stripe.Invoice.retrieve(latest_invoice_id))
-                    except Exception:
-                        # Webhook delivery remains the fallback when invoice retrieval is temporarily unavailable.
-                        pass
-            except Exception:
-                billing_subscription = None
-
-        if not billing_subscription and (request.user.plan_tier != selected_tier or request.user.plan_selected_at is None):
-            plan_price = get_active_plan_price(selected_tier)
-            BillingSubscription.objects.update_or_create(
-                user=request.user,
-                defaults={
-                    "tier": selected_tier,
-                    "plan_price": plan_price,
-                    "stripe_customer_id": stripe_customer_id,
-                    "stripe_subscription_id": stripe_subscription_id,
-                    "stripe_price_id": plan_price.stripe_price_id if plan_price else "",
-                    "status": "active",
-                },
-            )
-            request.user.plan_tier = selected_tier
-            if request.user.paid_plan_started_at is None:
-                request.user.paid_plan_started_at = timezone.now()
-            if request.user.plan_selected_at is None:
-                request.user.plan_selected_at = timezone.now()
-            request.user.save(update_fields=["plan_tier", "paid_plan_started_at", "plan_selected_at"])
-            Subscription.objects.filter(organization__owner=request.user).update(tier=selected_tier)
-            from apps.notifications.services import notify_plan_selected
-
-            notify_plan_selected(request.user, selected_tier)
-
-        if request.LANGUAGE_CODE == "pl":
-            messages.success(request, "Płatność zakończona sukcesem. Plan został aktywowany.")
-        else:
-            messages.success(request, "Payment successful. Your plan is now active.")
+                messages.warning(request, "Your payment is still pending. Access will update after confirmation.")
+        except Exception:
+            logger.exception("Checkout confirmation failed")
+            messages.warning(request, "Payment confirmation is pending. Please check your subscription shortly.")
+            return redirect("dashboard:billing-portal")
         return redirect("dashboard:home")
 
 
@@ -874,16 +759,6 @@ class BillingProfileView(LoginRequiredMixin, UpdateView):
     success_url = reverse_lazy("dashboard:plan-update")
 
     def dispatch(self, request, *args, **kwargs):
-        if request.user.is_authenticated:
-            expired_order = request.user.manual_plan_orders.filter(
-                status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID],
-                access_until__lte=timezone.now(),
-            ).first()
-            if expired_order:
-                expired_order.status = ManualPlanOrderStatus.DISABLED
-                expired_order.disabled_at = timezone.now()
-                expired_order.save(update_fields=["status", "disabled_at", "updated_at"])
-                downgrade_to_basic(request.user)
         if request.user.is_superuser:
             return redirect("dashboard:home")
         return super().dispatch(request, *args, **kwargs)
@@ -925,6 +800,8 @@ class ManualPlanConfirmView(LoginRequiredMixin, TemplateView):
     template_name = "dashboard/manual_plan_confirm.html"
 
     def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
         if request.user.is_superuser:
             return redirect("dashboard:home")
         billing_profile = getattr(request.user, "billing_profile", None)
@@ -932,16 +809,16 @@ class ManualPlanConfirmView(LoginRequiredMixin, TemplateView):
             target = reverse("dashboard:manual-plan-confirm")
             return redirect(f"{reverse('dashboard:billing-profile')}?next={target}")
         if request.user.manual_plan_orders.filter(
-            status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID]
+            status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID], access_until__gt=timezone.now()
         ).exists():
-            messages.info(request, "Masz już aktywny plan Pro Manual.")
+            messages.info(request, "Masz już aktywny plan Manual.")
             return redirect("dashboard:plan-update")
         subscription = getattr(request.user, "billing_subscription", None)
         if subscription and subscription.stripe_subscription_id and subscription.status in {"active", "trialing", "past_due"}:
-            messages.warning(request, "Nie można zamówić Pro Manual przy aktywnej subskrypcji Stripe.")
+            messages.warning(request, "Nie można zamówić planu Manual przy aktywnej subskrypcji Stripe.")
             return redirect("dashboard:billing-portal")
         if request.user.manual_plan_orders.filter(access_until__gt=timezone.now()).exists():
-            messages.warning(request, "Nie można ponownie uruchomić Pro Manual przed końcem pierwotnego roku zamówienia.")
+            messages.warning(request, "Nie można ponownie uruchomić planu Manual przed końcem pierwotnego roku zamówienia.")
             return redirect("dashboard:plan-update")
         return super().dispatch(request, *args, **kwargs)
 
@@ -952,6 +829,7 @@ class ManualPlanConfirmView(LoginRequiredMixin, TemplateView):
         amount = settings.MANUAL_PRO_PRICE_PLN if currency == "pln" else settings.MANUAL_PRO_PRICE_EUR
         context.update({
             "billing_profile": profile,
+            "manual_plan_name": "Pro",
             "manual_pro_price_label": format_amount(amount, currency),
             "manual_payment_recipient": settings.MANUAL_PAYMENT_RECIPIENT,
             "manual_payment_bank": settings.MANUAL_PAYMENT_BANK,
@@ -961,58 +839,30 @@ class ManualPlanConfirmView(LoginRequiredMixin, TemplateView):
 
     def post(self, request, *args, **kwargs):
         profile = request.user.billing_profile
-        create_manual_plan_order(request.user, profile.billing_currency())
-        messages.success(request, "Plan Pro Manual został aktywowany. Wykonaj przelew w ciągu 14 dni.")
+        try:
+            create_manual_plan_order(request.user, profile.billing_currency())
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return redirect("dashboard:plan-update")
+        messages.success(request, "Plan Manual został aktywowany. Wykonaj przelew w ciągu 14 dni.")
         return redirect("dashboard:plan-update")
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class StripeWebhookView(View):
     def post(self, request, *args, **kwargs):
-        payload = request.body
-        signature = request.META.get("HTTP_STRIPE_SIGNATURE", "")
-
-        if settings.STRIPE_WEBHOOK_SECRET:
-            try:
-                event = stripe.Webhook.construct_event(payload, signature, settings.STRIPE_WEBHOOK_SECRET)
-            except Exception:
-                return HttpResponse(status=400)
-        else:
-            import json
-
-            try:
-                event = json.loads(payload.decode("utf-8"))
-            except Exception:
-                return HttpResponse(status=400)
-
-        event_type = event.get("type") if isinstance(event, dict) else getattr(event, "type", "")
-        data = event.get("data", {}) if isinstance(event, dict) else getattr(event, "data", {})
-        stripe_object = data.get("object") if isinstance(data, dict) else getattr(data, "object", None)
-
-        if event_type == "checkout.session.completed":
-            metadata = stripe_object.get("metadata", {}) if isinstance(stripe_object, dict) else getattr(stripe_object, "metadata", {})
-            subscription_id = stripe_object.get("subscription", "") if isinstance(stripe_object, dict) else getattr(stripe_object, "subscription", "")
-            if subscription_id:
-                try:
-                    stripe.api_key = settings.STRIPE_SECRET_KEY
-                    subscription = stripe.Subscription.retrieve(subscription_id)
-                    sync_subscription_from_stripe(subscription)
-                except Exception:
-                    pass
-            elif metadata:
-                user = User.objects.filter(pk=metadata.get("user_id")).first()
-                tier = metadata.get("plan_tier")
-                if user and tier in {UserPlanTier.PLUS, UserPlanTier.PRO}:
-                    sync_subscription_from_stripe(stripe_object, fallback_user=user, fallback_tier=tier)
-        elif event_type in {
-            "customer.subscription.created",
-            "customer.subscription.updated",
-            "customer.subscription.deleted",
-        }:
-            sync_subscription_from_stripe(stripe_object)
-        elif event_type in {"invoice.paid", "invoice.payment_failed", "invoice.payment_action_required"}:
-            record_invoice_payment(stripe_object)
-
+        if not settings.STRIPE_WEBHOOK_SECRET:
+            return HttpResponse(status=503)
+        try:
+            event = stripe.Webhook.construct_event(request.body, request.META.get("HTTP_STRIPE_SIGNATURE", ""), settings.STRIPE_WEBHOOK_SECRET)
+        except (ValueError, stripe.SignatureVerificationError):
+            return HttpResponse(status=400)
+        from apps.billing.webhooks import process_event
+        try:
+            process_event(event)
+        except Exception:
+            logger.exception("Stripe webhook processing failed")
+            return HttpResponse(status=503)
         return HttpResponse(status=200)
 
 
@@ -1145,7 +995,7 @@ class BillingOverviewView(AdminRequiredMixin, TemplateView):
                     order.currency or "",
                     order.formatted_amount(),
                     invoice_text(order.latest_manual_invoice),
-                    "Pro Manual",
+                    f"{order.get_tier_display()} Manual",
                 ]).lower()
             ]
             subscription_rows = [
@@ -1277,7 +1127,7 @@ class BillingInvoicesAdminView(AdminRequiredMixin, TemplateView):
                 "kind": "manual",
                 "object": order,
                 "user": order.user,
-                "plan": "Pro Manual",
+                "plan": f"{order.get_tier_display()} Manual",
                 "amount": order.formatted_amount(),
                 "amount_value": order.amount,
                 "paid_at": order.paid_at,
@@ -1359,6 +1209,8 @@ class ManualPlanMarkPaidView(AdminRequiredMixin, View):
         order.status = ManualPlanOrderStatus.PAID
         order.paid_at = timezone.now()
         order.save(update_fields=["status", "paid_at", "updated_at"])
+        from apps.billing.access import reconcile_access
+        reconcile_access(order.user)
         from apps.notifications.services import close_manual_order_overdue, notify_invoice_needed_for_manual_order
 
         close_manual_order_overdue(order, closed_by=request.user)
@@ -1378,7 +1230,8 @@ class ManualPlanDisableView(AdminRequiredMixin, View):
         order.disabled_at = timezone.now()
         order.disabled_by = request.user
         order.save(update_fields=["status", "disabled_at", "disabled_by", "updated_at"])
-        downgrade_to_basic(order.user)
+        from apps.billing.access import reconcile_access
+        reconcile_access(order.user)
         from apps.notifications.services import close_manual_order_overdue
 
         close_manual_order_overdue(order, closed_by=request.user)
@@ -1389,17 +1242,20 @@ class ManualPlanDisableView(AdminRequiredMixin, View):
 class ManualPlanInvoiceCreateView(AdminRequiredMixin, View):
     def post(self, request, pk):
         order = get_object_or_404(ManualPlanOrder, pk=pk, status=ManualPlanOrderStatus.PAID)
+        if order.invoices.exists():
+            messages.error(request, "Faktura dla tej płatności Manual już istnieje.")
+            return redirect("dashboard:billing-invoices-admin")
         form = BillingInvoiceForm(request.POST, request.FILES)
         if form.is_valid():
             invoice = form.save(commit=False)
             invoice.user = order.user
             invoice.manual_order = order
-            invoice.sent = True
+            invoice.sent = bool(invoice.sent_at)
             invoice.save()
             from apps.notifications.services import close_invoice_needed_for_manual_order
 
             close_invoice_needed_for_manual_order(order, closed_by=request.user)
-            messages.success(request, "Faktura dla Pro Manual została zapisana.")
+            messages.success(request, "Faktura dla planu Manual została zapisana.")
         else:
             messages.error(request, "Nie udało się zapisać faktury: " + " ".join(form.errors.as_text().splitlines()))
         return redirect("dashboard:billing-invoices-admin")
@@ -1408,13 +1264,16 @@ class ManualPlanInvoiceCreateView(AdminRequiredMixin, View):
 class StripePaymentInvoiceCreateView(AdminRequiredMixin, View):
     def post(self, request, pk):
         payment = get_object_or_404(BillingPayment, pk=pk, status="paid")
+        if payment.invoices.exists():
+            messages.error(request, "Faktura dla tej płatności Stripe już istnieje.")
+            return redirect("dashboard:billing-invoices-admin")
         form = BillingInvoiceForm(request.POST, request.FILES)
         if form.is_valid():
             invoice = form.save(commit=False)
             invoice.user = payment.user
             invoice.subscription = payment.subscription
             invoice.payment = payment
-            invoice.sent = True
+            invoice.sent = bool(invoice.sent_at)
             invoice.save()
             from apps.notifications.services import close_invoice_needed_for_payment
 
@@ -1428,21 +1287,24 @@ class StripePaymentInvoiceCreateView(AdminRequiredMixin, View):
 class BillingInvoiceCreateView(AdminRequiredMixin, View):
     def post(self, request, subscription_pk):
         subscription = get_object_or_404(BillingSubscription, pk=subscription_pk)
-        if subscription.tier == UserPlanTier.BASIC or not subscription.payments.filter(status="paid").exists():
+        if not subscription.payments.filter(status="paid").exists():
             messages.error(request, "An invoice can only be added after Stripe records a successful paid-plan payment.")
+            return redirect("dashboard:billing-overview")
+        latest_payment = subscription.payments.filter(status="paid").first()
+        if latest_payment.invoices.exists():
+            messages.error(request, "An invoice for the latest Stripe payment already exists.")
             return redirect("dashboard:billing-overview")
         form = BillingInvoiceForm(request.POST, request.FILES)
         if form.is_valid():
             invoice = form.save(commit=False)
             invoice.user = subscription.user
             invoice.subscription = subscription
-            invoice.sent = True
+            invoice.payment = latest_payment
+            invoice.sent = bool(invoice.sent_at)
             invoice.save()
-            latest_payment = subscription.payments.filter(status="paid").first()
-            if latest_payment:
-                from apps.notifications.services import close_invoice_needed_for_payment
+            from apps.notifications.services import close_invoice_needed_for_payment
 
-                close_invoice_needed_for_payment(latest_payment, closed_by=request.user)
+            close_invoice_needed_for_payment(latest_payment, closed_by=request.user)
             messages.success(request, "Invoice has been added.")
         else:
             messages.error(request, "Invoice could not be added: " + " ".join(form.errors.as_text().splitlines()))
@@ -1459,8 +1321,17 @@ class BillingPaymentInvoiceUpdateView(AdminRequiredMixin, UpdateView):
             from apps.notifications.services import close_invoice_needed_for_payment
 
             close_invoice_needed_for_payment(form.instance, closed_by=self.request.user)
+        response = super().form_valid(form)
+        payment = self.object
+        if payment.invoice_issued and payment.invoice_document:
+            invoice = payment.invoices.first() or BillingInvoice(user=payment.user, payment=payment, subscription=payment.subscription)
+            invoice.invoice_number = payment.invoice_number
+            invoice.issued_at = payment.invoice_issued_at
+            invoice.document = payment.invoice_document.name
+            invoice.sent_at = payment.invoice_sent_at if payment.invoice_sent else None
+            invoice.save()
         messages.success(self.request, "Invoice information has been updated.")
-        return super().form_valid(form)
+        return response
 
     def form_invalid(self, form):
         messages.error(self.request, "Invoice information could not be updated: " + " ".join(form.errors.as_text().splitlines()))
@@ -1473,12 +1344,18 @@ class BillingPaymentInvoiceUpdateView(AdminRequiredMixin, UpdateView):
 class BillingInvoiceAdminDownloadView(AdminRequiredMixin, View):
     def get(self, request, pk):
         invoice = get_object_or_404(BillingInvoice, pk=pk)
-        return FileResponse(
-            invoice.document.open("rb"),
+        try:
+            document = invoice.document.open("rb")
+        except (FileNotFoundError, OSError, ValueError):
+            raise Http404("Invoice document is unavailable")
+        response = FileResponse(
+            document,
             as_attachment=True,
             filename=invoice.document.name.rsplit("/", 1)[-1],
             content_type="application/pdf",
         )
+        response["Cache-Control"] = "private, no-store"
+        return response
 
 
 class CustomerInvoiceListView(LoginRequiredMixin, TemplateView):
@@ -1494,12 +1371,18 @@ class CustomerInvoiceListView(LoginRequiredMixin, TemplateView):
 class CustomerInvoiceDownloadView(LoginRequiredMixin, View):
     def get(self, request, pk):
         invoice = get_object_or_404(BillingInvoice, pk=pk, user=request.user)
-        return FileResponse(
-            invoice.document.open("rb"),
+        try:
+            document = invoice.document.open("rb")
+        except (FileNotFoundError, OSError, ValueError):
+            raise Http404("Invoice document is unavailable")
+        response = FileResponse(
+            document,
             as_attachment=True,
             filename=invoice.document.name.rsplit("/", 1)[-1],
             content_type="application/pdf",
         )
+        response["Cache-Control"] = "private, no-store"
+        return response
 
 
 class ClientListView(AdminRequiredMixin, TemplateView):
@@ -1549,12 +1432,15 @@ class ClientListView(AdminRequiredMixin, TemplateView):
         if q:
             qs = qs.filter(
                 models.Q(company_name__icontains=q)
+                | models.Q(closed_display_name__icontains=q)
                 | models.Q(email__icontains=q)
                 | models.Q(username__icontains=q)
             )
         sort_map = {
             "company": ("company_name", "email"),
             "-company": ("-company_name", "email"),
+            "status": ("closed_at", "is_active", "email"),
+            "-status": ("-closed_at", "-is_active", "email"),
             "email": ("email",),
             "-email": ("-email",),
             "plan": ("plan_tier", "email"),
@@ -1592,6 +1478,7 @@ class ClientListView(AdminRequiredMixin, TemplateView):
         context["current_sort"] = sort
         context["sort_urls"] = {
             "company": sort_url("company"),
+            "status": sort_url("status"),
             "email": sort_url("email"),
             "plan": sort_url("plan"),
             "verified": sort_url("verified"),
@@ -1792,7 +1679,7 @@ class ClientDetailView(AdminRequiredMixin, TemplateView):
 
         available_sellers = User.objects.filter(
             models.Q(account_type=AccountType.STAFF) | models.Q(is_superuser=True)
-        ).order_by("username")
+        ).filter(is_active=True).order_by("username")
 
         context["client"] = client
         context["client_seller"] = seller
@@ -2115,6 +2002,7 @@ class SellerClientsListView(SellerRequiredMixin, TemplateView):
         ).values("seller__username")[:1]
         clients = User.objects.filter(
             is_superuser=False,
+            is_active=True,
             account_type=AccountType.CLIENT
         ).annotate(
             linked_prospect_id=models.Subquery(linked_prospect_subquery),
@@ -2221,6 +2109,7 @@ class ProspectUpdateView(SellerRequiredMixin, FormView):
                     models.Q(
                         account_type=AccountType.CLIENT,
                         is_superuser=False,
+                        is_active=True,
                         attributed_prospect__isnull=True,
                     ) | models.Q(pk=prospect.registered_client_id)
                 ).order_by("email")
@@ -2326,7 +2215,7 @@ class ProspectActivityAddView(SellerOrAdminRequiredMixin, FormView):
         return kwargs
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs, **kwargs)
+        context = super().get_context_data(**kwargs)
         context["prospect"] = self.get_prospect()
         return context
 

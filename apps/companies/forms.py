@@ -1,5 +1,6 @@
 import json
 import re
+from django.db import transaction
 from urllib.parse import urlsplit
 
 from django import forms
@@ -102,13 +103,11 @@ class OrganizationForm(forms.ModelForm):
     AVAILABLE_LANGUAGES = [code for code, _label in FEED_LANGUAGE_CHOICES]
     website_url = forms.CharField(required=True, widget=forms.TextInput())
     social_profiles_text = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 4}))
-    featured_entry_type = forms.CharField(required=False, widget=forms.HiddenInput(), initial=EntryType.FAQ)
-    featured_entry_summary = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
     ai_summary = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
-    featured_entry_url = forms.CharField(required=False, widget=forms.TextInput())
 
     def __init__(self, *args, language_code: str | None = None, organization: Organization | None = None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.plan_features = organization.get_subscription().feature_matrix() if organization else {"languages": 1, "tags": 0, "products": 0, "social_profiles": 0, "content_entries": 0}
         
         ui_language = "pl" if (language_code or get_language() or "en")[:2] == "pl" else "en"
         allowed_languages_count = self._get_allowed_languages_count(organization)
@@ -116,16 +115,25 @@ class OrganizationForm(forms.ModelForm):
         # Jeśli edycja - pobierz zaznaczone języki z instancji, inaczej domyślnie PL
         if self.instance and self.instance.pk and self.instance.content_languages:
             selected_languages = [
-                code for code in self.instance.content_languages
+                code for code in dict.fromkeys([self.instance.primary_language] + self.instance.content_languages)
                 if code in self.AVAILABLE_LANGUAGES
             ]
         else:
-            selected_languages = ["pl"]  # Zawsze zaczynamy z PL
+            selected_languages = [ui_language]
+
+        if self.is_bound:
+            try:
+                submitted = self._submitted_languages()
+                if isinstance(submitted, list):
+                    selected_languages = list(dict.fromkeys(code for code in submitted if code in self.AVAILABLE_LANGUAGES))
+            except (ValueError, TypeError):
+                pass
 
         if not selected_languages:
             selected_languages = ["pl"]
 
-        selected_languages = selected_languages[:allowed_languages_count]
+        if not self.is_bound:
+            selected_languages = selected_languages[:allowed_languages_count]
 
         self.initial_descriptions = self._build_initial_descriptions(selected_languages)
         self.initial_language_tags = self._build_initial_language_tags(selected_languages)
@@ -234,27 +242,6 @@ class OrganizationForm(forms.ModelForm):
                 }
             )
 
-        if "featured_entry_url" in self.fields:
-            self.fields["featured_entry_url"].widget.attrs.update(
-                {
-                    "type": "text",
-                    "inputmode": "url",
-                    "autocomplete": "url",
-                    "placeholder": "twojadomena.pl/faq" if ui_language == "pl" else "yourdomain.com/faq",
-                }
-            )
-
-        if "featured_entry_summary" in self.fields:
-            self.fields["featured_entry_summary"].widget.attrs.update(
-                {
-                    "placeholder": (
-                        "np. Jak wygląda współpraca z firmą? Jakie są terminy realizacji?"
-                        if ui_language == "pl"
-                        else "e.g. What does cooperation look like? What are typical delivery timelines?"
-                    )
-                }
-            )
-
         if "ai_summary" in self.fields:
             self.fields["ai_summary"].widget.attrs.update(
                 {
@@ -287,19 +274,92 @@ class OrganizationForm(forms.ModelForm):
                 if field_name in self.fields:
                     self.fields[field_name].label = label
 
+        self.fields["company_type"].widget.attrs["class"] = self.fields["name"].widget.attrs["class"]
+        self.fields["contact_email"].help_text = (
+            "Ten adres będzie publiczny. Podaj firmowy adres kontaktowy, nie prywatny adres logowania."
+            if ui_language == "pl" else "This address will be public. Use a business contact address, not your private login email."
+        )
+        for name, label in {
+            "name": "Nazwa firmy" if ui_language == "pl" else "Company name",
+            "website_url": "Strona internetowa" if ui_language == "pl" else "Website",
+            "primary_language": "Główny język profilu" if ui_language == "pl" else "Main profile language",
+        }.items():
+            self.fields[name].label = label
+        self.fields["primary_language"].help_text = "Ten język wyświetlamy jako pierwszy." if ui_language == "pl" else "This language is shown first when someone reads your profile."
+        guidance = {
+            "name": ("np. Zielony Ogród", "e.g. Green Garden", "Nazwa, pod którą klienci znają Twoją firmę. Pojawi się jako tytuł profilu.", "The name customers know you by. This becomes your profile title."),
+            "website_url": ("twojafirma.pl", "yourcompany.com", "Oficjalna strona firmy. Możesz wpisać samą domenę; dodamy https://.", "Your official company website. Enter a domain; we will add https:// for you."),
+            "country": ("np. Polska", "e.g. Poland", "Kraj siedziby firmy.", "The country where your company is based."),
+            "city": ("np. Kraków", "e.g. London", "Miasto siedziby lub głównej lokalizacji.", "Your main business location."),
+            "address_line": ("np. ul. Ogrodowa 12", "e.g. 12 Garden Street", "Podaj tylko adres, który chcesz udostępnić publicznie.", "Only include an address you want to make public."),
+            "postal_code": ("np. 30-001", "e.g. SW1A 1AA", "Kod pocztowy lokalizacji firmy.", "The postal code for your business address."),
+            "phone_number": ("np. +48 123 456 789", "e.g. +44 20 7946 0000", "Publiczny numer kontaktowy, najlepiej z numerem kierunkowym kraju.", "A public contact number, preferably including the country code."),
+            "contact_email": ("kontakt@twojafirma.pl", "hello@yourcompany.com", "Widoczny publicznie. Podaj adres firmowy do zapytań od klientów.", "Visible publicly. Use a business address for customer enquiries."),
+        }
+        for field_name, (pl_example, en_example, pl_help, en_help) in guidance.items():
+            self.fields[field_name].widget.attrs["placeholder"] = pl_example if ui_language == "pl" else en_example
+            self.fields[field_name].help_text = pl_help if ui_language == "pl" else en_help
+        for field_name, autocomplete in {"name": "organization", "contact_email": "email", "phone_number": "tel", "country": "country-name", "city": "address-level2", "address_line": "street-address", "postal_code": "postal-code"}.items():
+            self.fields[field_name].widget.attrs["autocomplete"] = autocomplete
+        self.fields["phone_number"].widget.attrs["inputmode"] = "tel"
+        self.fields["company_type"].help_text = "Wybierz kategorię najbliższą Twojej głównej działalności." if ui_language == "pl" else "Choose the category closest to your main business activity."
+        self.basic_fields = [self[name] for name in ("name", "website_url", "company_type")]
+        self.contact_fields = [self[name] for name in ("contact_email", "phone_number", "country", "city", "address_line", "postal_code")]
+        descriptions = self._build_initial_descriptions(self.AVAILABLE_LANGUAGES)
+        tags = self._build_initial_language_tags(self.AVAILABLE_LANGUAGES)
+        products = self._build_initial_language_products(self.AVAILABLE_LANGUAGES)
+        self.language_sections = [
+            {"code": code, "label": self.language_labels.get(code, code.upper()), "selected": code in selected_languages,
+             "short": descriptions[code]["short"], "long": descriptions[code]["long"], "tags": tags[code], "products": products[code]}
+            for code in self.AVAILABLE_LANGUAGES
+        ]
+        description_examples = {
+            "pl": "Projektujemy i pielęgnujemy ogrody dla właścicieli domów w Krakowie i okolicach.",
+            "en": "We design and maintain gardens for homeowners in London and the surrounding area.",
+            "de": "Wir gestalten und pflegen Gärten für Hausbesitzer in Berlin und Umgebung.",
+            "es": "Diseñamos y cuidamos jardines para propietarios de viviendas en Madrid y sus alrededores.",
+            "it": "Progettiamo e curiamo giardini per i proprietari di case a Roma e dintorni.",
+            "fr": "Nous concevons et entretenons des jardins pour les propriétaires à Lyon et dans les environs.",
+        }
+        for section in self.language_sections:
+            section["example"] = description_examples.get(section["code"], description_examples["en"])
+        existing_products = list(self.instance.products.all()) if self.instance.pk and self.plan_features["products"] else []
+        existing_faqs = list(
+            self.instance.content_entries.filter(entry_type=EntryType.FAQ).order_by("-is_featured", "pk")
+        ) if self.instance.pk and self.plan_features["content_entries"] else []
+        for section in self.language_sections:
+            code = section["code"]
+            if self.is_bound and f"product_rows_{code}" in self.data:
+                try:
+                    rows = json.loads(self.data[f"product_rows_{code}"])
+                    section["product_rows"] = rows if isinstance(rows, list) else []
+                except (ValueError, TypeError):
+                    section["product_rows"] = []
+            elif not self.is_bound:
+                section["product_rows"] = [product.translation_for_editor(code) for product in existing_products]
+            if self.is_bound and f"faq_rows_{code}" in self.data:
+                try:
+                    rows = json.loads(self.data[f"faq_rows_{code}"])
+                    section["faq_rows"] = rows if isinstance(rows, list) else []
+                except (ValueError, TypeError):
+                    section["faq_rows"] = []
+            elif not self.is_bound:
+                section["faq_rows"] = [entry.translation_for_editor(code) for entry in existing_faqs]
+
+    def _submitted_languages(self):
+        if "languages" in self.data:
+            return self.data.getlist("languages") if hasattr(self.data, "getlist") else self.data["languages"]
+        return json.loads(self.data.get("content_languages", "[]"))
+
     def _setup_full_visibility_labels(self, ui_language: str) -> None:
         if ui_language == "pl":
             labels = {
                 "primary_language": "Domyślny język feedu",
                 "social_profiles_text": "Profile społecznościowe (linki)",
-                "featured_entry_summary": "Materiał wiedzy o firmie - FAQ",
-                "featured_entry_url": "Materiał wiedzy o firmie - link (opcjonalnie)",
             }
             helps = {
-                "primary_language": "To główny język feedu. Jest używany jako domyślny język opisów i fallback w kanałach AI.",
+                "primary_language": "To główny język profilu. Jest używany domyślnie w publicznych formatach danych.",
                 "social_profiles_text": "Wklej tylko te linki, które firma faktycznie posiada (po jednym w linii). Obsługiwane: Facebook, Instagram, LinkedIn, X, TikTok, YouTube.",
-                "featured_entry_summary": "Wpisz pytania i odpowiedzi (FAQ) dotyczące firmy. Możesz użyć kilku linii.",
-                "featured_entry_url": "Pełny adres URL do strony z FAQ na Twojej stronie (jeśli istnieje).",
             }
             labels["ai_summary"] = "Dla jakich klient\u00f3w/projekt\u00f3w ta firma jest najlepsza?"
             helps["ai_summary"] = "Kr\u00f3tko opisz, dla jakich klient\u00f3w, bran\u017c albo projekt\u00f3w ta firma pasuje najlepiej."
@@ -307,16 +367,12 @@ class OrganizationForm(forms.ModelForm):
             labels = {
                 "primary_language": "Default feed language",
                 "social_profiles_text": "Social profiles (links)",
-                "featured_entry_summary": "Knowledge content about the company - FAQ",
                 "ai_summary": "What clients/projects is this company best for?",
-                "featured_entry_url": "Knowledge content about the company - URL (optional)",
             }
             helps = {
-                "primary_language": "This is the default feed language used as primary description language and fallback in AI channels.",
+                "primary_language": "This is the main profile language used by default in public data formats.",
                 "social_profiles_text": "Paste only existing profile links (one per line). Supported: Facebook, Instagram, LinkedIn, X, TikTok, YouTube.",
-                "featured_entry_summary": "Enter FAQ questions and answers about the company. You can use multiple lines.",
                 "ai_summary": "Briefly describe what kinds of clients, industries, or projects this company fits best.",
-                "featured_entry_url": "Direct URL to your FAQ page (if available).",
             }
 
         for field_name, label in labels.items():
@@ -359,11 +415,6 @@ class OrganizationForm(forms.ModelForm):
             social_urls = list(org.social_profiles.order_by("network").values_list("url", flat=True))
             self.fields["social_profiles_text"].initial = "\n".join(social_urls)
 
-        featured_entry = org.content_entries.filter(is_featured=True).order_by("-published_at", "title").first()
-        if featured_entry:
-            self.fields["featured_entry_summary"].initial = featured_entry.localized_summary(org.primary_language)
-            self.fields["featured_entry_url"].initial = featured_entry.content_url
-
     def clean_website_url(self):
         website_url = (self.cleaned_data.get("website_url") or "").strip()
         if not website_url:
@@ -376,7 +427,7 @@ class OrganizationForm(forms.ModelForm):
         normalized_url = website_url if parsed_url.scheme else f"https://{website_url}"
 
         try:
-            URLValidator()(normalized_url)
+            URLValidator(schemes=["http", "https"])(normalized_url)
         except ValidationError:
             raise forms.ValidationError(
                 "Podaj poprawny adres strony WWW." if self.ui_language == "pl"
@@ -384,13 +435,6 @@ class OrganizationForm(forms.ModelForm):
             )
 
         return normalized_url
-
-    def clean_featured_entry_url(self):
-        return self._normalize_optional_url(
-            self.cleaned_data.get("featured_entry_url"),
-            invalid_message_pl="Podaj poprawny link do materiału wiedzy.",
-            invalid_message_en="Enter a valid knowledge content URL.",
-        )
 
     def _normalize_optional_url(self, raw_value, *, invalid_message_pl: str, invalid_message_en: str) -> str:
         value = (raw_value or "").strip()
@@ -400,7 +444,7 @@ class OrganizationForm(forms.ModelForm):
         parsed = urlsplit(value)
         normalized = value if parsed.scheme else f"https://{value}"
         try:
-            URLValidator()(normalized)
+            URLValidator(schemes=["http", "https"])(normalized)
         except ValidationError:
             raise forms.ValidationError(invalid_message_pl if self.ui_language == "pl" else invalid_message_en)
         return normalized
@@ -411,7 +455,7 @@ class OrganizationForm(forms.ModelForm):
         # Pobierz zaznaczone języki z POST data
         content_languages_str = self.data.get("content_languages", "[]")
         try:
-            content_languages = json.loads(content_languages_str)
+            content_languages = self._submitted_languages()
         except json.JSONDecodeError:
             raise forms.ValidationError("Invalid content languages format.")
 
@@ -456,24 +500,62 @@ class OrganizationForm(forms.ModelForm):
                 else "Default feed language must be included in selected feed languages."
             )
         
-        self._parse_products_by_language(content_languages)
+        products = self._parse_products_by_language(content_languages)
+        faqs = self._parse_faqs_by_language(content_languages)
+        primary_faqs = faqs.get(primary_language, [])
+        existing_non_faqs = (
+            self.instance.content_entries.exclude(entry_type=EntryType.FAQ).count()
+            if self.instance and self.instance.pk else 0
+        )
+        counts = {
+            "products": max((len(items) for items in products.values()), default=0),
+            "tags": sum(len(self._parse_tag_chunks(self.data.get(f"tags_{code}", ""))) for code in content_languages),
+            "social_profiles": len(self._parse_social_profiles_text(cleaned_data.get("social_profiles_text", ""))),
+            "content_entries": existing_non_faqs + len(primary_faqs),
+        }
+        for resource, count in counts.items():
+            limit = self.plan_features.get(resource, 0)
+            existing_count = getattr(self.instance, resource).count() if self.instance and self.instance.pk and hasattr(self.instance, resource) else 0
+            if count > max(limit, existing_count):
+                raise forms.ValidationError(f"Your plan allows up to {self.plan_features.get(resource, 0)} {resource.replace('_', ' ')}.")
+        for code in content_languages:
+            if len(self.data.get(f"short_description_{code}", "")) > 280 or len(self.data.get(f"long_description_{code}", "")) > 20000:
+                label = self.language_labels.get(code, code)
+                message = f"{label}: skróć opis do 280 znaków, a opis szczegółowy do 20 000 znaków." if self.ui_language == "pl" else f"{label}: keep the short description within 280 characters and the detailed description within 20,000."
+                for section in self.language_sections:
+                    if section["code"] == code:
+                        section["error"] = message
+                self.add_error(None, message)
 
         social_raw = (cleaned_data.get("social_profiles_text") or "").strip()
         if social_raw:
             self._parse_social_profiles_text(social_raw)
 
-        entry_summary = (cleaned_data.get("featured_entry_summary") or "").strip()
-        entry_url = (cleaned_data.get("featured_entry_url") or "").strip()
-        
         return cleaned_data
 
+    @transaction.atomic
     def save(self, commit=True):
         instance = super().save(commit=False)
+        archived_descriptions = {}
+        if commit and instance.owner_id:
+            from apps.accounts.models import User
+            owner = User.objects.select_for_update().get(pk=instance.owner_id)
+            instance.owner = owner
+            if not instance.pk and not owner.can_add_organization():
+                raise forms.ValidationError("Your company limit has been reached.")
+            if instance.pk:
+                previous = Organization.objects.select_for_update().get(pk=instance.pk)
+                if len(previous.content_languages or []) > instance.get_subscription().limit_for("languages"):
+                    archived_descriptions = dict(previous.descriptions_by_language or {})
+            instance.owner = owner
+            self.plan_features = instance.get_subscription().feature_matrix()
+            self.allowed_languages_count = self.plan_features.get("languages", 1)
+            self.clean()
         
         # Pobierz zaznaczone języki z POST data
         content_languages_str = self.data.get("content_languages", "[]")
         try:
-            selected_languages = json.loads(content_languages_str)
+            selected_languages = self._submitted_languages()
             if not isinstance(selected_languages, list):
                 selected_languages = ["pl"]
         except json.JSONDecodeError:
@@ -513,7 +595,7 @@ class OrganizationForm(forms.ModelForm):
             if hasattr(instance, long_field):
                 setattr(instance, long_field, long_value)
 
-        instance.descriptions_by_language = description_payload
+        instance.descriptions_by_language = {**archived_descriptions, **description_payload}
 
         # Keep legacy EN/PL columns synchronized for compatibility with old reads.
         if "en" not in instance.content_languages:
@@ -525,10 +607,14 @@ class OrganizationForm(forms.ModelForm):
         
         if commit:
             instance.save()
-            self._save_tags(instance, instance.content_languages)
-            self._save_social_profiles(instance)
-            self._save_products(instance, instance.content_languages)
-            self._save_featured_entry(instance)
+            if self.plan_features["tags"]:
+                self._save_tags(instance, instance.content_languages)
+            if self.plan_features["social_profiles"]:
+                self._save_social_profiles(instance)
+            if self.plan_features["products"]:
+                self._save_products(instance, instance.content_languages)
+            if self.plan_features["content_entries"]:
+                self._save_faq_entries(instance, instance.content_languages)
         return instance
 
     def _parse_tag_chunks(self, raw_value: str) -> list[str]:
@@ -603,33 +689,150 @@ class OrganizationForm(forms.ModelForm):
     def _parse_products_by_language(self, selected_languages: list[str]) -> dict[str, list[dict[str, str]]]:
         payload: dict[str, list[dict[str, str]]] = {}
         for language_code in selected_languages:
+            structured = self.data.get(f"product_rows_{language_code}")
+            if structured is not None:
+                try:
+                    rows = json.loads(structured)
+                    if not isinstance(rows, list) or len(rows) > self.plan_features.get("products", 0):
+                        raise ValueError()
+                    parsed = []
+                    for row in rows:
+                        if not isinstance(row, dict) or any(not isinstance(row.get(key, ""), str) for key in ("name", "description", "url")):
+                            raise ValueError()
+                        name, description, url = (row.get(key, "").strip() for key in ("name", "description", "url"))
+                        if (not name and language_code == self.data.get("primary_language")) or len(name) > 255 or len(description) > 280:
+                            raise ValueError()
+                        if url:
+                            url = self._normalize_optional_url(url, invalid_message_pl="Niepoprawny adres produktu.", invalid_message_en="Enter a valid product website.")
+                        parsed.append({"name": name, "description": description, "url": url})
+                    payload[language_code] = parsed
+                    continue
+                except (ValueError, TypeError):
+                    raise forms.ValidationError("Check product names, descriptions (up to 280 characters), and your plan's product limit.")
             raw_products = (self.data.get(f"products_{language_code}") or "").strip()
             payload[language_code] = self._parse_products_text(raw_products) if raw_products else []
         return payload
 
-    def _save_products(self, instance: Organization, selected_languages: list[str]) -> None:
-        products_by_language = self._parse_products_by_language(selected_languages)
-        instance.products_by_language = products_by_language
-        instance.save(update_fields=["products_by_language", "updated_at"])
-
-        # Keep legacy Product rows synchronized from default feed language for backward compatibility.
-        instance.products.all().delete()
-        primary_products = products_by_language.get(instance.primary_language, [])
-        for index, item in enumerate(primary_products):
-            product = Product(
-                organization=instance,
-                name=item["name"],
-                product_url=item["url"],
-                is_featured=index == 0,
-                price_from=None,
-            )
-            primary_field = f"short_description_{instance.primary_language}"
-            if hasattr(product, primary_field):
-                setattr(product, primary_field, item["description"])
-            fallback_field = "short_description_en" if primary_field != "short_description_en" else "short_description_pl"
-            if hasattr(product, fallback_field):
-                setattr(product, fallback_field, item["description"])
+    def _save_products(self, instance, selected_languages):
+        payload = self._parse_products_by_language(selected_languages)
+        existing = list(instance.products.order_by("pk"))
+        retained = set()
+        primary = payload.get(instance.primary_language, [])
+        for index, item in enumerate(primary):
+            available = [product for product in existing if product.pk not in retained]
+            product = next((product for product in available if (item["url"] and product.product_url == item["url"]) or product.name == item["name"]), None)
+            if product is None:
+                # The text editor has no IDs; preserve the existing row for a rename.
+                product = next((product for product in available if product.name not in {row["name"] for row in primary[index+1:]}), None)
+            product = product or Product(organization=instance)
+            product.name = item["name"]
+            product.product_url = item["url"]
+            product.is_featured = index == 0
+            names = dict(product.names_by_language or {})
+            translations = dict(product.descriptions_by_language or {})
+            for code, rows in payload.items():
+                translated = next((row for row in rows if item["url"] and row["url"] == item["url"]), rows[index] if index < len(rows) else None)
+                if translated is not None:
+                    names[code] = translated["name"]
+                    translations[code] = translated["description"]
+                    if code in {"en", "pl"}:
+                        setattr(product, f"short_description_{code}", translated["description"][:280])
+            product.names_by_language = names
+            product.descriptions_by_language = translations
             product.save()
+            retained.add(product.pk)
+        instance.products.exclude(pk__in=retained).delete()
+        # Product rows are authoritative; retain the old JSON column only for migration.
+
+    def _parse_faqs_by_language(self, selected_languages: list[str]) -> dict[str, list[dict]]:
+        payload: dict[str, list[dict]] = {}
+        plan_limit = self.plan_features.get("content_entries", 0)
+        existing_count = self.instance.content_entries.count() if self.instance and self.instance.pk else 0
+        maximum = max(plan_limit, existing_count)
+        for language_code in selected_languages:
+            raw = self.data.get(f"faq_rows_{language_code}", "[]")
+            try:
+                rows = json.loads(raw)
+                if not isinstance(rows, list) or len(rows) > maximum:
+                    raise ValueError()
+                parsed = []
+                for row in rows:
+                    if not isinstance(row, dict):
+                        raise ValueError()
+                    question = str(row.get("question", "")).strip()
+                    answer = str(row.get("answer", "")).strip()
+                    url = str(row.get("url", "")).strip()
+                    entry_id = row.get("id")
+                    if not any((question, answer, url)):
+                        continue
+                    if len(question) > 255 or len(answer) > 2000 or len(url) > 200:
+                        raise ValueError()
+                    if bool(question) != bool(answer):
+                        raise forms.ValidationError(
+                            "Każdy wpis FAQ musi zawierać pytanie i odpowiedź."
+                            if self.ui_language == "pl" else "Each FAQ entry must include both a question and an answer."
+                        )
+                    if language_code == self.data.get("primary_language") and not question:
+                        raise ValueError()
+                    if url:
+                        url = self._normalize_optional_url(
+                            url,
+                            invalid_message_pl="Niepoprawny adres źródła FAQ.",
+                            invalid_message_en="Enter a valid FAQ source URL.",
+                        )
+                    parsed.append({
+                        "id": int(entry_id) if str(entry_id).isdigit() else None,
+                        "question": question,
+                        "answer": answer,
+                        "url": url,
+                    })
+                payload[language_code] = parsed
+            except (ValueError, TypeError, json.JSONDecodeError):
+                raise forms.ValidationError(
+                    "Sprawdź pytania FAQ, odpowiedzi (do 2000 znaków), adresy źródeł i limit planu."
+                    if self.ui_language == "pl"
+                    else "Check FAQ questions, answers (up to 2,000 characters), source URLs, and your plan limit."
+                )
+        return payload
+
+    def _save_faq_entries(self, instance: Organization, selected_languages: list[str]) -> None:
+        payload = self._parse_faqs_by_language(selected_languages)
+        primary_rows = payload.get(instance.primary_language, [])
+        existing = list(instance.content_entries.filter(entry_type=EntryType.FAQ).order_by("-is_featured", "pk"))
+        existing_by_id = {entry.pk: entry for entry in existing}
+        retained = set()
+        for index, primary_row in enumerate(primary_rows):
+            entry = existing_by_id.get(primary_row["id"])
+            if entry is None and index < len(existing) and existing[index].pk not in retained:
+                entry = existing[index]
+            entry = entry or ContentEntry(organization=instance, entry_type=EntryType.FAQ)
+            questions = dict(entry.questions_by_language or {})
+            answers = dict(entry.answers_by_language or {})
+            source_url = primary_row["url"]
+            for code in selected_languages:
+                translated_rows = payload.get(code, [])
+                translated = next(
+                    (row for row in translated_rows if row["id"] and row["id"] == primary_row["id"]),
+                    translated_rows[index] if index < len(translated_rows) else None,
+                )
+                if translated and translated["question"] and translated["answer"]:
+                    questions[code] = translated["question"]
+                    answers[code] = translated["answer"]
+                    source_url = source_url or translated["url"]
+                else:
+                    questions.pop(code, None)
+                    answers.pop(code, None)
+            entry.entry_type = EntryType.FAQ
+            entry.title = primary_row["question"]
+            entry.questions_by_language = questions
+            entry.answers_by_language = answers
+            entry.content_url = source_url
+            entry.is_featured = index == 0
+            entry.summary_en = answers.get("en", "")[:280]
+            entry.summary_pl = answers.get("pl", "")[:280]
+            entry.save()
+            retained.add(entry.pk)
+        instance.content_entries.filter(entry_type=EntryType.FAQ).exclude(pk__in=retained).delete()
 
     def _parse_social_profiles_text(self, raw_value: str) -> dict[str, str]:
         candidates = [chunk.strip() for chunk in re.split(r"[\n,;]+", raw_value) if chunk.strip()]
@@ -649,17 +852,17 @@ class OrganizationForm(forms.ModelForm):
         for candidate in candidates:
             normalized = candidate if urlsplit(candidate).scheme else f"https://{candidate}"
             try:
-                URLValidator()(normalized)
+                URLValidator(schemes=["http", "https"])(normalized)
             except ValidationError:
                 raise forms.ValidationError(
                     f"Niepoprawny link social: {candidate}" if self.ui_language == "pl"
                     else f"Invalid social profile URL: {candidate}"
                 )
 
-            hostname = (urlsplit(normalized).netloc or "").lower()
+            hostname = (urlsplit(normalized).hostname or "").lower()
             network = None
             for domain, network_code in network_map.items():
-                if domain in hostname:
+                if hostname == domain or hostname.endswith("." + domain):
                     network = network_code
                     break
 
@@ -679,57 +882,11 @@ class OrganizationForm(forms.ModelForm):
 
         return parsed
 
-    def _save_featured_entry(self, instance: Organization) -> None:
-        summary = (self.cleaned_data.get("featured_entry_summary") or "").strip()
-        content_url = (self.cleaned_data.get("featured_entry_url") or "").strip()
-
-        featured_entry = instance.content_entries.filter(is_featured=True).order_by("-published_at", "title").first()
-        if not any([summary, content_url]):
-            if featured_entry:
-                featured_entry.delete()
-            return
-
-        if not featured_entry:
-            featured_entry = ContentEntry(organization=instance, is_featured=True)
-
-        featured_entry.entry_type = EntryType.FAQ
-        featured_entry.title = self._build_featured_entry_title(instance, featured_entry.entry_type)
-        featured_entry.content_url = content_url
-
-        target_languages = list(dict.fromkeys((instance.content_languages or []) + [instance.primary_language]))
-        for language_code in target_languages:
-            field_name = f"summary_{language_code}"
-            if hasattr(featured_entry, field_name):
-                setattr(featured_entry, field_name, summary)
-
-        featured_entry.save()
-
-    def _build_featured_entry_title(self, instance: Organization, entry_type: str) -> str:
-        type_labels_pl = {
-            EntryType.UPDATE: "Aktualnosc firmy",
-            EntryType.FAQ: "FAQ firmy",
-            EntryType.GUIDE: "Poradnik firmy",
-            EntryType.CASE_STUDY: "Case study firmy",
-        }
-        type_labels_en = {
-            EntryType.UPDATE: "Company update",
-            EntryType.FAQ: "Company FAQ",
-            EntryType.GUIDE: "Company guide",
-            EntryType.CASE_STUDY: "Company case study",
-        }
-
-        label = (
-            type_labels_pl.get(entry_type, "Material wiedzy o firmie")
-            if self.ui_language == "pl"
-            else type_labels_en.get(entry_type, "Company knowledge content")
-        )
-        return f"{label}: {instance.name}"[:255]
-
     @staticmethod
     def _get_allowed_languages_count(organization: Organization | None) -> int:
         """Zwraca ile języków treści ma dostęp na bazie planu subskrypcji."""
         if not organization:
-            return 3  # Default dla nowych organizacji
+            return 1
         try:
             get_subscription = getattr(organization, "get_subscription", None)
             if not callable(get_subscription):
@@ -774,23 +931,20 @@ class OrganizationForm(forms.ModelForm):
         values: dict[str, str] = {lang: "" for lang in selected_languages}
         if self.is_bound:
             for lang_code in selected_languages:
-                values[lang_code] = (self.data.get(f"products_{lang_code}") or "").strip()
+                # Keep the textarea fallback in sync with the enhanced editor after errors.
+                if self.data.get(f"product_rows_{lang_code}") is not None:
+                    try:
+                        rows = json.loads(self.data[f"product_rows_{lang_code}"])
+                        values[lang_code] = "\n".join(f"{row.get('name', '')} | {row.get('description', '')} | {row.get('url', '')}" for row in rows if isinstance(row, dict))
+                    except (ValueError, TypeError):
+                        values[lang_code] = self.data.get(f"products_{lang_code}", "")
+                else:
+                    values[lang_code] = (self.data.get(f"products_{lang_code}") or "").strip()
             return values
 
-        stored = getattr(self.instance, "products_by_language", {}) or {}
-        for lang_code in selected_languages:
-            rows = []
-            for item in stored.get(lang_code, []):
-                name = (item.get("name") or "").strip()
-                description = (item.get("description") or "").strip()
-                url = (item.get("url") or "").strip()
-                if not name:
-                    continue
-                if url:
-                    rows.append(f"{name} | {description} | {url}")
-                else:
-                    rows.append(f"{name} | {description}")
-            values[lang_code] = "\n".join(rows)
+        if self.instance and self.instance.pk:
+            for code in selected_languages:
+                values[code] = "\n".join(f"{row['name']} | {row['description']} | {row['url']}" for row in (product.translation_for_editor(code) for product in self.instance.products.all()))
         return values
 
     def _build_initial_descriptions(self, selected_languages: list[str]) -> dict:
@@ -838,8 +992,5 @@ class OrganizationForm(forms.ModelForm):
             "country",
             "primary_language",
             "social_profiles_text",
-            "featured_entry_type",
-            "featured_entry_summary",
             "ai_summary",
-            "featured_entry_url",
         ]

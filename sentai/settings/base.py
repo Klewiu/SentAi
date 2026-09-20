@@ -67,10 +67,23 @@ ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost")
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "")
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
+# Google Identity Services uses a cross-origin popup. Keeping the popup in the
+# opener's browsing-context group lets it return the signed credential.
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
+# Google requires this policy for local HTTP development; production keeps the
+# stricter origin-only referrer policy for cross-origin requests.
+SECURE_REFERRER_POLICY = (
+    "no-referrer-when-downgrade" if DEBUG else "strict-origin-when-cross-origin"
+)
+
 STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY", "")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "pln").strip().lower()
+STRIPE_BASIC_PRICE_AMOUNT_PLN = env_int("STRIPE_BASIC_PRICE_AMOUNT_PLN", 10000)
+STRIPE_BASIC_PRICE_AMOUNT_EUR = env_int("STRIPE_BASIC_PRICE_AMOUNT_EUR", 2500)
+STRIPE_BASIC_PRICE_ID_PLN = os.getenv("STRIPE_BASIC_PRICE_ID_PLN", os.getenv("STRIPE_BASIC_PRICE_ID", ""))
+STRIPE_BASIC_PRICE_ID_EUR = os.getenv("STRIPE_BASIC_PRICE_ID_EUR", "")
 STRIPE_PLUS_PRICE_AMOUNT = env_int("STRIPE_PLUS_PRICE_AMOUNT", 4900)
 STRIPE_PRO_PRICE_AMOUNT = env_int("STRIPE_PRO_PRICE_AMOUNT", 9900)
 STRIPE_PLUS_PRICE_ID = os.getenv("STRIPE_PLUS_PRICE_ID", "")
@@ -83,7 +96,10 @@ MANUAL_PAYMENT_IBAN_EUR = os.getenv("MANUAL_PAYMENT_IBAN_EUR", "PL00 0000 0000 0
 MANUAL_PAYMENT_BANK = os.getenv("MANUAL_PAYMENT_BANK", "Demo Bank S.A.")
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
+    "apps.accounts.admin_config.SecureAdminConfig",
+    "django_otp",
+    "django_otp.plugins.otp_totp",
+    "django_otp.plugins.otp_static",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -110,6 +126,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django_otp.middleware.OTPMiddleware",
+    "apps.accounts.middleware.AccountSecurityMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -127,12 +145,14 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.dashboard.context_processors.navbar_account_context",
+                "apps.accounts.google_signin.google_context",
             ],
         },
     }
 ]
 
 WSGI_APPLICATION = "sentai.wsgi.application"
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
 ASGI_APPLICATION = "sentai.asgi.application"
 
 DATABASES = {"default": database_config()}
@@ -164,9 +184,9 @@ USE_TZ = True
 LOCALE_PATHS = [BASE_DIR / "locale"]
 
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STORAGES = {"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}}
 STATIC_ROOT.mkdir(exist_ok=True)
 
 MEDIA_URL = "/media/"
@@ -182,8 +202,8 @@ LOGOUT_REDIRECT_URL = "login"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
+        "apps.accounts.authentication.ProtectedSessionAuthentication",
+        "apps.accounts.authentication.ProtectedTokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -213,4 +233,21 @@ SPECTACULAR_SETTINGS = {
     "LICENSE": {"name": "Proprietary"},
 }
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = env_int("EMAIL_PORT", 587)
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@localhost")
+EMAIL_TIMEOUT = 10
+AUTH_RATE_LIMIT = env_int("AUTH_RATE_LIMIT", 30)
+PRIVATE_MEDIA_ROOT = Path(os.getenv("PRIVATE_MEDIA_ROOT", str(BASE_DIR / "private_media")))
+DATA_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
+LOGGING = {"version": 1, "disable_existing_loggers": False, "handlers": {"console": {"class": "logging.StreamHandler"}}, "loggers": {"apps": {"handlers": ["console"], "level": "WARNING", "propagate": False}}}
+
+STORAGES["private"] = {"BACKEND": "apps.billing.storage.PrivateFileSystemStorage", "OPTIONS": {"location": PRIVATE_MEDIA_ROOT, "base_url": None}}
+
+ADMIN_MFA_REQUIRED = env_bool("ADMIN_MFA_REQUIRED", True)
+OTP_TOTP_ISSUER = "SentAi"

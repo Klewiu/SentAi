@@ -13,7 +13,11 @@
                     {% if request.LANGUAGE_CODE == 'pl' %}Klient{% else %}Client{% endif %}
                 </span>
                 <h1 class="mt-3 font-display text-3xl font-bold leading-tight tracking-tight text-[#284b63] sm:text-4xl">
-                    {{ client.company_name|default:client.email }}
+                    {% if client.closed_at %}
+                        {{ client.closed_display_name|default:"-" }}
+                    {% else %}
+                        {{ client.company_name|default:client.email }}
+                    {% endif %}
                 </h1>
             </div>
             <a href="{% url 'dashboard:client-list' %}"
@@ -22,13 +26,25 @@
             </a>
         </div>
 
+        {% if client.closed_at %}
+            <div class="rounded-xl border border-slate-300 bg-slate-50 px-5 py-4">
+                <p class="font-mono text-xs font-semibold uppercase tracking-widest text-slate-600">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Konto zamkni&#281;te{% else %}Account closed{% endif %}
+                </p>
+                <p class="mt-1 text-sm text-slate-600">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Klient nie ma dost&#281;pu do aplikacji. Dane profilu zosta&#322;y usuni&#281;te; zachowano dokumenty finansowe.{% else %}The customer cannot access the application. Profile data was removed; financial records were retained.{% endif %}
+                </p>
+                <p class="mt-1 font-mono text-xs text-slate-500">{{ client.closed_at|date:"Y-m-d H:i" }}</p>
+            </div>
+        {% endif %}
+
         <!-- Client info card -->
         <div class="grid gap-4 sm:grid-cols-3">
             <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 space-y-0.5">
                 <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
                     {% if request.LANGUAGE_CODE == 'pl' %}E-mail{% else %}Email{% endif %}
                 </p>
-                <p class="font-mono text-sm text-[#353535]">{{ client.email }}</p>
+                <p class="font-mono text-sm text-[#353535]">{% if client.closed_at %}—{% else %}{{ client.email }}{% endif %}</p>
             </div>
             <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 space-y-0.5">
                 <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">

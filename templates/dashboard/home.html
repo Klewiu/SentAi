@@ -3,6 +3,12 @@
 
 {% block content %}
 {% include 'partials/step_flow_dashboard.html' %}
+{% if not has_publication_access %}
+<div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm">
+    {% if request.LANGUAGE_CODE == 'pl' %}Publikacja profili wymaga aktywnego płatnego planu. Basic kosztuje 100 PLN lub 25 EUR rocznie. Twoje zapisane dane pozostają dostępne do edycji.{% else %}Publishing profiles requires an active paid plan. Basic costs 100 PLN or 25 EUR per year. Your saved data remains available to edit.{% endif %}
+    <a class="font-semibold underline" href="{% url 'dashboard:plan-update' %}">{% if request.LANGUAGE_CODE == 'pl' %}Wybierz lub odnów plan{% else %}Choose or renew a plan{% endif %}</a>
+</div>
+{% endif %}
 
 <section class="space-y-6">
     <div class="flex items-center gap-2">
@@ -34,23 +40,37 @@
                 </div>
 
                 <div>
-                    <dt class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Język{% else %}Language{% endif %}</dt>
-                    <dd class="mt-1 font-mono text-xs text-[#353535]/70">{{ organization.primary_language|upper }}</dd>
+                    <dt class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Wersje językowe profilu{% else %}Profile language versions{% endif %}</dt>
+                    <dd class="mt-2 flex flex-wrap gap-2">
+                        {% for language in organization.profile_languages %}
+                            {% if organization.is_verified and organization.public and organization.allow_ai_indexing and organization.has_publication_access %}
+                            <a class="rounded border border-[#5ca197] px-3 py-2 text-sm text-[#284b63] hover:bg-[#f8fafa]" href="{% url 'public-company-language-detail' organization.slug language.code %}" lang="{{ language.code }}">{{ language.label }}</a>
+                            {% else %}
+                            <span class="rounded border border-[#d9d9d9] px-3 py-2 text-sm" lang="{{ language.code }}">{{ language.label }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </dd>
                 </div>
 
                 <div>
                     <dt class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Publiczne endpointy{% else %}Public endpoints{% endif %}</dt>
                     <dd class="mt-1 flex flex-col gap-1">
-                        {% if organization.is_verified %}
-                            <a class="font-mono text-xs text-[#284b63] hover:text-[#5ca197] hover:underline" href="{% url 'public-company-detail' organization.slug %}" target="_blank" rel="noopener">
+                        {% if organization.is_verified and organization.has_publication_access %}
+                            <a class="font-mono text-xs text-[#284b63] hover:text-[#5ca197] hover:underline" href="{% url 'public-company-language-detail' organization.slug organization.primary_language %}" target="_blank" rel="noopener">
                                 {% if request.LANGUAGE_CODE == 'pl' %}Publiczny profil{% else %}Public profile{% endif %} ↗
                             </a>
                         {% else %}
                             <span class="font-mono text-xs text-[#353535]/40">
-                                {% if request.LANGUAGE_CODE == 'pl' %}Publiczny profil po weryfikacji{% else %}Public profile after verification{% endif %}
+                                {% if not organization.has_publication_access %}
+                                    {% if request.LANGUAGE_CODE == 'pl' %}Publiczny profil wymaga aktywnego planu{% else %}Public profile requires an active plan{% endif %}
+                                {% elif not organization.is_verified %}
+                                    {% if request.LANGUAGE_CODE == 'pl' %}Publiczny profil oczekuje na weryfikację{% else %}Public profile is awaiting verification{% endif %}
+                                {% else %}
+                                    {% if request.LANGUAGE_CODE == 'pl' %}Włącz publikację i indeksowanie AI{% else %}Enable publication and AI indexing{% endif %}
+                                {% endif %}
                             </span>
                         {% endif %}
-                        {% if organization.is_verified %}
+                        {% if organization.is_verified and organization.has_publication_access %}
                         <a class="font-mono text-xs text-[#5ca197] hover:text-[#2e5558] hover:underline" href="{% url 'companies_api:public-company-json' organization.slug %}" target="_blank">company.json ↗</a>
 
                         {% if organization.supports_advanced_formats %}
@@ -66,7 +86,7 @@
                         {% endif %}
                         {% else %}
                             <span class="font-mono text-xs text-[#353535]/40">
-                                {% if request.LANGUAGE_CODE == 'pl' %}Endpointy po weryfikacji{% else %}Feeds after verification{% endif %}
+                                {% if not organization.has_publication_access %}{% if request.LANGUAGE_CODE == 'pl' %}Formaty wymagają aktywnego planu{% else %}Feeds require an active plan{% endif %}{% elif not organization.is_verified %}{% if request.LANGUAGE_CODE == 'pl' %}Formaty oczekują na weryfikację{% else %}Feeds are awaiting verification{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Formaty po włączeniu publikacji{% else %}Feeds available after publication is enabled{% endif %}{% endif %}
                             </span>
                         {% endif %}
                     </dd>
@@ -74,13 +94,13 @@
             </dl>
 
             <div class="mt-5 flex flex-wrap gap-2 border-t border-[#d9d9d9] pt-4">
-                {% if organization.is_verified %}
-                    <a class="inline-flex min-h-9 items-center justify-center rounded border border-[#5ca197] bg-[#5ca197] px-3 py-1.5 font-mono text-xs font-medium text-white transition hover:border-[#3d7d78] hover:bg-[#3d7d78]" href="{% url 'public-company-detail' organization.slug %}" target="_blank" rel="noopener">
+                {% if organization.is_verified and organization.has_publication_access %}
+                    <a class="inline-flex min-h-9 items-center justify-center rounded border border-[#5ca197] bg-[#5ca197] px-3 py-1.5 font-mono text-xs font-medium text-white transition hover:border-[#3d7d78] hover:bg-[#3d7d78]" href="{% url 'public-company-language-detail' organization.slug organization.primary_language %}" target="_blank" rel="noopener">
                         {% if request.LANGUAGE_CODE == 'pl' %}Zobacz profil{% else %}View profile{% endif %}
                     </a>
                 {% else %}
                     <span class="inline-flex min-h-9 items-center justify-center rounded border border-[#d9d9d9] bg-[#f8fafa] px-3 py-1.5 font-mono text-xs font-medium text-[#353535]/45">
-                        {% if request.LANGUAGE_CODE == 'pl' %}Czeka na weryfikację{% else %}Pending verification{% endif %}
+                        {% if not organization.has_publication_access %}{% if request.LANGUAGE_CODE == 'pl' %}Wymaga aktywnego planu{% else %}Requires an active plan{% endif %}{% elif not organization.is_verified %}{% if request.LANGUAGE_CODE == 'pl' %}Oczekuje na weryfikację{% else %}Awaiting verification{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Publikacja jest wyłączona{% else %}Publication is disabled{% endif %}{% endif %}
                     </span>
                 {% endif %}
 
@@ -263,9 +283,9 @@
                         Publikuj dane firmy w języku zrozumiałym dla AI.
                     </p>
                     <p class="mt-3">
-                        Darmowy plan <b>BASIC</b> pozwala zaistnieć w świecie AI z profilem <span class="font-mono text-sm text-[#5ca197]">company.json</span>.
-                        <br>Plan <b>PLUS</b> dodaje <span class="font-mono text-sm text-[#5ca197]">Schema.org JSON-LD</span> — AI może cytować Twoją firmę z bogatym kontekstem.
-                        <br>Plan <b>PRO</b> odblokowuje <span class="font-mono text-sm text-[#5ca197]">Markdown</span> i <span class="font-mono text-sm text-[#5ca197]">llms.txt</span> — profil wstrzykiwany wprost w kontekst LLM.
+                        Każdy plan obejmuje <b>JSON, JSON-LD, Markdown i llms.txt</b> dla zweryfikowanych, opublikowanych firm.
+                        <br><b>PLUS</b> dodaje drugi język, specjalizacje, profile społecznościowe i FAQ.
+                        <br><b>PRO</b> dodaje trzeci język, katalog produktów i wyższe limity treści.
                     </p>
                     <a class="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded bg-[#284b63] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]" href="{% url 'dashboard:plan-update' %}">
                         Rozszerz widoczność AI
@@ -278,9 +298,9 @@
                         Publish company data in the language AI understands.
                     </p>
                     <p class="mt-3">
-                        The free <b>BASIC</b> plan lets you enter the AI ecosystem with a <span class="font-mono text-sm text-[#5ca197]">company.json</span> profile.
-                        <br><b>PLUS</b> adds <span class="font-mono text-sm text-[#5ca197]">Schema.org JSON-LD</span> — AI can cite your business with rich, structured context.
-                        <br><b>PRO</b> unlocks <span class="font-mono text-sm text-[#5ca197]">Markdown</span> and <span class="font-mono text-sm text-[#5ca197]">llms.txt</span> — your profile injected directly into LLM context windows.
+                        Every plan includes <b>JSON, JSON-LD, Markdown and llms.txt</b> for verified, published companies.
+                        <br><b>PLUS</b> adds a second language, specialties, social profiles and FAQ content.
+                        <br><b>PRO</b> adds a third language, a product catalog and higher content limits.
                     </p>
                     <a class="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded bg-[#284b63] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]" href="{% url 'dashboard:plan-update' %}">
                         Expand AI visibility

@@ -20,6 +20,10 @@ def notify_admin(*, title, message, category, severity=NotificationSeverity.INFO
     }
     if reference_key:
         notification, created = AdminNotification.objects.get_or_create(reference_key=reference_key, defaults=defaults)
+        if not created and notification.resolved_at is not None:
+            notification.resolved_at = None
+            notification.closed_at = None
+            notification.save(update_fields=["resolved_at", "closed_at", "updated_at"])
         if not created and notification.closed_at is None:
             changed = []
             for field, value in defaults.items():
@@ -45,6 +49,10 @@ def notify_customer(*, user, title, message, category, severity=NotificationSeve
     }
     if reference_key:
         notification, created = CustomerNotification.objects.get_or_create(reference_key=reference_key, defaults=defaults)
+        if not created and notification.resolved_at is not None:
+            notification.resolved_at = None
+            notification.closed_at = None
+            notification.save(update_fields=["resolved_at", "closed_at", "updated_at"])
         if not created and notification.closed_at is None:
             changed = []
             for field, value in defaults.items():
@@ -60,8 +68,9 @@ def notify_customer(*, user, title, message, category, severity=NotificationSeve
 def close_notification(reference_key, closed_by=None):
     if not reference_key:
         return 0
-    return AdminNotification.objects.filter(reference_key=reference_key, closed_at__isnull=True).update(
+    return AdminNotification.objects.filter(reference_key=reference_key, resolved_at__isnull=True).update(
         closed_at=timezone.now(),
+        resolved_at=timezone.now(),
         closed_by=closed_by,
         updated_at=timezone.now(),
     )
@@ -136,8 +145,8 @@ def notify_plan_selected(user, plan_tier):
 
 def notify_manual_order_created(order):
     notify_admin(
-        title="New Pro Manual order",
-        message=f"{order.user.email} activated Pro Manual. Payment is due by {order.payment_due_at:%Y-%m-%d %H:%M}.",
+        title=f"New {order.get_tier_display()} Manual order",
+        message=f"{order.user.email} activated {order.get_tier_display()} Manual. Payment is due by {order.payment_due_at:%Y-%m-%d %H:%M}.",
         category=NotificationCategory.MANUAL_PLAN,
         severity=NotificationSeverity.WARNING,
         customer=order.user,
@@ -160,7 +169,7 @@ def notify_invoice_needed_for_payment(payment):
 
 def notify_invoice_needed_for_manual_order(order):
     notify_admin(
-        title="Pro Manual payment needs invoice",
+        title=f"{order.get_tier_display()} Manual payment needs invoice",
         message=f"{order.user.email} paid {order.formatted_amount()}. Upload and send an invoice.",
         category=NotificationCategory.INVOICE,
         severity=NotificationSeverity.WARNING,
@@ -172,8 +181,8 @@ def notify_invoice_needed_for_manual_order(order):
 
 def notify_manual_order_overdue(order):
     notify_admin(
-        title="Pro Manual payment overdue",
-        message=f"{order.user.email} has not paid Pro Manual by {order.payment_due_at:%Y-%m-%d %H:%M}. Review and disable the plan if needed.",
+        title=f"{order.get_tier_display()} Manual payment overdue",
+        message=f"{order.user.email} has not paid {order.get_tier_display()} Manual by {order.payment_due_at:%Y-%m-%d %H:%M}. Review and disable the plan if needed.",
         category=NotificationCategory.MANUAL_PLAN,
         severity=NotificationSeverity.URGENT,
         customer=order.user,
@@ -219,6 +228,8 @@ def close_manual_order_overdue(order, closed_by=None):
 
 
 def notify_customer_invoice_available(invoice):
+    if not invoice.user.is_active:
+        return None
     notify_customer(
         user=invoice.user,
         title="New invoice available",
@@ -230,6 +241,22 @@ def notify_customer_invoice_available(invoice):
         action_url=reverse("dashboard:customer-invoices"),
         reference_key=f"customer:{invoice.user_id}:invoice:{invoice.pk}",
     )
+
+
+def notify_organization_verification_needed(organization):
+    notify_admin(
+        title="Company profile needs verification",
+        message=f"{organization.name} was submitted and is waiting for administrator verification.",
+        category=NotificationCategory.CUSTOMER,
+        severity=NotificationSeverity.WARNING,
+        customer=organization.owner,
+        action_url=reverse("dashboard:client-detail", args=[organization.owner_id]),
+        reference_key=f"organization:{organization.pk}:verification-needed",
+    )
+
+
+def close_organization_verification_needed(organization):
+    close_notification(f"organization:{organization.pk}:verification-needed")
 
 
 def notify_customer_subscription_renewal(subscription):
@@ -265,10 +292,10 @@ def notify_customer_subscription_payment_issue(subscription):
 def notify_customer_manual_payment_due(order):
     notify_customer(
         user=order.user,
-        title="Pro Manual payment due",
-        message=f"Your Pro Manual bank transfer is due by {order.payment_due_at:%Y-%m-%d}. Use reference: {order.payment_reference}.",
-        title_pl="Termin płatności Pro Manual",
-        message_pl=f"Przelew za Pro Manual należy opłacić do {order.payment_due_at:%Y-%m-%d}. Użyj tytułu przelewu: {order.payment_reference}.",
+        title=f"{order.get_tier_display()} Manual payment due",
+        message=f"Your {order.get_tier_display()} Manual bank transfer is due by {order.payment_due_at:%Y-%m-%d}. Use reference: {order.payment_reference}.",
+        title_pl=f"Termin płatności {order.get_tier_display()} Manual",
+        message_pl=f"Przelew za {order.get_tier_display()} Manual należy opłacić do {order.payment_due_at:%Y-%m-%d}. Użyj tytułu przelewu: {order.payment_reference}.",
         category=NotificationCategory.MANUAL_PLAN,
         severity=NotificationSeverity.WARNING,
         action_url=reverse("dashboard:plan-update"),
@@ -279,10 +306,10 @@ def notify_customer_manual_payment_due(order):
 def notify_customer_manual_renewal(order, days):
     notify_customer(
         user=order.user,
-        title=f"Pro Manual ends in {days} days",
-        message=f"Your Pro Manual access ends on {order.access_until:%Y-%m-%d}. Contact us or renew Pro Manual to continue annual access.",
-        title_pl=f"Pro Manual kończy się za {days} dni",
-        message_pl=f"Twój dostęp Pro Manual kończy się {order.access_until:%Y-%m-%d}. Odnów Pro Manual, aby kontynuować roczny dostęp.",
+        title=f"{order.get_tier_display()} Manual ends in {days} days",
+        message=f"Your {order.get_tier_display()} Manual access ends on {order.access_until:%Y-%m-%d}. Contact us or renew {order.get_tier_display()} Manual to continue annual access.",
+        title_pl=f"{order.get_tier_display()} Manual kończy się za {days} dni",
+        message_pl=f"Twój dostęp {order.get_tier_display()} Manual kończy się {order.access_until:%Y-%m-%d}. Odnów {order.get_tier_display()} Manual, aby kontynuować roczny dostęp.",
         category=NotificationCategory.MANUAL_PLAN,
         severity=NotificationSeverity.WARNING if days == 30 else NotificationSeverity.URGENT,
         action_url=reverse("dashboard:plan-update"),
@@ -291,6 +318,18 @@ def notify_customer_manual_renewal(order, days):
 
 
 def scan_admin_notifications():
+    reconcile_notification_conditions()
+    from apps.companies.models import Organization, VerificationStatus
+
+    for organization in Organization.objects.filter(
+        owner__is_active=True,
+        verification_status=VerificationStatus.UNVERIFIED,
+    ).select_related("owner").iterator(chunk_size=100):
+        notify_organization_verification_needed(organization)
+    for organization in Organization.objects.filter(
+        verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED,
+    ).iterator(chunk_size=100):
+        close_organization_verification_needed(organization)
     for payment in BillingPayment.objects.filter(status=BillingPaymentStatus.PAID).select_related("user").prefetch_related("invoices"):
         if not payment.invoices.exists():
             notify_invoice_needed_for_payment(payment)
@@ -320,11 +359,13 @@ def scan_customer_notifications(user):
     if not billing_profile or not billing_profile.is_complete():
         notify_customer_billing_incomplete(user)
 
+    resolve_customer_condition(user, f"customer:{user.pk}:plan-not-selected", user.has_selected_plan())
+    resolve_customer_condition(user, f"customer:{user.pk}:billing-incomplete", bool(billing_profile and billing_profile.is_complete()))
     now = timezone.now()
     renewal_cutoff = now + timedelta(days=14)
     subscription = getattr(user, "billing_subscription", None)
     if subscription:
-        if subscription.status in {"active", "trialing"} and subscription.current_period_end and now <= subscription.current_period_end <= renewal_cutoff:
+        if not subscription.cancel_at_period_end and subscription.status in {"active", "trialing"} and subscription.current_period_end and now <= subscription.current_period_end <= renewal_cutoff:
             notify_customer_subscription_renewal(subscription)
         if subscription.status in {"past_due", "unpaid"}:
             notify_customer_subscription_payment_issue(subscription)
@@ -342,3 +383,25 @@ def scan_customer_notifications(user):
             notify_customer_manual_renewal(order, 30)
         if 0 <= days_left <= 14:
             notify_customer_manual_renewal(order, 14)
+
+
+def resolve_customer_condition(user, reference, resolved):
+    if resolved:
+        CustomerNotification.objects.filter(user=user, reference_key=reference, resolved_at__isnull=True).update(resolved_at=timezone.now(), closed_at=timezone.now())
+
+
+def reconcile_notification_conditions():
+    """Close obsolete conditions, retaining dismissed-vs-resolved distinction."""
+    now = timezone.now()
+    for subscription in BillingSubscription.objects.select_related("user"):
+        for status in ("past_due", "unpaid"):
+            if subscription.status != status:
+                close_notification(f"subscription:{subscription.pk}:status:{status}")
+                resolve_customer_condition(subscription.user, f"customer:{subscription.user_id}:stripe-payment-issue:{subscription.pk}:{status}", True)
+        if not subscription.cancel_at_period_end or subscription.status not in {"active", "trialing", "past_due"}:
+            close_notification(f"subscription:{subscription.pk}:canceling")
+        if subscription.cancel_at_period_end or subscription.status not in {"active", "trialing"}:
+            CustomerNotification.objects.filter(user=subscription.user, reference_key__startswith=f"customer:{subscription.user_id}:stripe-renewal:{subscription.pk}:", resolved_at__isnull=True).update(resolved_at=now, closed_at=now)
+    for order in ManualPlanOrder.objects.exclude(status="awaiting_payment"):
+        close_manual_order_overdue(order)
+        resolve_customer_condition(order.user, f"customer:{order.user_id}:manual-payment-due:{order.pk}", True)

@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="{{ request.LANGUAGE_CODE|default:'en' }}">
+<html lang="{{ document_language|default:request.LANGUAGE_CODE|default:'en' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -132,7 +132,7 @@
                                         <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                             <path d="M4 7h16l-2 11H6L4 7zm4-3h8v2H8V4z" fill="currentColor"/>
                                         </svg>
-                                        <span class="truncate">{{ navbar_user_plan_tier }}</span>
+                                        <span class="truncate">{% if request.LANGUAGE_CODE == 'pl' %}PLANY{% else %}PLANS{% endif %}</span>
                                     </a>
                                 {% endif %}
                                 {% if request.user.account_type != 'STAFF' %}

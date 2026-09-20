@@ -25,8 +25,16 @@ def compact(value):
     return value
 
 
-def public_feed_urls(organization, request=None) -> dict:
-    return {
+def public_profile_url(organization, language_code: str, request=None) -> str:
+    route = reverse(
+        "public-company-language-detail",
+        kwargs={"slug": organization.slug, "content_lang": language_code},
+    )
+    return absolute_url(route, request)
+
+
+def public_feed_urls(organization, request=None, language_code: str | None = None) -> dict:
+    urls = {
         "company_json": absolute_url(
             reverse("companies_api:public-company-json", kwargs={"slug": organization.slug}),
             request,
@@ -44,6 +52,27 @@ def public_feed_urls(organization, request=None) -> dict:
             request,
         ),
     }
+    if language_code:
+        urls["multilingual_company_json"] = urls["company_json"]
+        urls.update({
+            "company_json": absolute_url(reverse(
+                "companies_api:public-company-language-json",
+                kwargs={"slug": organization.slug, "language_code": language_code},
+            ), request),
+            "company_jsonld": absolute_url(reverse(
+                "companies_api:public-company-language-jsonld",
+                kwargs={"slug": organization.slug, "language_code": language_code},
+            ), request),
+            "company_md": absolute_url(reverse(
+                "companies_api:public-company-language-md",
+                kwargs={"slug": organization.slug, "language_code": language_code},
+            ), request),
+            "llms_txt": absolute_url(reverse(
+                "companies_api:public-company-language-llms",
+                kwargs={"slug": organization.slug, "language_code": language_code},
+            ), request),
+        })
+    return urls
 
 
 def _ordered_unique(values: list[str]) -> list[str]:
@@ -53,8 +82,8 @@ def _ordered_unique(values: list[str]) -> list[str]:
 def _description_payload(organization) -> dict:
     stored_descriptions = organization.descriptions_by_language or {}
     preferred_languages = _ordered_unique(
-        list(organization.content_languages or [])
-        + [organization.primary_language]
+        [organization.primary_language]
+        + list(organization.content_languages or [])
         + list(SUPPORTED_DESCRIPTION_LANGUAGES)
     )
     descriptions = {}
@@ -77,12 +106,33 @@ def _description_payload(organization) -> dict:
                     "long": long_value,
                 }
             )
-    return descriptions
+    limit = organization.get_subscription().limit_for("languages")
+    return dict(list(descriptions.items())[:limit])
+
+
+def profile_language_choices(organization):
+    """Only offer supplied translations available under the effective plan."""
+    labels = dict(getattr(settings, "FEED_LANGUAGES", settings.LANGUAGES))
+    codes = list(_description_payload(organization)) or [organization.primary_language]
+    return [{"code": code, "label": labels.get(code, code.upper())} for code in codes]
+
+
+def primary_public_language(organization) -> str:
+    codes = [item["code"] for item in profile_language_choices(organization)]
+    if organization.primary_language in codes:
+        return organization.primary_language
+    return codes[0]
 
 
 def _product_description_payload(product) -> dict:
-    descriptions = {}
+    allowed_languages = set(_description_payload(product.organization))
+    descriptions = {
+        code: value for code, value in (product.descriptions_by_language or {}).items()
+        if code in allowed_languages
+    }
     for language_code in SUPPORTED_DESCRIPTION_LANGUAGES:
+        if language_code not in allowed_languages:
+            continue
         field_name = f"short_description_{language_code}"
         if not hasattr(product, field_name):
             continue
@@ -93,8 +143,14 @@ def _product_description_payload(product) -> dict:
 
 
 def _entry_summary_payload(entry) -> dict:
-    summaries = {}
+    allowed_languages = set(_description_payload(entry.organization))
+    summaries = {
+        code: value for code, value in (entry.answers_by_language or {}).items()
+        if code in allowed_languages
+    }
     for language_code in SUPPORTED_DESCRIPTION_LANGUAGES:
+        if language_code not in allowed_languages:
+            continue
         field_name = f"summary_{language_code}"
         if not hasattr(entry, field_name):
             continue
@@ -111,11 +167,11 @@ def _social_profiles_payload(organization) -> list[dict]:
             "label": profile.get_network_display(),
             "url": profile.url,
         }
-        for profile in organization.social_profiles.all()
+        for profile in public_resources(organization, "social_profiles")
     ]
 
 
-def _tags_payload(organization) -> list[dict]:
+def _tags_payload(organization, language_code: str | None = None) -> list[dict]:
     return [
         compact(
             {
@@ -123,75 +179,69 @@ def _tags_payload(organization) -> list[dict]:
                 "language": tag.language,
             }
         )
-        for tag in organization.tags.all()
+        for tag in public_resources(organization, "tags")
+        if not language_code or not tag.language or tag.language == language_code
     ]
 
 
 def _products_payload(organization) -> list[dict]:
-    products_by_language = organization.products_by_language or {}
-    if products_by_language:
-        merged_products: dict[str, dict] = {}
-        sequence = 0
-        for language_code, items in products_by_language.items():
-            for item in items:
-                name = (item.get("name") or "").strip()
-                description = (item.get("description") or "").strip()
-                product_url = (item.get("url") or "").strip()
-                if not name:
-                    continue
-
-                key = product_url or f"name:{name.lower()}:{sequence}"
-                if key not in merged_products:
-                    merged_products[key] = {
-                        "name": name,
-                        "descriptions": {},
-                        "product_url": product_url,
-                        "is_featured": sequence == 0,
-                    }
-                if description:
-                    merged_products[key]["descriptions"][language_code] = description
-                if product_url and not merged_products[key].get("product_url"):
-                    merged_products[key]["product_url"] = product_url
-                sequence += 1
-
-        return [compact(payload) for payload in merged_products.values()]
-
-    return [
-        compact(
-            {
-                "name": product.name,
-                "descriptions": _product_description_payload(product),
+    languages = [item["code"] for item in profile_language_choices(organization)]
+    payload = []
+    for product in public_resources(organization, "products"):
+        descriptions = _product_description_payload(product)
+        translations = {}
+        for code in languages:
+            translation = product.translation_in(code)
+            if translation:
+                translations[code] = compact(translation)
+        payload.append(compact({
+                "id": str(product.public_id),
+                "name": product.localized_name(organization.primary_language),
+                "names_by_language": {
+                    code: values["name"] for code, values in translations.items()
+                },
+                "descriptions": descriptions,
+                "translations": translations,
                 "product_url": product.product_url,
                 "price_from": str(product.price_from) if product.price_from is not None else None,
                 "currency": product.currency if product.price_from is not None else None,
                 "is_featured": product.is_featured,
                 "created_at": product.created_at.isoformat(),
-            }
-        )
-        for product in organization.products.all()
-    ]
+            }))
+    return payload
 
 
 def _content_entries_payload(organization) -> list[dict]:
-    return [
-        compact(
-            {
+    languages = [item["code"] for item in profile_language_choices(organization)]
+    payload = []
+    for entry in public_resources(organization, "content_entries"):
+        summaries = _entry_summary_payload(entry)
+        translations = {}
+        for code in languages:
+            translation = entry.translation_in(code)
+            if translation:
+                translations[code] = compact(translation)
+        payload.append(compact({
+                "id": str(entry.public_id),
                 "entry_type": entry.entry_type,
                 "entry_type_label": entry.get_entry_type_display(),
-                "title": entry.title,
-                "summaries": _entry_summary_payload(entry),
+                "title": entry.localized_question(organization.primary_language),
+                "questions": {
+                    code: value for code, value in (entry.questions_by_language or {}).items()
+                    if code in languages
+                },
+                "summaries": summaries,
+                "translations": translations,
                 "content_url": entry.content_url,
                 "published_at": entry.published_at.isoformat(),
                 "is_featured": entry.is_featured,
-            }
-        )
-        for entry in organization.content_entries.all()
-    ]
+            }))
+    return payload
 
 
-def _company_keywords(organization) -> list[str]:
+def _company_keywords(organization, language_code: str | None = None) -> list[str]:
     values = [organization.name, organization.get_company_type_display()]
-    values.extend(tag.name for tag in organization.tags.all())
+    values.extend(tag["name"] for tag in _tags_payload(organization, language_code))
     return _ordered_unique([value.strip() for value in values if value and value.strip()])
 
 
@@ -203,13 +253,14 @@ def build_basic_feed(organization, request=None) -> dict:
             "profile_type": "company-profile",
             "profile_version": "2.0",
             "company": {
+                "id": str(organization.public_id),
                 "name": organization.name,
                 "slug": organization.slug,
                 "company_type": organization.company_type,
                 "company_type_label": organization.get_company_type_display(),
                 "website": organization.website_url,
                 "contact": {
-                    "email": organization.owner.email,
+                    "email": organization.contact_email,
                     "phone": organization.phone_number,
                     "address": {
                         "street": organization.address_line,
@@ -220,7 +271,7 @@ def build_basic_feed(organization, request=None) -> dict:
                 },
                 "languages": {
                     "primary": organization.primary_language,
-                    "declared_content_languages": organization.content_languages,
+                    "declared_content_languages": list(descriptions),
                     "available_description_languages": list(descriptions.keys()),
                 },
                 "descriptions": descriptions,
@@ -253,6 +304,14 @@ def build_basic_feed(organization, request=None) -> dict:
                     "llms_txt": subscription.supports("llms_txt"),
                 },
                 "feed_urls": public_feed_urls(organization, request),
+                "profile_urls": {
+                    item["code"]: public_profile_url(organization, item["code"], request)
+                    for item in profile_language_choices(organization)
+                },
+                "localized_feed_urls": {
+                    item["code"]: public_feed_urls(organization, request, item["code"])
+                    for item in profile_language_choices(organization)
+                },
             },
             "timestamps": {
                 "created_at": organization.created_at.isoformat(),
@@ -262,38 +321,76 @@ def build_basic_feed(organization, request=None) -> dict:
     )
 
 
-def build_jsonld_feed(organization, request=None) -> dict:
+def build_localized_feed(organization, language_code: str, request=None) -> dict:
+    descriptions = _description_payload(organization)
+    description = descriptions.get(language_code, {})
+    payload = build_basic_feed(organization, request)
+    payload["company"]["languages"] = {
+        "primary": language_code,
+        "available": list(descriptions),
+    }
+    payload["company"]["descriptions"] = {language_code: description}
+    # This field has no translation map, so it belongs only in the multilingual master feed.
+    payload["company"].pop("ai_summary", None)
+    payload["discovery"]["keywords"] = _company_keywords(organization, language_code)
+    payload["discovery"]["tags"] = _tags_payload(organization, language_code)
+    localized_products = []
+    for product in payload["discovery"].get("products", []):
+        translated = product.get("translations", {}).get(language_code, {})
+        if not translated.get("name"):
+            continue
+        product["name"] = translated["name"]
+        product["descriptions"] = {language_code: translated.get("description")} if translated.get("description") else {}
+        product["translations"] = {language_code: translated} if translated else {}
+        product["names_by_language"] = {language_code: translated.get("name")} if translated.get("name") else {}
+        localized_products.append(product)
+    payload["discovery"]["products"] = localized_products
+    localized_entries = []
+    for entry in payload["discovery"].get("content_entries", []):
+        translated = entry.get("translations", {}).get(language_code, {})
+        if not translated.get("question"):
+            continue
+        entry["title"] = translated["question"]
+        entry["questions"] = {language_code: translated.get("question")} if translated.get("question") else {}
+        entry["summaries"] = {language_code: translated.get("answer")} if translated.get("answer") else {}
+        entry["translations"] = {language_code: translated} if translated else {}
+        localized_entries.append(entry)
+    payload["discovery"]["content_entries"] = localized_entries
+    payload["ai_access"]["feed_urls"] = public_feed_urls(organization, request, language_code)
+    payload["canonical_profile"] = public_profile_url(organization, language_code, request)
+    return compact(payload)
+
+
+def build_jsonld_feed(organization, request=None, language_code=None) -> dict:
+    language_code = language_code or primary_public_language(organization)
     description_map = _description_payload(organization)
-    keywords = _company_keywords(organization)
+    keywords = _company_keywords(organization, language_code)
     available_languages = list(description_map.keys()) or _ordered_unique(
         list(organization.content_languages or []) + [organization.primary_language]
     )
-    canonical_page = absolute_url(
-        reverse("public-company-detail", kwargs={"slug": organization.slug}),
-        request,
-    )
+    canonical_page = public_profile_url(organization, language_code, request)
     return compact(
         {
             "@context": "https://schema.org",
             "@type": "Organization",
-            "@id": f"{canonical_page}#organization",
+            "@id": f"urn:uuid:{organization.public_id}",
             "name": organization.name,
-            "identifier": organization.slug,
+            "identifier": str(organization.public_id),
             "url": organization.website_url,
-            "email": organization.owner.email,
+            "email": organization.contact_email,
             "telephone": organization.phone_number,
-            "description": organization.localized_text("long_description", organization.primary_language)
-            or organization.localized_text("short_description", organization.primary_language),
+            "description": organization.localized_text("long_description", language_code)
+            or organization.localized_text("short_description", language_code),
             "keywords": ", ".join(keywords),
-            "sameAs": [profile.url for profile in organization.social_profiles.all()],
-            "inLanguage": available_languages,
+            "sameAs": [profile.url for profile in public_resources(organization, "social_profiles")],
+            "inLanguage": language_code,
             "availableLanguage": available_languages,
-            "knowsAbout": [tag.name for tag in organization.tags.all()],
+            "knowsAbout": [tag["name"] for tag in _tags_payload(organization, language_code)],
             "contactPoint": [
                 compact(
                     {
                         "@type": "ContactPoint",
-                        "email": organization.owner.email,
+                        "email": organization.contact_email,
                         "telephone": organization.phone_number,
                         "availableLanguage": available_languages,
                         "contactType": "customer support",
@@ -315,47 +412,54 @@ def build_jsonld_feed(organization, request=None) -> dict:
                     compact(
                         {
                             "@type": "Offer",
-                            "name": product.name,
-                            "description": product.localized_summary("en"),
+                            "name": product.localized_name(language_code),
+                            "description": product.localized_summary(language_code),
                             "url": product.product_url,
                             "priceCurrency": product.currency if product.price_from else None,
                             "price": str(product.price_from) if product.price_from is not None else None,
                         }
                     )
-                    for product in organization.products.all()
+                    for product in public_resources(organization, "products")
+                    if product.translation_in(language_code)
                 ],
             },
             "subjectOf": [
-                compact(
-                    {
-                        "@type": "CreativeWork",
-                        "name": entry.title,
-                        "url": entry.content_url,
-                        "description": entry.localized_summary("en"),
-                        "datePublished": entry.published_at.date().isoformat(),
-                    }
-                )
-                for entry in organization.content_entries.all()
+                compact({
+                    "@type": "Question" if entry.entry_type == "faq" else "CreativeWork",
+                    "@id": f"urn:uuid:{entry.public_id}",
+                    "name": entry.localized_question(language_code),
+                    "url": entry.content_url,
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": entry.localized_answer(language_code),
+                    } if entry.entry_type == "faq" else None,
+                    "description": entry.localized_summary(language_code) if entry.entry_type != "faq" else None,
+                    "datePublished": entry.published_at.date().isoformat(),
+                    "inLanguage": language_code,
+                })
+                for entry in public_resources(organization, "content_entries")
+                if entry.translation_in(language_code)
             ],
             "mainEntityOfPage": canonical_page,
         }
     )
 
 
-def build_llms_text(organization, request=None) -> str:
+def build_llms_text(organization, request=None, language_code: str | None = None) -> str:
+    selected_language = language_code or primary_public_language(organization)
     descriptions = _description_payload(organization)
-    keywords = _company_keywords(organization)
-    feed_urls = public_feed_urls(organization, request)
+    keywords = _company_keywords(organization, selected_language if language_code else None)
+    feed_urls = public_feed_urls(organization, request, language_code)
     sections = [
         f"# {organization.name}",
         "",
-        organization.localized_text("long_description", organization.primary_language)
-        or organization.localized_text("short_description", organization.primary_language),
+        organization.localized_text("long_description", selected_language)
+        or organization.localized_text("short_description", selected_language),
         "",
         "## Company facts",
         f"- Brand name: {organization.name}",
         f"- Company type: {organization.get_company_type_display()}",
-        f"- Primary language: {organization.primary_language or 'n/a'}",
+        f"- Content language: {selected_language}",
         f"- Declared content languages: {', '.join(organization.content_languages or []) or 'n/a'}",
         "",
         "## Canonical feeds",
@@ -366,7 +470,7 @@ def build_llms_text(organization, request=None) -> str:
         "",
         "## Contact",
         f"- Website: {organization.website_url or 'n/a'}",
-        f"- Email: {organization.owner.email or 'n/a'}",
+        f"- Email: {organization.contact_email or 'n/a'}",
         f"- Phone: {organization.phone_number or 'n/a'}",
         f"- Address: {', '.join(value for value in [organization.address_line, organization.postal_code, organization.city, organization.country] if value) or 'n/a'}",
         "",
@@ -378,7 +482,7 @@ def build_llms_text(organization, request=None) -> str:
     else:
         sections.append("- No topics published")
 
-    if descriptions:
+    if descriptions and not language_code:
         sections.extend(["", "## Descriptions by language"])
         for language_code, values in descriptions.items():
             sections.append(f"### {language_code}")
@@ -398,20 +502,28 @@ def build_llms_text(organization, request=None) -> str:
         sections.append("- No social profiles published")
 
     sections.extend(["", "## Products"]) 
-    products = _products_payload(organization)
+    products = [
+        product for product in _products_payload(organization)
+        if not language_code or product.get("translations", {}).get(selected_language, {}).get("name")
+    ]
     if products:
-        sections.extend(
-            f"- {product['name']}: {next(iter(product.get('descriptions', {}).values()), 'No description')}"
-            for product in products
-        )
+        for product in products:
+            translated = product.get("translations", {}).get(selected_language, {})
+            sections.append(
+                f"- {translated.get('name') or product['name']}: "
+                f"{translated.get('description') or 'No description'}"
+            )
     else:
         sections.append("- No products published")
 
     sections.extend(["", "## Recent entries"])
-    entries = _content_entries_payload(organization)[:10]
+    entries = [
+        entry for entry in public_resources(organization, "content_entries")
+        if not language_code or entry.translation_in(selected_language)
+    ]
     if entries:
         sections.extend(
-            f"- {entry['title']}: {next(iter(entry.get('summaries', {}).values()), 'No summary')}"
+            f"- {entry.localized_question(selected_language)}: {entry.localized_summary(selected_language) or 'No summary'}"
             for entry in entries
         )
     else:
@@ -420,19 +532,20 @@ def build_llms_text(organization, request=None) -> str:
     return "\n".join(sections).strip() + "\n"
 
 
-def build_markdown_feed(organization, request=None) -> str:
+def build_markdown_feed(organization, request=None, language_code: str | None = None) -> str:
     """Render a company profile as Markdown — optimised for LLM ingestion and RAG pipelines."""
     descriptions = _description_payload(organization)
-    feed_urls = public_feed_urls(organization, request)
+    selected_language = language_code or primary_public_language(organization)
+    feed_urls = public_feed_urls(organization, request, language_code)
 
     lines = [f"# {organization.name}", ""]
 
-    if organization.ai_summary:
+    if organization.ai_summary and not language_code:
         lines += [f"> {organization.ai_summary}", ""]
 
     description = (
-        organization.localized_text("long_description", organization.primary_language)
-        or organization.localized_text("short_description", organization.primary_language)
+        organization.localized_text("long_description", selected_language)
+        or organization.localized_text("short_description", selected_language)
     )
     if description:
         lines += ["## About", "", description, ""]
@@ -444,29 +557,33 @@ def build_markdown_feed(organization, request=None) -> str:
     location = ", ".join(v for v in [organization.city, organization.country] if v)
     if location:
         lines.append(f"- **Location:** {location}")
-    if organization.owner.email:
-        lines.append(f"- **Email:** {organization.owner.email}")
+    if organization.contact_email:
+        lines.append(f"- **Email:** {organization.contact_email}")
     if organization.phone_number:
         lines.append(f"- **Phone:** {organization.phone_number}")
-    lines.append(f"- **Primary language:** {organization.primary_language}")
+    lines.append(f"- **Content language:** {selected_language}")
     lines.append(f"- **Verification:** {organization.verification_status}")
     if organization.last_reviewed_at:
         lines.append(f"- **Last reviewed:** {organization.last_reviewed_at.date().isoformat()}")
     lines.append(f"- **Last updated:** {organization.updated_at.date().isoformat()}")
     lines.append("")
 
-    tags = list(organization.tags.all())
+    tags = _tags_payload(organization, selected_language if language_code else None)
     if tags:
         lines += ["## Specializations", ""]
-        lines.extend(f"- {tag.name}" for tag in tags)
+        lines.extend(f"- {tag['name']}" for tag in tags)
         lines.append("")
 
-    products = _products_payload(organization)
+    products = [
+        product for product in _products_payload(organization)
+        if not language_code or product.get("translations", {}).get(selected_language, {}).get("name")
+    ]
     if products:
         lines += ["## Products & services", ""]
         for product in products:
-            name = product.get("name", "")
-            desc = next(iter(product.get("descriptions", {}).values()), "")
+            translated = product.get("translations", {}).get(selected_language, {})
+            name = translated.get("name") or product.get("name", "")
+            desc = translated.get("description", "")
             price = product.get("price_from")
             currency = product.get("currency", "")
             url = product.get("product_url", "")
@@ -482,12 +599,15 @@ def build_markdown_feed(organization, request=None) -> str:
                 lines.append(" · ".join(details))
             lines.append("")
 
-    entries = list(organization.content_entries.all())
+    entries = [
+        entry for entry in public_resources(organization, "content_entries")
+        if not language_code or entry.translation_in(selected_language)
+    ]
     if entries:
         lines += ["## Content & updates", ""]
         for entry in entries:
-            summary = entry.localized_summary(organization.primary_language)
-            lines.append(f"### {entry.title} _{entry.get_entry_type_display()}_")
+            summary = entry.localized_summary(selected_language)
+            lines.append(f"### {entry.localized_question(selected_language)} _{entry.get_entry_type_display()}_")
             if summary:
                 lines.append(summary)
             if entry.content_url:
@@ -500,7 +620,7 @@ def build_markdown_feed(organization, request=None) -> str:
         lines.extend(f"- [{p['label']}]({p['url']})" for p in social)
         lines.append("")
 
-    if len(descriptions) > 1:
+    if len(descriptions) > 1 and not language_code:
         lines += ["## Descriptions by language", ""]
         for lang, values in descriptions.items():
             lines.append(f"### {lang.upper()}")
@@ -521,3 +641,8 @@ def build_markdown_feed(organization, request=None) -> str:
     ]
 
     return "\n".join(lines).strip() + "\n"
+
+
+def public_resources(organization, relation):
+    limit = organization.get_subscription().limit_for(relation)
+    return list(getattr(organization, relation).all())[:limit] if limit else []

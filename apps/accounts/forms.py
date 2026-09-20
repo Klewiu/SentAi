@@ -15,6 +15,9 @@ class UserRegistrationForm(UserCreationForm):
         language_code = kwargs.pop("language_code", "en")
         super().__init__(*args, **kwargs)
 
+        self.fields["company_name"].required = True
+        self.fields["country"].required = True
+
         if language_code == "pl":
             self.fields["username"].label = "Nazwa użytkownika"
             self.fields["company_name"].label = "Nazwa firmy"
@@ -34,7 +37,7 @@ class UserRegistrationForm(UserCreationForm):
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("A user with this email already exists.")
         return email
 
@@ -46,7 +49,11 @@ class ProfileForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         language_code = kwargs.pop("language_code", "en")
+        require_business_details = kwargs.pop("require_business_details", False)
         super().__init__(*args, **kwargs)
+        if require_business_details:
+            self.fields["company_name"].required = True
+            self.fields["country"].required = True
         if language_code == "pl":
             self.fields["username"].label = "Nazwa użytkownika"
             self.fields["company_name"].label = "Nazwa firmy"
@@ -57,7 +64,7 @@ class ProfileForm(forms.ModelForm):
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
-        qs = User.objects.filter(email=email).exclude(pk=self.instance.pk)
+        qs = User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk)
         if qs.exists():
             raise forms.ValidationError("A user with this email already exists.")
         return email

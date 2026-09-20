@@ -42,7 +42,7 @@
             <article class="grid gap-4 rounded border border-[#d9d9d9] bg-white p-5">
                 <div class="grid gap-2">
                     <h2 class="font-display text-xl font-semibold text-[#284b63]">
-                        <a class="hover:text-[#5ca197]" href="{% url 'public-company-detail' organization.slug %}">{{ organization.name }}</a>
+                        <a class="hover:text-[#5ca197]" href="{% url 'public-company-language-detail' organization.slug organization.primary_language %}">{{ organization.name }}</a>
                     </h2>
                     <p class="text-sm leading-6 text-[#353535]/65">
                         {% firstof organization.ai_summary organization.short_description_en organization.short_description_pl "No public summary yet." %}
@@ -69,7 +69,7 @@
                         <span class="rounded border border-[#5ca197]/20 bg-[#5ca197]/5 px-2 py-1 font-mono text-[11px] text-[#5ca197]">{{ tag.name }}</span>
                     {% endfor %}
                 </div>
-                <a class="inline-flex items-center justify-center rounded border border-[#d9d9d9] px-3 py-2 text-sm font-semibold text-[#284b63] transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'public-company-detail' organization.slug %}">View profile</a>
+                <a class="inline-flex items-center justify-center rounded border border-[#d9d9d9] px-3 py-2 text-sm font-semibold text-[#284b63] transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'public-company-language-detail' organization.slug organization.primary_language %}">View profile</a>
             </article>
         {% empty %}
             <div class="rounded border border-[#d9d9d9] bg-white p-6 text-sm text-[#353535]/60 md:col-span-2 xl:col-span-3">No public companies found.</div>

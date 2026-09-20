@@ -17,3 +17,18 @@ def create_customer_notification(sender, instance, created, **kwargs):
 def create_customer_invoice_notification(sender, instance, created, **kwargs):
     if created:
         notify_customer_invoice_available(instance)
+
+
+@receiver(post_save, sender=User)
+def update_customer_conditions(sender, instance, created, **kwargs):
+    if not created and instance.account_type == AccountType.CLIENT:
+        from .services import resolve_customer_condition
+        resolve_customer_condition(instance, f"customer:{instance.pk}:plan-not-selected", instance.has_selected_plan())
+
+
+from apps.billing.models import BillingProfile
+
+@receiver(post_save, sender=BillingProfile)
+def update_billing_condition(sender, instance, **kwargs):
+    from .services import resolve_customer_condition
+    resolve_customer_condition(instance.user, f"customer:{instance.user_id}:billing-incomplete", instance.is_complete())

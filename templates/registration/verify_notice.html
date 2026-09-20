@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Check your email</h1>
+<p>Confirm your email address using the link we send you. Links expire after 24 hours.</p>
+<form method="post" action="{% url 'accounts:resend-verification' %}">
+    {% csrf_token %}
+    <label for="email">Email address</label>
+    <input id="email" type="email" name="email" required>
+    <button type="submit">Send another confirmation link</button>
+</form>
+{% endblock %}

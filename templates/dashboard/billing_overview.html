@@ -57,7 +57,7 @@
 </section>
 
 <section class="min-w-0 rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
-    <h2 class="font-display text-2xl font-semibold tracking-tight text-[#284b63]">Pro Manual</h2>
+    <h2 class="font-display text-2xl font-semibold tracking-tight text-[#284b63]">Manual</h2>
     <p class="mt-1 text-sm text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}R&#281;czne p&#322;atno&#347;ci roczne. Przeterminowane zam&#243;wienia wymagaj&#261; r&#281;cznego wy&#322;&#261;czenia.{% else %}Manual annual payments. Overdue orders require manual deactivation.{% endif %}</p>
     <div class="mt-4 overflow-x-auto">
         <table class="w-full min-w-[1280px] table-fixed divide-y divide-[#d9d9d9] text-left font-mono text-[11px]">
@@ -67,7 +67,7 @@
                 {% for order in manual_plan_orders %}
                     <tr class="{% if order.is_overdue %}bg-rose-50{% endif %}">
                         <td class="break-all px-3 py-3 pr-5 leading-5 text-[#353535]">{{ order.user.email }}</td>
-                        <td class="px-3 py-3 pl-4 leading-5 text-[#353535]/75">Pro Manual</td>
+                        <td class="px-3 py-3 pl-4 leading-5 text-[#353535]/75">{{ order.get_tier_display }} Manual</td>
                         <td class="px-3 py-3">{{ order.formatted_amount }}</td>
                         <td class="px-3 py-3">{% if order.status == 'awaiting_payment' %}{% if request.LANGUAGE_CODE == 'pl' %}oczekuje{% else %}awaiting payment{% endif %}{% elif order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}op&#322;acony{% else %}paid{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}wy&#322;&#261;czony{% else %}disabled{% endif %}{% endif %}{% if order.is_overdue %} / overdue{% endif %}</td>
                         <td class="px-3 py-3">{{ order.payment_due_at|date:'Y-m-d H:i' }}</td>
@@ -104,7 +104,7 @@
                             {% endif %}
                         </td>
                     </tr>
-                {% empty %}<tr><td class="px-3 py-5 text-[#353535]/45" colspan="10">{% if request.LANGUAGE_CODE == 'pl' %}Brak zam&#243;wie&#324; Pro Manual.{% else %}No Pro Manual orders.{% endif %}</td></tr>{% endfor %}
+                {% empty %}<tr><td class="px-3 py-5 text-[#353535]/45" colspan="10">{% if request.LANGUAGE_CODE == 'pl' %}Brak zam&#243;wie&#324; Manual.{% else %}No Manual orders.{% endif %}</td></tr>{% endfor %}
             </tbody>
         </table>
     </div>

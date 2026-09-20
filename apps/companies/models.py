@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 import json
+import uuid
 
 
 class OrganizationType(models.TextChoices):
@@ -22,6 +23,7 @@ class VerificationStatus(models.TextChoices):
 
 
 class Organization(models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -106,13 +108,9 @@ class Organization(models.Model):
 
     def get_subscription(self):
         from apps.subscriptions.models import Subscription
-
-        subscription, _ = Subscription.objects.get_or_create(organization=self)
-        owner_tier = getattr(self.owner, "plan_tier", None)
-        if owner_tier and subscription.tier != owner_tier:
-            subscription.tier = owner_tier
-            subscription.save(update_fields=["tier"])
-        return subscription
+        from apps.billing.access import effective_tier
+        # A value object: public reads never create or mutate billing records.
+        return Subscription(organization=self, tier=effective_tier(self.owner))
 
     @property
     def subscription_tier(self) -> str:
@@ -205,6 +203,9 @@ class Tag(models.Model):
 
 
 class Product(models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    names_by_language = models.JSONField(default=dict, blank=True)
+    descriptions_by_language = models.JSONField(default=dict, blank=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="products")
     name = models.CharField(max_length=255)
     short_description_en = models.CharField(max_length=280, blank=True)
@@ -221,8 +222,35 @@ class Product(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    def translation_for_editor(self, code):
+        names = self.names_by_language or {}
+        name = names.get(code, self.name if code == self.organization.primary_language and not names else "")
+        descriptions = self.descriptions_by_language or {}
+        description = descriptions.get(code, getattr(self, f"short_description_{code}", ""))
+        return {"name": name, "description": description, "url": self.product_url}
+
+    def localized_name(self, code):
+        return (self.names_by_language or {}).get(code) or self.name
+
+    def translation_in(self, language_code: str) -> dict | None:
+        """Return content authored in this language, without cross-language fallback."""
+        language = (language_code or self.organization.primary_language or "en")[:2]
+        names = self.names_by_language or {}
+        descriptions = self.descriptions_by_language or {}
+        name = (names.get(language) or "").strip()
+        description = (descriptions.get(language) or "").strip()
+        if not description and hasattr(self, f"short_description_{language}"):
+            description = (getattr(self, f"short_description_{language}", "") or "").strip()
+        if not name and language == self.organization.primary_language:
+            name = (self.name or "").strip()
+        if not name:
+            return None
+        return {"name": name, "description": description, "url": self.product_url}
+
     def localized_summary(self, language_code: str | None = None) -> str:
         language = (language_code or self.organization.primary_language or "en")[:2]
+        if self.descriptions_by_language.get(language):
+            return self.descriptions_by_language[language]
         fallback = "pl" if language == "en" else "en"
         primary_value = getattr(self, f"short_description_{language}", "")
         fallback_value = getattr(self, f"short_description_{fallback}", "")
@@ -237,6 +265,7 @@ class EntryType(models.TextChoices):
 
 
 class ContentEntry(models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     organization = models.ForeignKey(
         Organization,
         on_delete=models.CASCADE,
@@ -244,6 +273,8 @@ class ContentEntry(models.Model):
     )
     entry_type = models.CharField(max_length=32, choices=EntryType.choices, default=EntryType.UPDATE)
     title = models.CharField(max_length=255)
+    questions_by_language = models.JSONField(default=dict, blank=True)
+    answers_by_language = models.JSONField(default=dict, blank=True)
     summary_en = models.CharField(max_length=280, blank=True)
     summary_pl = models.CharField(max_length=280, blank=True)
     content_url = models.URLField(blank=True)
@@ -257,11 +288,45 @@ class ContentEntry(models.Model):
         return self.title
 
     def localized_summary(self, language_code: str | None = None) -> str:
+        return self.localized_answer(language_code)
+
+    def localized_question(self, language_code: str | None = None) -> str:
         language = (language_code or self.organization.primary_language or "en")[:2]
+        questions = self.questions_by_language or {}
+        return questions.get(language) or questions.get(self.organization.primary_language) or self.title
+
+    def localized_answer(self, language_code: str | None = None) -> str:
+        language = (language_code or self.organization.primary_language or "en")[:2]
+        answers = self.answers_by_language or {}
+        if answers.get(language):
+            return answers[language]
+        if answers.get(self.organization.primary_language):
+            return answers[self.organization.primary_language]
         fallback = "pl" if language == "en" else "en"
         primary_value = getattr(self, f"summary_{language}", "")
         fallback_value = getattr(self, f"summary_{fallback}", "")
         return primary_value or fallback_value or ""
+
+    def translation_for_editor(self, language_code: str) -> dict:
+        return {
+            "id": self.pk,
+            "question": (self.questions_by_language or {}).get(language_code, ""),
+            "answer": (self.answers_by_language or {}).get(language_code, ""),
+            "url": self.content_url,
+        }
+
+    def translation_in(self, language_code: str) -> dict | None:
+        """Return content authored in this language, without cross-language fallback."""
+        language = (language_code or self.organization.primary_language or "en")[:2]
+        question = ((self.questions_by_language or {}).get(language) or "").strip()
+        answer = ((self.answers_by_language or {}).get(language) or "").strip()
+        if language == self.organization.primary_language:
+            question = question or (self.title or "").strip()
+            if not answer and hasattr(self, f"summary_{language}"):
+                answer = (getattr(self, f"summary_{language}", "") or "").strip()
+        if not question or (self.entry_type == EntryType.FAQ and not answer):
+            return None
+        return {"question": question, "answer": answer, "url": self.content_url}
 
 
 class Page(models.Model):

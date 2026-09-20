@@ -259,7 +259,7 @@
                         <button type="button" data-format-trigger data-format-target="markdown" class="rounded border border-[#d9d9d9] bg-[#f8fafa] px-2.5 py-1 font-mono text-xs text-[#353535]/60 transition hover:-translate-y-0.5 hover:border-[#5ca197] hover:text-[#5ca197] focus:outline-none focus:ring-2 focus:ring-[#5ca197]/30" aria-expanded="false">Markdown</button>
                         <button type="button" data-format-trigger data-format-target="llmstxt" class="rounded border border-[#d9d9d9] bg-[#f8fafa] px-2.5 py-1 font-mono text-xs text-[#353535]/60 transition hover:-translate-y-0.5 hover:border-[#5ca197] hover:text-[#5ca197] focus:outline-none focus:ring-2 focus:ring-[#5ca197]/30" aria-expanded="false">LLMS.txt</button>
                         <button type="button" data-format-trigger data-format-target="endpoints" class="rounded border border-[#d9d9d9] bg-[#f8fafa] px-2.5 py-1 font-mono text-xs text-[#353535]/60 transition hover:-translate-y-0.5 hover:border-[#5ca197] hover:text-[#5ca197] focus:outline-none focus:ring-2 focus:ring-[#5ca197]/30" aria-expanded="false">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Endpointy AI-ready{% else %}AI-ready endpoints{% endif %}
+                            {% if request.LANGUAGE_CODE == 'pl' %}Publiczne adresy danych{% else %}Public data URLs{% endif %}
                         </button>
                     </div>
 
@@ -294,9 +294,9 @@
                         </p>
                         <p data-format-content="endpoints" class="hidden text-sm leading-relaxed text-[#353535]/70">
                             {% if request.LANGUAGE_CODE == 'pl' %}
-                                <span class="font-semibold text-[#284b63]">Endpointy AI-ready</span> to stabilne adresy URL z aktualnymi danymi firmy. Dzięki nim boty i agenci AI mogą regularnie odświeżać wiedzę o Twojej marce, co realnie zwiększa widoczność w odpowiedziach generowanych przez AI.
+                                <span class="font-semibold text-[#284b63]">Publiczne adresy danych</span> to stabilne adresy URL z aktualnymi informacjami o firmie. Ułatwiają wyszukiwarkom, integratorom danych, modelom AI i agentom AI pobieranie informacji, wspierając indeksację i poprawne cytowanie firmy.
                             {% else %}
-                                <span class="font-semibold text-[#284b63]">AI-ready endpoints</span> are stable URLs exposing up-to-date company data. They let crawlers and AI agents refresh knowledge continuously, which increases your visibility in AI-generated answers.
+                                <span class="font-semibold text-[#284b63]">Public data URLs</span> expose current company information at stable addresses. They help search engines, data aggregators, AI models and AI agents retrieve information, supporting indexing and accurate company citations.
                             {% endif %}
                         </p>
                     </div>
@@ -310,9 +310,6 @@
                     </a>
                     <a href="#plans" class="inline-flex items-center rounded border border-[#d9d9d9] px-6 py-3 font-sans text-sm font-semibold text-[#353535]/70 hover:border-[#5ca197] hover:text-[#5ca197] transition">
                         {% if request.LANGUAGE_CODE == 'pl' %}Zobacz plany{% else %}See plans{% endif %}
-                    </a>
-                    <a href="{% url 'public-company-directory' %}" class="inline-flex items-center rounded border border-[#d9d9d9] px-6 py-3 font-sans text-sm font-semibold text-[#353535]/70 hover:border-[#5ca197] hover:text-[#5ca197] transition">
-                        {% if request.LANGUAGE_CODE == 'pl' %}Zobacz katalog firm{% else %}Browse company catalog{% endif %}
                     </a>
                 </div>
             </div>
@@ -364,12 +361,61 @@
                 <a href="#plans" class="inline-flex items-center rounded border border-[#d9d9d9] px-6 py-3 font-sans text-sm font-semibold text-[#353535]/70 hover:border-[#5ca197] hover:text-[#5ca197] transition">
                     {% if request.LANGUAGE_CODE == 'pl' %}Zobacz plany{% else %}See plans{% endif %}
                 </a>
-                <a href="{% url 'public-company-directory' %}" class="inline-flex items-center rounded border border-[#d9d9d9] px-6 py-3 font-sans text-sm font-semibold text-[#353535]/70 hover:border-[#5ca197] hover:text-[#5ca197] transition">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Zobacz katalog firm{% else %}Browse company catalog{% endif %}
-                </a>
             </div>
 
         </div>
+    </div>
+</section>
+
+
+<!-- ============================================================
+     VIDEO GUIDE
+     ============================================================ -->
+<section id="video-guide" class="border-y border-[#d9d9d9] bg-[#f3f8f7] py-14 lg:py-20">
+    <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <div>
+            <div class="max-w-2xl">
+                <div class="inline-flex items-center gap-2 rounded-full border border-[#5ca197]/25 bg-white px-3 py-1">
+                    <span class="h-1.5 w-1.5 rounded-full bg-[#5ca197]"></span>
+                    <span class="font-mono text-[11px] font-medium uppercase tracking-widest text-[#5ca197]">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Poradnik wideo{% else %}Video guide{% endif %}
+                    </span>
+                </div>
+                <h2 class="mt-4 font-display text-2xl font-bold tracking-tight text-[#284b63] sm:text-3xl">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Zobacz, jak działa Xoaila{% else %}See how Xoaila works{% endif %}
+                </h2>
+                <p class="mt-3 text-sm leading-6 text-[#353535]/65 sm:text-base">
+                    {% if request.LANGUAGE_CODE == 'pl' %}
+                        Poznaj aplikację i zobacz krok po kroku, jak utworzyć wielojęzyczny profil firmy oraz opublikować dane czytelne dla AI.
+                    {% else %}
+                        Explore the app and learn how to create a multilingual company profile and publish information AI systems can read.
+                    {% endif %}
+                </p>
+            </div>
+
+        </div>
+
+        <div class="mt-7 overflow-hidden rounded-2xl border border-[#284b63]/15 bg-[#284b63] p-1.5 shadow-xl shadow-[#284b63]/10">
+            <video
+                id="xoaila-tutorial-video"
+                class="aspect-video w-full rounded-xl bg-[#173245]"
+                controls
+                playsinline
+                preload="metadata"
+                poster="{% if request.LANGUAGE_CODE == 'pl' %}{% static 'videos/xoaila-tutorial-pl-poster.jpg' %}{% else %}{% static 'videos/xoaila-tutorial-en-poster.jpg' %}{% endif %}"
+                aria-label="{% if request.LANGUAGE_CODE == 'pl' %}Poradnik korzystania z Xoaila{% else %}How to use Xoaila{% endif %}"
+            >
+                <source src="{% if request.LANGUAGE_CODE == 'pl' %}{% static 'videos/xoaila-tutorial-pl.mp4' %}{% else %}{% static 'videos/xoaila-tutorial-en.mp4' %}{% endif %}" type="video/mp4">
+                {% if request.LANGUAGE_CODE == 'pl' %}
+                    Twoja przeglądarka nie obsługuje odtwarzania wideo.
+                {% else %}
+                    Your browser does not support HTML video.
+                {% endif %}
+            </video>
+        </div>
+        <p class="mt-3 text-center font-mono text-[11px] text-[#353535]/45">
+            {% if request.LANGUAGE_CODE == 'pl' %}Polskie napisy i muzyka · 2 min 52 s{% else %}English captions and music · 3 min 10 sec{% endif %}
+        </p>
     </div>
 </section>
 
@@ -602,7 +648,7 @@
                 </span>
             </div>
             <h2 class="font-display text-3xl font-bold tracking-tight text-[#284b63] sm:text-4xl">
-                {% if request.LANGUAGE_CODE == 'pl' %}Poziom widoczności AI{% else %}AI Visibility Level{% endif %}
+                {% if request.LANGUAGE_CODE == 'pl' %}Wybierz zakres profilu firmy{% else %}Choose your company profile plan{% endif %}
             </h2>
             <p class="mt-4 text-base text-[#353535]/60">
                 {% if request.LANGUAGE_CODE == 'pl' %}
@@ -621,6 +667,7 @@
         </div>
 
         <!-- Plan cards -->
+        {% include 'dashboard/plan_contents.html' %}
         <div class="grid gap-6 lg:grid-cols-3 lg:items-start">
 
             <!-- BASIC -->
@@ -631,14 +678,15 @@
                 </div>
                 <div class="mt-4 mb-6 pb-6 border-b border-[#d9d9d9]">
                     <span class="font-display text-4xl font-bold text-[#353535]">
-                        {% if request.LANGUAGE_CODE == 'pl' %}Bezpłatny{% else %}Free{% endif %}
+                        {% if basic_price %}{{ basic_price }}{% else %}-{% endif %}
                     </span>
+                    <span class="font-sans text-base text-[#353535]/50">/{% if request.LANGUAGE_CODE == 'pl' %}rok{% else %}year{% endif %}</span>
                 </div>
                 <p class="mb-6 font-sans text-sm text-[#353535]/60">
                     {% if request.LANGUAGE_CODE == 'pl' %}
-                        Zacznij budować widoczność firmy w systemach AI. Jeden profil, jeden format.
+                        Zacznij budować widoczność firmy w systemach AI. Jeden profil, jeden język, wszystkie formaty.
                     {% else %}
-                        Start building your company's presence in AI systems. One profile, one format.
+                        Start building your company's presence in AI systems. One profile, one language, every format.
                     {% endif %}
                 </p>
                 <ul class="space-y-3 mb-8 flex-1">
@@ -648,15 +696,15 @@
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-[#353535]/70">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
-                        <span class="font-mono">company.json</span>
+                        <span class="font-mono">JSON · JSON-LD · Markdown · llms.txt</span>
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-[#353535]/70">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
-                        {% if request.LANGUAGE_CODE == 'pl' %}Endpoint AI-ready{% else %}AI-ready endpoint{% endif %}
+                        {% if request.LANGUAGE_CODE == 'pl' %}Publiczny profil i stałe adresy danych{% else %}Public profile and stable data URLs{% endif %}
                     </li>
                 </ul>
                 <a href="{% url 'register' %}" class="block text-center rounded border border-[#d9d9d9] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#353535]/70 hover:border-[#284b63] hover:text-[#284b63] transition">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Zacznij bezpłatnie{% else %}Get started free{% endif %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}Wybierz Basic{% else %}Choose Basic{% endif %}
                 </a>
             </div>
 
@@ -672,9 +720,9 @@
                 </div>
                 <p class="mb-6 font-sans text-sm text-[#353535]/60">
                     {% if request.LANGUAGE_CODE == 'pl' %}
-                        Rozszerz profil o Schema.org JSON-LD. Więcej kontekstu dla modeli AI.
+                        Dodaj drugi język, specjalizacje, pytania FAQ i oficjalne profile społecznościowe.
                     {% else %}
-                        Expand your profile with Schema.org JSON-LD. More context for AI models.
+                        Add a second language, specialties, customer FAQs and official social profiles.
                     {% endif %}
                 </p>
                 <ul class="space-y-3 mb-8 flex-1">
@@ -684,15 +732,15 @@
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-[#353535]/70">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
-                        <span class="font-mono">company.json + company.jsonld</span>
+                        <span class="font-mono">JSON · JSON-LD · Markdown · llms.txt</span>
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-[#353535]/70">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
-                        Schema.org JSON-LD
+                        {% if request.LANGUAGE_CODE == 'pl' %}25 specjalizacji i słów kluczowych{% else %}25 specialties and keywords{% endif %}
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-[#353535]/70">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
-                        {% if request.LANGUAGE_CODE == 'pl' %}Wielojęzyczny profil AI{% else %}Multilingual AI profile{% endif %}
+                        {% if request.LANGUAGE_CODE == 'pl' %}5 FAQ i 5 profili społecznościowych{% else %}5 FAQs and 5 social profiles{% endif %}
                     </li>
                 </ul>
                 <a href="{% url 'register' %}" class="block text-center rounded border border-[#5ca197] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#5ca197] hover:bg-[#5ca197] hover:text-white transition">
@@ -718,9 +766,9 @@
                 </div>
                 <p class="mb-6 font-sans text-sm text-white/70">
                     {% if request.LANGUAGE_CODE == 'pl' %}
-                        Pełna obecność AI-native. Wszystkie formaty, maksymalny kontekst dla modeli AI.
+                        Rozbudowany profil firmy w trzech językach i katalog produktów.
                     {% else %}
-                        Full AI-native presence. All formats, maximum context for AI models.
+                        A richer company profile with three languages and a product catalog.
                     {% endif %}
                 </p>
                 <ul class="space-y-3 mb-8 flex-1">
@@ -734,15 +782,15 @@
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-white/80">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
-                        {% if request.LANGUAGE_CODE == 'pl' %}4 kanały AI{% else %}4 AI channels{% endif %}
+                        {% if request.LANGUAGE_CODE == 'pl' %}50 specjalizacji i 15 FAQ{% else %}50 specialties and 15 FAQs{% endif %}
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-white/80">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
-                        Schema.org JSON-LD
+                        {% if request.LANGUAGE_CODE == 'pl' %}6 oficjalnych profili społecznościowych{% else %}6 official social profiles{% endif %}
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-white/80">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
-                        {% if request.LANGUAGE_CODE == 'pl' %}Profil Markdown dla systemów RAG{% else %}Markdown profile for RAG systems{% endif %}
+                        {% if request.LANGUAGE_CODE == 'pl' %}Do 100 produktów i usług{% else %}Up to 100 products and services{% endif %}
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-white/80">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
@@ -812,9 +860,6 @@
                 </a>
                 <a href="#plans" class="font-sans text-sm text-[#353535]/55 hover:text-[#284b63] transition">
                     {% if request.LANGUAGE_CODE == 'pl' %}Plany{% else %}Plans{% endif %}
-                </a>
-                <a href="{% url 'public-company-directory' %}" class="font-sans text-sm text-[#353535]/55 hover:text-[#284b63] transition">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Katalog firm{% else %}Company catalog{% endif %}
                 </a>
             </div>
 

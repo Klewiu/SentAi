@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from django.test import TestCase
 from django.utils.translation import override
 from rest_framework.test import APIClient
@@ -19,11 +20,13 @@ class CompanyApiTests(TestCase):
             username="owner",
             email="owner@example.com",
             password="strong-pass-123",
+            plan_selected_at=timezone.now(),
         )
         self.other_user = User.objects.create_user(
             username="other",
             email="other@example.com",
             password="strong-pass-123",
+            plan_selected_at=timezone.now(),
         )
 
     def create_organization(self, owner=None, **kwargs):
@@ -33,8 +36,13 @@ class CompanyApiTests(TestCase):
             "short_description_en": "AI-ready company profile.",
             "public": True,
             "allow_ai_indexing": True,
+            "verification_status": VerificationStatus.HUMAN_ADMIN_VERIFIED,
         }
         defaults.update(kwargs)
+        from apps.billing.models import BillingSubscription
+        from datetime import timedelta
+        account = owner or self.user
+        BillingSubscription.objects.update_or_create(user=account, defaults={"tier": account.plan_tier, "status": "active", "current_period_end": timezone.now() + timedelta(days=365)})
         return Organization.objects.create(owner=owner or self.user, **defaults)
 
     def test_organization_gets_basic_subscription_by_default(self):
@@ -44,19 +52,22 @@ class CompanyApiTests(TestCase):
     def test_basic_public_feed_is_available(self):
         organization = self.create_organization()
 
+        Organization.objects.filter(pk=organization.pk).update(verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED)
         response = self.api_client.get(f"/api/public/{organization.slug}/company.json")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["company"]["slug"], organization.slug)
 
-    def test_jsonld_feed_is_hidden_for_basic_plan(self):
+    def test_jsonld_feed_is_available_for_basic_plan(self):
         organization = self.create_organization()
 
         response = self.api_client.get(f"/api/public/{organization.slug}/company.jsonld")
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
 
-    def test_basic_feed_includes_full_company_discovery_payload(self):
+    def test_paid_feed_includes_full_company_discovery_payload(self):
+        self.user.plan_tier = UserPlanTier.PRO
+        self.user.save()
         organization = self.create_organization(
             short_description_pl="Krótki opis po polsku.",
             long_description_en="Long company profile for AI systems.",
@@ -89,6 +100,7 @@ class CompanyApiTests(TestCase):
             content_url="https://acme.example/guide",
         )
 
+        Organization.objects.filter(pk=organization.pk).update(verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED)
         response = self.api_client.get(f"/api/public/{organization.slug}/company.json")
 
         self.assertEqual(response.status_code, 200)
@@ -106,6 +118,7 @@ class CompanyApiTests(TestCase):
             verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED,
         )
 
+        Organization.objects.filter(pk=organization.pk).update(verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED)
         response = self.api_client.get(f"/api/public/{organization.slug}/company.json")
 
         self.assertEqual(response.status_code, 200)
@@ -142,8 +155,8 @@ class CompanyApiTests(TestCase):
         response = self.api_client.get("/api/organizations/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 1)
-        self.assertEqual(response.json()[0]["id"], owned.id)
+        self.assertEqual(len(response.json()["results"]), 1)
+        self.assertEqual(response.json()["results"][0]["id"], owned.id)
 
     def test_basic_plan_blocks_tag_creation(self):
         organization = self.create_organization()
@@ -189,7 +202,7 @@ class CompanyApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("plan", response.json())
 
-    def test_plus_plan_allows_three_organizations_and_blocks_fourth(self):
+    def test_plus_plan_allows_two_organizations_and_blocks_third(self):
         self.user.plan_tier = UserPlanTier.PLUS
         self.user.save(update_fields=["plan_tier"])
         self.create_organization(name="One", slug="plus-one")
@@ -213,9 +226,56 @@ class CompanyApiTests(TestCase):
             format="json",
         )
 
-        self.assertEqual(third_response.status_code, 201)
+        self.assertEqual(third_response.status_code, 400)
         self.assertEqual(fourth_response.status_code, 400)
         self.assertIn("plan", fourth_response.json())
+
+    def test_product_api_accepts_enabled_translations_and_returns_stable_public_id(self):
+        self.user.plan_tier = UserPlanTier.PRO
+        self.user.save(update_fields=["plan_tier"])
+        organization = self.create_organization(
+            slug="translated-product-api",
+            primary_language="en",
+            content_languages=["en", "pl"],
+            descriptions_by_language={
+                "en": {"short": "English company"},
+                "pl": {"short": "Polska firma"},
+            },
+        )
+        self.api_client.force_authenticate(self.user)
+        response = self.api_client.post(
+            f"/api/organizations/{organization.id}/products/",
+            {
+                "name": "Service",
+                "names_by_language": {"en": "Service", "pl": "Usługa"},
+                "descriptions_by_language": {"en": "English details", "pl": "Polskie szczegóły"},
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertTrue(response.json()["public_id"])
+        self.assertEqual(response.json()["names_by_language"]["pl"], "Usługa")
+
+    def test_organization_api_accepts_supported_description_maps(self):
+        self.user.plan_tier = UserPlanTier.PLUS
+        self.user.save(update_fields=["plan_tier"])
+        self.api_client.force_authenticate(self.user)
+        response = self.api_client.post(
+            "/api/organizations/",
+            {
+                "name": "API Translations",
+                "primary_language": "en",
+                "content_languages": ["en", "es"],
+                "descriptions_by_language": {
+                    "en": {"short": "English description"},
+                    "es": {"short": "Descripción en español"},
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertTrue(response.json()["public_id"])
+        self.assertEqual(response.json()["descriptions_by_language"]["es"]["short"], "Descripción en español")
 
 
 class OrganizationFormLocalizationTests(TestCase):
@@ -225,7 +285,7 @@ class OrganizationFormLocalizationTests(TestCase):
 
         self.assertEqual(form.fields["name"].label, "Nazwa firmy")
         self.assertEqual(form.fields["company_type"].label, "Typ firmy")
-        self.assertEqual(form.fields["website_url"].label, "Adres strony WWW")
+        self.assertEqual(form.fields["website_url"].label, "Strona internetowa")
         self.assertEqual(form.fields["ai_summary"].label, "Dla jakich klient\u00f3w/projekt\u00f3w ta firma jest najlepsza?")
         self.assertNotIn("slug", form.fields)
         self.assertNotIn("legal_name", form.fields)
@@ -265,8 +325,11 @@ class OrganizationFormLocalizationTests(TestCase):
             username="lang-owner",
             email="lang-owner@example.com",
             password="strong-pass-123",
+            plan_selected_at=timezone.now(),
         )
-        form = OrganizationForm(
+        owner = User.objects.create_user(username="keyword-owner", email="keyword@example.com", plan_tier="PRO", plan_selected_at=timezone.now())
+        organization = Organization(owner=owner)
+        form = OrganizationForm(instance=organization, organization=organization,
             data={
                 "name": "Acme Multilang",
                 "company_type": OrganizationType.SERVICES,
@@ -298,8 +361,11 @@ class OrganizationFormLocalizationTests(TestCase):
             username="default-lang-owner",
             email="default-lang-owner@example.com",
             password="strong-pass-123",
+            plan_selected_at=timezone.now(),
+            plan_tier="PRO",
         )
-        form = OrganizationForm(
+        organization = Organization(owner=owner)
+        form = OrganizationForm(instance=organization, organization=organization,
             data={
                 "name": "Acme ES",
                 "company_type": OrganizationType.SERVICES,

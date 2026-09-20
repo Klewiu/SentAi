@@ -59,6 +59,9 @@
                             <a class="hover:text-[#5ca197]" href="{{ sort_urls.company }}">{% if request.LANGUAGE_CODE == 'pl' %}Nazwa firmy{% else %}Company name{% endif %}</a>
                         </th>
                         <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/40">
+                            <a class="hover:text-[#5ca197]" href="{{ sort_urls.status }}">{% if request.LANGUAGE_CODE == 'pl' %}Status konta{% else %}Account status{% endif %}</a>
+                        </th>
+                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/40">
                             <a class="hover:text-[#5ca197]" href="{{ sort_urls.email }}">{% if request.LANGUAGE_CODE == 'pl' %}E-mail{% else %}Email{% endif %}</a>
                         </th>
                         <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/40">
@@ -93,12 +96,37 @@
                 </thead>
                 <tbody class="divide-y divide-[#d9d9d9]">
                     {% for client in clients %}
-                    <tr class="transition hover:bg-[#f8fafa]">
+                    <tr class="transition hover:bg-[#f8fafa]{% if client.closed_at %} bg-slate-50 opacity-75{% endif %}">
                         <td class="px-4 py-3 font-medium text-[#353535]">
-                            {{ client.company_name|default:"-" }}
+                            {% if client.closed_at %}
+                                {{ client.closed_display_name|default:"-" }}
+                                <div class="mt-1 font-mono text-[10px] font-normal text-[#353535]/40">#{{ client.pk }}</div>
+                            {% else %}
+                                {{ client.company_name|default:"-" }}
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if client.closed_at %}
+                                <span class="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-600">
+                                    {% if request.LANGUAGE_CODE == 'pl' %}Konto zamkni&#281;te{% else %}Account closed{% endif %}
+                                </span>
+                                <div class="mt-1 font-mono text-[10px] text-[#353535]/40">{{ client.closed_at|date:"Y-m-d H:i" }}</div>
+                            {% elif client.is_active %}
+                                <span class="inline-flex items-center rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">
+                                    {% if request.LANGUAGE_CODE == 'pl' %}Aktywne{% else %}Active{% endif %}
+                                </span>
+                            {% elif client.registration_pending %}
+                                <span class="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-amber-600">
+                                    {% if request.LANGUAGE_CODE == 'pl' %}Oczekuje na aktywacj&#281;{% else %}Pending activation{% endif %}
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-rose-600">
+                                    {% if request.LANGUAGE_CODE == 'pl' %}Dost&#281;p zablokowany{% else %}Access blocked{% endif %}
+                                </span>
+                            {% endif %}
                         </td>
                         <td class="px-4 py-3 font-mono text-[#353535]/60">
-                            {{ client.email }}
+                            {% if client.closed_at %}—{% else %}{{ client.email }}{% endif %}
                         </td>
                         <td class="px-4 py-3">
                             {% if client.plan_tier == 'PRO' %}
@@ -170,7 +198,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="12" class="px-4 py-8 text-center font-mono text-sm text-[#353535]/40">
+                        <td colspan="13" class="px-4 py-8 text-center font-mono text-sm text-[#353535]/40">
                             {% if request.LANGUAGE_CODE == 'pl' %}Brak klient&#xF3;w.{% else %}No clients yet.{% endif %}
                         </td>
                     </tr>

@@ -23,6 +23,17 @@
             </a>
         </div>
 
+        {% if google_signin_enabled %}<section class="rounded-lg border border-slate-200 p-4">
+            <h2 class="font-semibold">{% if request.LANGUAGE_CODE == 'pl' %}Logowanie przez Google{% else %}Google sign-in{% endif %}</h2>
+            {% if request.user.google_identity %}<p>{% if request.LANGUAGE_CODE == 'pl' %}Google jest połączone z Twoim kontem.{% else %}Google is linked to your account.{% endif %}</p>
+            {% else %}<p class="text-sm text-slate-600">{% if request.LANGUAGE_CODE == 'pl' %}Połącz konto Google z tym samym adresem e-mail.{% else %}Link the Google account with the same email address.{% endif %}</p>{% include 'registration/google_button.html' %}{% endif %}
+        </section>{% endif %}
+        {% if profile_completion_required %}
+        <section class="rounded-lg border border-[#5ca197]/40 bg-[#5ca197]/10 p-4 text-sm text-[#284b63]">
+            <strong>{% if request.LANGUAGE_CODE == 'pl' %}Dokończ rejestrację{% else %}Finish registration{% endif %}</strong>
+            <p class="mt-1">{% if request.LANGUAGE_CODE == 'pl' %}Podaj nazwę firmy i kraj. Te dane są potrzebne do wyboru właściwej waluty i utworzenia profilu firmy.{% else %}Enter your company name and country. We use them to select the correct currency and create your company profile.{% endif %}</p>
+        </section>
+        {% endif %}
         <!-- Plan badge -->
         <div class="flex items-center gap-3">
             <span class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
@@ -36,7 +47,11 @@
                 <span class="inline-flex items-center rounded-full border border-[#d9d9d9] bg-[#f5f5f5] px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/60">BASIC</span>
             {% endif %}
             <a href="{% url 'dashboard:plan-update' %}" class="font-mono text-[10px] text-[#5ca197] hover:underline">
-                {% if request.LANGUAGE_CODE == 'pl' %}zmień plan{% else %}change plan{% endif %} →
+                {% if request.user.has_selected_plan %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}Zmień plan{% else %}Change plan{% endif %}
+                {% else %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}Wybierz plan{% else %}Choose a plan{% endif %}
+                {% endif %} →
             </a>
         </div>
 
@@ -73,6 +88,7 @@
                 <h2 class="mb-4 font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
                     {% if request.LANGUAGE_CODE == 'pl' %}Zmiana hasła{% else %}Change password{% endif %}
                 </h2>
+                {% if request.user.has_usable_password %}
                 <form method="post" action="{% url 'accounts:profile-password' %}" class="grid gap-4">
                     {% csrf_token %}
                     {% for field in password_form %}
@@ -92,6 +108,9 @@
                         {% if request.LANGUAGE_CODE == 'pl' %}Zmień hasło{% else %}Change password{% endif %}
                     </button>
                 </form>
+                {% else %}
+                <p class="text-sm leading-6 text-[#353535]/65">{% if request.LANGUAGE_CODE == 'pl' %}To konto korzysta z bezpiecznego logowania przez Google i nie ma osobnego hasła w xoaila.{% else %}This account uses secure Google sign-in and does not have a separate xoaila password.{% endif %}</p>
+                {% endif %}
             </div>
 
         </div>
