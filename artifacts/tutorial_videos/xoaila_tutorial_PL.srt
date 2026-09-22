@@ -1,0 +1,55 @@
+﻿1
+00:00:00,000 --> 00:00:07,500
+Xoaila — profil firmy czytelny dla AI
+
+2
+00:00:07,500 --> 00:00:25,357
+Co robi Xoaila?
+
+3
+00:00:25,357 --> 00:00:35,000
+Od konta do publikacji
+
+4
+00:00:35,000 --> 00:00:48,929
+Wybierz zakres profilu
+
+5
+00:00:48,929 --> 00:00:57,857
+Załóż konto
+
+6
+00:00:57,857 --> 00:01:08,571
+Panel klienta
+
+7
+00:01:08,571 --> 00:01:19,643
+1. Dane firmy
+
+8
+00:01:19,643 --> 00:01:31,786
+2. Języki i opis
+
+9
+00:01:31,786 --> 00:01:45,714
+Specjalizacje, produkty i usługi
+
+10
+00:01:45,714 --> 00:02:00,000
+3. FAQ i oficjalne profile
+
+11
+00:02:00,000 --> 00:02:12,143
+Publiczny profil firmy
+
+12
+00:02:12,143 --> 00:02:27,500
+Dane gotowe do pobrania
+
+13
+00:02:27,500 --> 00:02:40,714
+Formaty dla agentów i modeli
+
+14
+00:02:40,714 --> 00:02:51,786
+Opublikuj wiarygodny profil firmy

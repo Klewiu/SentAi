@@ -16,9 +16,9 @@ class SubscriptionStatus(models.TextChoices):
 PLAN_FEATURES = {
     PlanTier.BASIC: {
         "languages": 1,
-        "advanced_formats": False,
-        "company_md": False,
-        "llms_txt": False,
+        "advanced_formats": True,
+        "company_md": True,
+        "llms_txt": True,
         "social_profiles": 0,
         "tags": 0,
         "products": 0,
@@ -27,22 +27,22 @@ PLAN_FEATURES = {
     PlanTier.PLUS: {
         "languages": 2,
         "advanced_formats": True,
-        "company_md": False,
-        "llms_txt": False,
+        "company_md": True,
+        "llms_txt": True,
         "social_profiles": 5,
         "tags": 25,
         "products": 0,
-        "content_entries": 10,
+        "content_entries": 5,
     },
     PlanTier.PRO: {
         "languages": 3,
         "advanced_formats": True,
         "company_md": True,
         "llms_txt": True,
-        "social_profiles": 15,
-        "tags": 100,
+        "social_profiles": 6,
+        "tags": 50,
         "products": 100,
-        "content_entries": 50,
+        "content_entries": 15,
     },
 }
 

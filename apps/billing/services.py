@@ -15,7 +15,17 @@ from .models import BillingCurrency, BillingPayment, BillingPaymentStatus, Billi
 
 
 def format_amount(amount: int, currency: str) -> str:
-    return f"{amount / 100:.2f} {currency.upper()}"
+    major = amount / 100
+    value = f"{int(major)}" if amount % 100 == 0 else f"{major:.2f}"
+    return f"{value} {currency.upper()}"
+
+
+def basic_price_amount(currency: str) -> int:
+    return settings.STRIPE_BASIC_PRICE_AMOUNT_EUR if currency == BillingCurrency.EUR else settings.STRIPE_BASIC_PRICE_AMOUNT_PLN
+
+
+def basic_price_id(currency: str) -> str:
+    return settings.STRIPE_BASIC_PRICE_ID_EUR if currency == BillingCurrency.EUR else settings.STRIPE_BASIC_PRICE_ID_PLN
 
 
 def stripe_timestamp_to_datetime(value: Any):
@@ -49,12 +59,15 @@ def get_active_plan_price(tier: str, currency: str | None = None) -> BillingPlan
         active_for_new_customers=True,
     ).first()
     if price:
+        if tier == UserPlanTier.BASIC and (price.amount != basic_price_amount(currency) or price.interval != "year"):
+            return None
         return price
 
-    if currency != normalize_billing_currency(settings.STRIPE_CURRENCY):
+    if tier != UserPlanTier.BASIC and currency != normalize_billing_currency(settings.STRIPE_CURRENCY):
         return None
 
     env_price_id = {
+        UserPlanTier.BASIC: basic_price_id(currency),
         UserPlanTier.PLUS: settings.STRIPE_PLUS_PRICE_ID,
         UserPlanTier.PRO: settings.STRIPE_PRO_PRICE_ID,
     }.get(tier, "")
@@ -62,6 +75,7 @@ def get_active_plan_price(tier: str, currency: str | None = None) -> BillingPlan
         return None
 
     amount = {
+        UserPlanTier.BASIC: basic_price_amount(currency),
         UserPlanTier.PLUS: settings.STRIPE_PLUS_PRICE_AMOUNT,
         UserPlanTier.PRO: settings.STRIPE_PRO_PRICE_AMOUNT,
     }[tier]
@@ -70,11 +84,11 @@ def get_active_plan_price(tier: str, currency: str | None = None) -> BillingPlan
         defaults={
             "tier": tier,
             "amount": amount,
-            "currency": settings.STRIPE_CURRENCY,
+            "currency": currency,
             "active_for_new_customers": True,
         },
     )
-    if created or price.active_for_new_customers:
+    if (created or price.active_for_new_customers) and price.tier == tier and price.currency == currency:
         return price
     return None
 
@@ -85,12 +99,13 @@ def plan_price_label(tier: str, fallback_amount: int | None = None, currency: st
     if price:
         return price.formatted_amount()
     env_price_id = {
+        UserPlanTier.BASIC: basic_price_id(currency),
         UserPlanTier.PLUS: settings.STRIPE_PLUS_PRICE_ID,
         UserPlanTier.PRO: settings.STRIPE_PRO_PRICE_ID,
     }.get(tier, "")
     if not env_price_id or fallback_amount is None or currency != normalize_billing_currency(settings.STRIPE_CURRENCY):
         return ""
-    return format_amount(fallback_amount, settings.STRIPE_CURRENCY)
+    return format_amount(fallback_amount, currency)
 
 
 def paid_access_statuses() -> set[str]:
@@ -124,7 +139,7 @@ def downgrade_to_basic(user):
 
 def _tier_from_metadata(metadata: Any) -> str:
     tier = object_get(metadata or {}, "plan_tier", "")
-    if tier in {UserPlanTier.PLUS, UserPlanTier.PRO}:
+    if tier in UserPlanTier.values:
         return tier
     return ""
 
@@ -138,18 +153,35 @@ def _user_from_metadata(metadata: Any):
 
 @transaction.atomic
 def sync_subscription_from_stripe(subscription: Any, fallback_user=None, fallback_tier: str = ""):
+    from .models import BillingSubscriptionStatus
+    subscription_id = object_get(subscription, "id", "")
+    status = object_get(subscription, "status", "")
+    if not subscription_id.startswith("sub_") or status not in BillingSubscriptionStatus.values:
+        raise ValueError("Expected a Stripe subscription")
     metadata = object_get(subscription, "metadata", {}) or {}
-    user = _user_from_metadata(metadata) or fallback_user
+    existing = BillingSubscription.objects.filter(stripe_subscription_id=subscription_id).first()
+    user = existing.user if existing else (_user_from_metadata(metadata) or fallback_user)
     if not user:
-        return None
-
+        raise ValueError("Subscription has no known owner")
+    if fallback_user and fallback_user.pk != user.pk:
+        raise ValueError("Subscription owner mismatch")
+    user = get_user_model().objects.select_for_update().get(pk=user.pk)
+    current = BillingSubscription.objects.filter(user=user).first()
+    customer_id = stripe_id(object_get(subscription, "customer", ""))
+    if current and current.stripe_customer_id and current.stripe_customer_id != customer_id:
+        raise ValueError("Stripe customer mismatch")
+    if current and current.stripe_subscription_id and current.stripe_subscription_id != subscription_id:
+        if current.status not in {"canceled", "unpaid", "incomplete_expired"} or status in {"canceled", "unpaid", "incomplete_expired"}:
+            raise ValueError("Unexpected subscription replacement")
     items = object_get(subscription, "items", {}) or {}
     item_data = object_get(items, "data", []) or []
     first_item = item_data[0] if item_data else {}
     stripe_price = object_get(first_item, "price", {}) or {}
     stripe_price_id = object_get(stripe_price, "id", "") or ""
     plan_price = BillingPlanPrice.objects.filter(stripe_price_id=stripe_price_id).first()
-    tier = _tier_from_metadata(metadata) or fallback_tier or (plan_price.tier if plan_price else user.plan_tier)
+    if status in paid_access_statuses() and (len(item_data) != 1 or not plan_price):
+        raise ValueError("Unknown or unsupported subscription price")
+    tier = plan_price.tier if plan_price else (current.tier if current else UserPlanTier.BASIC)
     current_period_start = object_get(subscription, "current_period_start") or object_get(first_item, "current_period_start")
     current_period_end = object_get(subscription, "current_period_end") or object_get(first_item, "current_period_end")
 
@@ -158,7 +190,7 @@ def sync_subscription_from_stripe(subscription: Any, fallback_user=None, fallbac
         defaults={
             "tier": tier,
             "plan_price": plan_price,
-            "stripe_customer_id": object_get(subscription, "customer", "") or "",
+            "stripe_customer_id": customer_id,
             "stripe_subscription_id": object_get(subscription, "id", "") or "",
             "stripe_price_id": stripe_price_id,
             "status": object_get(subscription, "status", "") or "incomplete",
@@ -166,29 +198,34 @@ def sync_subscription_from_stripe(subscription: Any, fallback_user=None, fallbac
             "current_period_end": stripe_timestamp_to_datetime(current_period_end),
             "cancel_at_period_end": bool(object_get(subscription, "cancel_at_period_end", False)),
             "canceled_at": stripe_timestamp_to_datetime(object_get(subscription, "canceled_at")),
-            "latest_invoice_id": object_get(subscription, "latest_invoice", "") or "",
+            "latest_invoice_id": stripe_id(object_get(subscription, "latest_invoice", "")),
         },
     )
 
-    if billing_subscription.status in paid_access_statuses() and tier in {UserPlanTier.PLUS, UserPlanTier.PRO}:
-        activate_paid_plan(user, tier, billing_subscription)
-    elif billing_subscription.status in {"canceled", "unpaid", "incomplete_expired"}:
-        downgrade_to_basic(user)
+    from .access import reconcile_access
+    reconcile_access(user)
 
     return billing_subscription
 
 
 @transaction.atomic
 def record_invoice_payment(invoice: Any):
-    subscription_id = object_get(invoice, "subscription", "") or ""
-    customer_id = object_get(invoice, "customer", "") or ""
+    subscription_id = stripe_id(object_get(invoice, "subscription", ""))
+    if not subscription_id:
+        parent = object_get(invoice, "parent", {}) or {}
+        subscription_id = stripe_id(object_get(object_get(parent, "subscription_details", {}) or {}, "subscription", ""))
+    customer_id = stripe_id(object_get(invoice, "customer", ""))
     billing_subscription = None
     if subscription_id:
         billing_subscription = BillingSubscription.objects.filter(stripe_subscription_id=subscription_id).first()
-    if not billing_subscription and customer_id:
+    if not billing_subscription and not subscription_id and customer_id:
         billing_subscription = BillingSubscription.objects.filter(stripe_customer_id=customer_id).first()
     if not billing_subscription:
-        return None
+        raise ValueError("Invoice subscription has not been synchronized")
+    if customer_id != billing_subscription.stripe_customer_id:
+        raise ValueError("Invoice customer mismatch")
+    if not stripe_id(object_get(invoice, "id", "")).startswith("in_"):
+        raise ValueError("Missing invoice ID")
 
     status = object_get(invoice, "status", "") or BillingPaymentStatus.OPEN
     status_transitions = object_get(invoice, "status_transitions", {}) or {}
@@ -221,3 +258,49 @@ def record_invoice_payment(invoice: Any):
             notify_invoice_needed_for_payment(payment)
 
     return payment
+
+
+def stripe_id(value):
+    return value if isinstance(value, str) else object_get(value, "id", "") or ""
+
+
+@transaction.atomic
+def upgrade_subscription(user, plan_price):
+    import stripe
+    user = get_user_model().objects.select_for_update().get(pk=user.pk)
+    billing = BillingSubscription.objects.get(user=user)
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    subscription = stripe.Subscription.retrieve(billing.stripe_subscription_id)
+    if stripe_id(object_get(subscription, "customer")) != billing.stripe_customer_id:
+        raise ValueError("Subscription customer mismatch")
+    items = object_get(object_get(subscription, "items", {}), "data", [])
+    if len(items) != 1 or plan_price.tier not in {UserPlanTier.PLUS, UserPlanTier.PRO}:
+        raise ValueError("Unsupported upgrade")
+    current_price = stripe_id(object_get(items[0], "price"))
+    if current_price == plan_price.stripe_price_id:
+        sync_subscription_from_stripe(subscription, fallback_user=user)
+        return ""
+    current_plan = BillingPlanPrice.objects.filter(stripe_price_id=current_price).first()
+    ranks = {UserPlanTier.BASIC: 0, UserPlanTier.PLUS: 1, UserPlanTier.PRO: 2}
+    if not current_plan or ranks[plan_price.tier] <= ranks[current_plan.tier] or current_plan.currency != plan_price.currency:
+        raise ValueError("Only upgrades in the same currency are supported")
+    if object_get(subscription, "status") != "active" or object_get(subscription, "cancel_at_period_end", False):
+        raise ValueError("Reactivate and settle your subscription before upgrading")
+    if not object_get(subscription, "pending_update"):
+        # One subscription invoice, no separate Checkout payment. Keep the existing
+        # full annual charge policy; apply the new price only when payment succeeds.
+        anchor = object_get(subscription, "current_period_start") or object_get(items[0], "current_period_start", "")
+        subscription = stripe.Subscription.modify(
+            billing.stripe_subscription_id,
+            items=[{"id": stripe_id(items[0]), "price": plan_price.stripe_price_id}],
+            billing_cycle_anchor="now", proration_behavior="none",
+            payment_behavior="pending_if_incomplete",
+            idempotency_key=f"upgrade:{billing.stripe_subscription_id}:{anchor}:{plan_price.stripe_price_id}",
+        )
+    sync_subscription_from_stripe(subscription, fallback_user=user)
+    invoice_id = stripe_id(object_get(subscription, "latest_invoice"))
+    if invoice_id:
+        invoice = stripe.Invoice.retrieve(invoice_id)
+        record_invoice_payment(invoice)
+        return object_get(invoice, "hosted_invoice_url", "") or ""
+    return ""

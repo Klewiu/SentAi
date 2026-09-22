@@ -1,4 +1,7 @@
 import json
+import hmac
+import hashlib
+import time
 from datetime import timedelta
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -133,6 +136,37 @@ class BillingInvoiceTrackingTests(TestCase):
         self.payment.refresh_from_db()
         self.assertFalse(self.payment.invoice_sent)
 
+    def test_payment_invoice_rejects_duplicate_invoice_number(self):
+        BillingInvoice.objects.create(
+            user=self.customer,
+            issued_at="2026-06-26",
+            invoice_number="FV/DUPLICATE",
+            document=SimpleUploadedFile(
+                "existing.pdf",
+                b"%PDF-1.4 existing invoice",
+                content_type="application/pdf",
+            ),
+        )
+
+        response = self.client.post(
+            reverse("dashboard:billing-payment-invoice-update", args=[self.payment.pk]),
+            {
+                "invoice_issued": "on",
+                "invoice_issued_at": "2026-06-27",
+                "invoice_number": "FV/DUPLICATE",
+                "invoice_document": SimpleUploadedFile(
+                    "duplicate.pdf",
+                    b"%PDF-1.4 duplicate invoice",
+                    content_type="application/pdf",
+                ),
+            },
+        )
+
+        self.assertRedirects(response, reverse("dashboard:billing-overview"))
+        self.payment.refresh_from_db()
+        self.assertFalse(self.payment.invoice_issued)
+        self.assertEqual(BillingInvoice.objects.filter(invoice_number="FV/DUPLICATE").count(), 1)
+
     def test_customer_can_list_and_download_own_issued_invoice(self):
         invoice = BillingInvoice.objects.create(
             user=self.customer,
@@ -226,6 +260,7 @@ class BillingInvoiceTrackingTests(TestCase):
             user=self.customer,
             tier=UserPlanTier.PRO,
             status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
         )
         BillingPayment.objects.create(
             user=self.customer,
@@ -315,6 +350,14 @@ class DashboardPlanLimitTests(TestCase):
         )
         self.client.force_login(self.user)
 
+    def post_signed_event(self, payload):
+        payload["id"] = "evt_test_" + payload["type"].replace(".", "_")
+        encoded = json.dumps(payload)
+        timestamp = str(int(time.time()))
+        signature = hmac.new(b"whsec_test", f"{timestamp}.{encoded}".encode(), hashlib.sha256).hexdigest()
+        with patch("stripe.Subscription.retrieve", return_value=payload["data"]["object"]), patch("stripe.Invoice.retrieve", return_value=payload["data"]["object"]):
+            return self.client.post(reverse("stripe-webhook"), data=encoded, content_type="application/json", HTTP_STRIPE_SIGNATURE=f"t={timestamp},v1={signature}")
+
     def create_billing_profile(self, user=None, country="PL"):
         user = user or self.user
         return BillingProfile.objects.create(
@@ -330,6 +373,8 @@ class DashboardPlanLimitTests(TestCase):
         )
 
     def test_add_company_button_visible_when_under_limit(self):
+        self.user.plan_selected_at = timezone.now()
+        self.user.save()
         response = self.client.get(reverse("dashboard:home"))
 
         self.assertEqual(response.status_code, 200)
@@ -365,7 +410,7 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("dashboard:plan-update"))
         self.assertContains(response, "BASIC")
-        self.assertContains(response, "client")
+        self.assertContains(response, reverse("accounts:profile"))
         self.assertContains(response, "0/1")
 
     @override_settings(
@@ -419,6 +464,7 @@ class DashboardPlanLimitTests(TestCase):
             stripe_customer_id="cus_test_123",
             stripe_subscription_id="sub_test_123",
             status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
         )
 
         response = self.client.get(reverse("dashboard:billing-portal"))
@@ -518,7 +564,7 @@ class DashboardPlanLimitTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, ManualPlanOrderStatus.PAID)
         overview = self.client.get(reverse("dashboard:billing-overview"))
-        self.assertContains(overview, "480.00 PLN", count=4)
+        self.assertContains(overview, "480 PLN", count=4)
 
         invoice_response = self.client.post(
             reverse("dashboard:manual-plan-invoice", args=[order.pk]),
@@ -541,6 +587,7 @@ class DashboardPlanLimitTests(TestCase):
             user=self.user,
             tier=UserPlanTier.PRO,
             status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
             stripe_subscription_id="sub_invoice_tasks",
         )
         first = BillingPayment.objects.create(
@@ -641,6 +688,7 @@ class DashboardPlanLimitTests(TestCase):
             stripe_customer_id="cus_test_123",
             stripe_subscription_id="sub_test_123",
             status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
         )
         mock_subscription_retrieve.return_value = {
             "id": "sub_test_123",
@@ -677,6 +725,7 @@ class DashboardPlanLimitTests(TestCase):
             stripe_customer_id="cus_test_123",
             stripe_subscription_id="sub_test_123",
             status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
         )
 
         response = self.client.post(reverse("dashboard:billing-subscription-cancel"))
@@ -696,6 +745,7 @@ class DashboardPlanLimitTests(TestCase):
             stripe_customer_id="cus_test_123",
             stripe_subscription_id="sub_test_123",
             status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
             cancel_at_period_end=True,
         )
 
@@ -1043,7 +1093,7 @@ class DashboardPlanLimitTests(TestCase):
         _, kwargs = mock_checkout_create.call_args
         self.assertEqual(kwargs["line_items"][0]["price"], "price_plus_pln")
 
-    @override_settings(STRIPE_WEBHOOK_SECRET="")
+    @override_settings(STRIPE_WEBHOOK_SECRET="whsec_test", STRIPE_SECRET_KEY="sk_test_dummy")
     def test_stripe_subscription_webhook_activates_paid_plan(self):
         price = BillingPlanPrice.objects.create(
             tier=UserPlanTier.PLUS,
@@ -1078,18 +1128,14 @@ class DashboardPlanLimitTests(TestCase):
             },
         }
 
-        response = self.client.post(
-            reverse("stripe-webhook"),
-            data=json.dumps(payload),
-            content_type="application/json",
-        )
+        response = self.post_signed_event(payload)
 
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.plan_tier, UserPlanTier.PLUS)
         self.assertEqual(self.user.billing_subscription.stripe_subscription_id, "sub_test_123")
 
-    @override_settings(STRIPE_WEBHOOK_SECRET="")
+    @override_settings(STRIPE_WEBHOOK_SECRET="whsec_test", STRIPE_SECRET_KEY="sk_test_dummy")
     def test_invoice_paid_webhook_records_renewal_payment(self):
         subscription = BillingSubscription.objects.create(
             user=self.user,
@@ -1097,6 +1143,7 @@ class DashboardPlanLimitTests(TestCase):
             stripe_customer_id="cus_test_123",
             stripe_subscription_id="sub_test_123",
             status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
         )
         payload = {
             "type": "invoice.paid",
@@ -1118,11 +1165,7 @@ class DashboardPlanLimitTests(TestCase):
             },
         }
 
-        response = self.client.post(
-            reverse("stripe-webhook"),
-            data=json.dumps(payload),
-            content_type="application/json",
-        )
+        response = self.post_signed_event(payload)
 
         self.assertEqual(response.status_code, 200)
         payment = self.user.billing_payments.get(stripe_invoice_id="in_renewal_123")
@@ -1134,7 +1177,7 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(subscription.latest_invoice_id, "in_renewal_123")
         self.assertIsNotNone(subscription.latest_payment_at)
 
-    @override_settings(STRIPE_WEBHOOK_SECRET="")
+    @override_settings(STRIPE_WEBHOOK_SECRET="whsec_test", STRIPE_SECRET_KEY="sk_test_dummy")
     def test_unpaid_subscription_webhook_revokes_paid_access(self):
         self.user.plan_tier = UserPlanTier.PLUS
         self.user.paid_plan_started_at = timezone.now()
@@ -1157,13 +1200,13 @@ class DashboardPlanLimitTests(TestCase):
             }},
         }
 
-        response = self.client.post(reverse("stripe-webhook"), data=json.dumps(payload), content_type="application/json")
+        response = self.post_signed_event(payload)
 
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.plan_tier, UserPlanTier.BASIC)
 
-    def test_user_can_downgrade_to_basic_without_payment(self):
+    def test_basic_cannot_be_activated_without_accepting_paid_terms(self):
         self.user.plan_tier = UserPlanTier.PLUS
         self.user.save(update_fields=["plan_tier"])
 
@@ -1172,10 +1215,10 @@ class DashboardPlanLimitTests(TestCase):
             {"plan_tier": UserPlanTier.BASIC},
         )
 
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("dashboard:home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "You must accept the subscription terms")
         self.user.refresh_from_db()
-        self.assertEqual(self.user.plan_tier, UserPlanTier.BASIC)
+        self.assertEqual(self.user.plan_tier, UserPlanTier.PLUS)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
     @patch("apps.dashboard.views.stripe.Subscription.modify")
@@ -1190,11 +1233,12 @@ class DashboardPlanLimitTests(TestCase):
             stripe_customer_id="cus_test_123",
             stripe_subscription_id="sub_test_123",
             status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
         )
 
         response = self.client.post(
             reverse("dashboard:plan-update"),
-            {"plan_tier": UserPlanTier.BASIC},
+            {"plan_tier": UserPlanTier.BASIC, "subscription_terms_accepted": True},
         )
 
         self.assertEqual(response.status_code, 302)
@@ -1206,7 +1250,7 @@ class DashboardPlanLimitTests(TestCase):
         self.assertFalse(subscription.cancel_at_period_end)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy", SITE_BASE_URL="http://testserver")
-    @patch("apps.dashboard.views.stripe.checkout.Session.create")
+    @patch("apps.billing.services.upgrade_subscription")
     def test_plus_subscriber_selecting_pro_starts_upgrade_payment(self, mock_checkout_create):
         self.create_billing_profile(country="PL")
         plus_price = BillingPlanPrice.objects.create(
@@ -1234,8 +1278,9 @@ class DashboardPlanLimitTests(TestCase):
             stripe_customer_id="cus_test_123",
             stripe_subscription_id="sub_test_123",
             status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
         )
-        mock_checkout_create.return_value = SimpleNamespace(url="https://checkout.stripe.test/upgrade")
+        mock_checkout_create.return_value = "https://invoice.stripe.test/upgrade"
 
         response = self.client.post(
             reverse("dashboard:plan-update"),
@@ -1247,11 +1292,11 @@ class DashboardPlanLimitTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, "https://checkout.stripe.test/upgrade")
-        _, kwargs = mock_checkout_create.call_args
-        self.assertEqual(kwargs["mode"], "payment")
-        self.assertEqual(kwargs["line_items"][0]["price_data"]["unit_amount"], 40000)
-        self.assertEqual(kwargs["metadata"]["upgrade_type"], "plus_to_pro")
+        self.assertEqual(response.url, "https://invoice.stripe.test/upgrade")
+        mock_checkout_create.assert_called_once()
+        args, _ = mock_checkout_create.call_args
+        self.assertEqual(args[0].pk, self.user.pk)
+        self.assertEqual(args[1].tier, UserPlanTier.PRO)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
     @patch("apps.dashboard.views.stripe.checkout.Session.create")
@@ -1266,6 +1311,7 @@ class DashboardPlanLimitTests(TestCase):
             stripe_customer_id="cus_test_123",
             stripe_subscription_id="sub_test_123",
             status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
         )
 
         response = self.client.post(
@@ -1285,7 +1331,7 @@ class DashboardPlanLimitTests(TestCase):
     @patch("apps.dashboard.views.stripe.Subscription.modify")
     @patch("apps.dashboard.views.stripe.Subscription.retrieve")
     @patch("apps.dashboard.views.stripe.checkout.Session.retrieve")
-    def test_plus_to_pro_upgrade_success_updates_existing_subscription(
+    def test_legacy_upgrade_callback_does_not_charge_again(
         self,
         mock_checkout_retrieve,
         mock_subscription_retrieve,
@@ -1308,6 +1354,7 @@ class DashboardPlanLimitTests(TestCase):
             stripe_customer_id="cus_test_123",
             stripe_subscription_id="sub_test_123",
             status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
         )
         mock_checkout_retrieve.return_value = SimpleNamespace(
             metadata={
@@ -1338,18 +1385,14 @@ class DashboardPlanLimitTests(TestCase):
         response = self.client.get(reverse("dashboard:plan-checkout-success"), {"session_id": "cs_upgrade_123"})
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("dashboard:home"))
-        mock_subscription_modify.assert_called_once()
-        _, kwargs = mock_subscription_modify.call_args
-        self.assertEqual(kwargs["items"], [{"id": "si_test_123", "price": pro_price.stripe_price_id}])
-        self.assertEqual(kwargs["billing_cycle_anchor"], "now")
-        self.assertEqual(kwargs["proration_behavior"], "none")
+        self.assertEqual(response.url, reverse("dashboard:billing-portal"))
+        mock_subscription_modify.assert_not_called()
         self.user.refresh_from_db()
-        self.assertEqual(self.user.plan_tier, UserPlanTier.PRO)
+        self.assertEqual(self.user.plan_tier, UserPlanTier.PLUS)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
     @patch("apps.dashboard.views.stripe.checkout.Session.retrieve")
-    def test_checkout_success_updates_user_plan(self, mock_checkout_retrieve):
+    def test_checkout_without_subscription_does_not_activate(self, mock_checkout_retrieve):
         mock_checkout_retrieve.return_value = SimpleNamespace(
             metadata={"user_id": str(self.user.pk), "plan_tier": UserPlanTier.PLUS},
             payment_status="paid",
@@ -1361,9 +1404,9 @@ class DashboardPlanLimitTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("dashboard:home"))
+        self.assertEqual(response.url, reverse("dashboard:billing-portal"))
         self.user.refresh_from_db()
-        self.assertEqual(self.user.plan_tier, UserPlanTier.PLUS)
+        self.assertEqual(self.user.plan_tier, UserPlanTier.BASIC)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
     @patch("apps.dashboard.views.stripe.checkout.Session.retrieve")
@@ -1431,23 +1474,23 @@ class LanguageSwitchTests(TestCase):
     def test_switching_from_polish_url_to_english_removes_prefix(self):
         response = self.client.post(
             "/pl/set-language/",
-            {"language": "en", "next": "/pl/organizations/new/"},
+            {"language": "en", "next": "/pl/dashboard/organizations/new/"},
             HTTP_HOST="testserver",
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, "/organizations/new/")
+        self.assertEqual(response.url, "/dashboard/organizations/new/")
         self.assertEqual(response.cookies[settings.LANGUAGE_COOKIE_NAME].value, "en")
 
     def test_switching_from_english_url_to_polish_adds_prefix(self):
         response = self.client.post(
             "/set-language/",
-            {"language": "pl", "next": "/organizations/new/"},
+            {"language": "pl", "next": "/dashboard/organizations/new/"},
             HTTP_HOST="testserver",
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, "/pl/organizations/new/")
+        self.assertEqual(response.url, "/pl/dashboard/organizations/new/")
         self.assertEqual(response.cookies[settings.LANGUAGE_COOKIE_NAME].value, "pl")
 
 
@@ -1564,7 +1607,7 @@ class SellerManagementTests(TestCase):
         response = self.client.get(reverse("dashboard:report-seller-activities"), {"scope": "all"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "All history")
+        self.assertContains(response, "Ca\u0142a historia")
 
     def test_admin_can_create_seller_with_login_and_password(self):
         self.client.force_login(self.admin)
@@ -1768,7 +1811,7 @@ class SellerManagementTests(TestCase):
         response = self.client.get(reverse("dashboard:client-list"), {"sort": "-invoice"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Last invoice")
+        self.assertContains(response, "Ostatnia faktura")
         self.assertContains(response, "2026-07-08")
 
     def test_admin_client_list_shows_verified_badge_when_client_has_verified_organization(self):
@@ -1789,7 +1832,7 @@ class SellerManagementTests(TestCase):
         response = self.client.get(reverse("dashboard:client-list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Verified")
+        self.assertContains(response, "Zweryfikowano")
 
     def test_admin_can_verify_client_from_client_list_action(self):
         client_user = User.objects.create_user(

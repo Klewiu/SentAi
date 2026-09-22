@@ -2,8 +2,24 @@ from django.conf import settings
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
+import uuid
+from .storage import private_invoice_storage, validate_invoice_pdf
 
 from apps.accounts.models import UserPlanTier
+
+
+class StripeEvent(models.Model):
+    event_id = models.CharField(max_length=255, unique=True)
+    event_type = models.CharField(max_length=100)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class CheckoutAttempt(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    request_key = models.UUIDField(default=uuid.uuid4)
+    session_id = models.CharField(max_length=255, blank=True)
+    price_id = models.CharField(max_length=255, blank=True)
 
 
 class BillingInterval(models.TextChoices):
@@ -120,7 +136,8 @@ class BillingPlanPrice(models.Model):
         return f"{self.tier} {self.formatted_amount()} / {self.interval} ({state})"
 
     def formatted_amount(self) -> str:
-        return f"{self.amount / 100:.2f} {self.currency.upper()}"
+        from .services import format_amount
+        return format_amount(self.amount, self.currency)
 
 
 class BillingSubscription(models.Model):
@@ -162,7 +179,7 @@ class BillingSubscription(models.Model):
 
     @property
     def is_active_for_access(self) -> bool:
-        return self.status in {BillingSubscriptionStatus.ACTIVE, BillingSubscriptionStatus.TRIALING}
+        return self.status in {BillingSubscriptionStatus.ACTIVE, BillingSubscriptionStatus.TRIALING} and bool(self.current_period_end and self.current_period_end > timezone.now())
 
 
 class ManualPlanOrder(models.Model):
@@ -197,7 +214,8 @@ class ManualPlanOrder(models.Model):
         return f"{self.payment_reference} - {self.user} - {self.status}"
 
     def formatted_amount(self) -> str:
-        return f"{self.amount / 100:.2f} {self.currency.upper()}"
+        from .services import format_amount
+        return format_amount(self.amount, self.currency)
 
     @property
     def is_overdue(self) -> bool:
@@ -228,8 +246,9 @@ class BillingPayment(models.Model):
     invoice_number = models.CharField(max_length=100, blank=True)
     invoice_document = models.FileField(
         upload_to="invoices/%Y/%m/",
+        storage=private_invoice_storage,
         blank=True,
-        validators=[FileExtensionValidator(["pdf"])],
+        validators=[FileExtensionValidator(["pdf"]), validate_invoice_pdf],
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -238,13 +257,15 @@ class BillingPayment(models.Model):
         ordering = ["-paid_at", "-created_at"]
 
     def __str__(self) -> str:
-        return f"{self.user} - {self.amount_paid / 100:.2f} {self.currency.upper()} - {self.status}"
+        return f"{self.user} - {self.formatted_amount()} - {self.status}"
 
     def formatted_amount(self) -> str:
-        return f"{self.amount_paid / 100:.2f} {self.currency.upper()}"
+        from .services import format_amount
+        return format_amount(self.amount_paid, self.currency)
 
 
 class BillingInvoice(models.Model):
+    billing_snapshot = models.JSONField(default=dict, blank=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="billing_invoices")
     subscription = models.ForeignKey(
         BillingSubscription,
@@ -267,11 +288,12 @@ class BillingInvoice(models.Model):
         null=True,
         related_name="invoices",
     )
-    invoice_number = models.CharField(max_length=100)
+    invoice_number = models.CharField(max_length=100, unique=True)
     issued_at = models.DateField()
     document = models.FileField(
         upload_to="invoices/%Y/%m/",
-        validators=[FileExtensionValidator(["pdf"])],
+        storage=private_invoice_storage,
+        validators=[FileExtensionValidator(["pdf"]), validate_invoice_pdf],
     )
     sent = models.BooleanField(default=False)
     sent_at = models.DateField(blank=True, null=True)
@@ -280,6 +302,27 @@ class BillingInvoice(models.Model):
 
     class Meta:
         ordering = ["-issued_at", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["payment"],
+                condition=models.Q(payment__isnull=False),
+                name="one_invoice_per_stripe_payment",
+            ),
+            models.UniqueConstraint(
+                fields=["manual_order"],
+                condition=models.Q(manual_order__isnull=False),
+                name="one_invoice_per_manual_order",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.invoice_number} - {self.user}"
+
+
+    def save(self, *args, **kwargs):
+        if not self.pk and not self.billing_snapshot:
+            profile = getattr(self.user, "billing_profile", None)
+            if profile:
+                self.billing_snapshot = {field: getattr(profile, field) for field in ("company_name", "tax_id", "street", "postal_code", "city", "country", "invoice_email")}
+        self.sent = bool(self.sent_at)
+        super().save(*args, **kwargs)

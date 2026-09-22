@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 
 from apps.accounts.models import AccountType, USER_PLAN_ORGANIZATION_LIMITS, UserPlanTier
 from apps.billing.models import BillingCurrency, BillingCustomerType, BillingInvoice, BillingPayment, BillingPlanPrice, BillingProfile
+from apps.billing.services import basic_price_amount
 
 
 User = get_user_model()
@@ -118,7 +119,7 @@ class UserPlanUpdateForm(forms.Form):
         selected_tier = cleaned_data.get("plan_tier")
         terms_accepted = cleaned_data.get("subscription_terms_accepted")
 
-        if selected_tier in {UserPlanTier.PLUS, UserPlanTier.PRO} and not terms_accepted:
+        if selected_tier in UserPlanTier.values and not terms_accepted:
             self.add_error(
                 "subscription_terms_accepted",
                 "You must accept the subscription terms before continuing to payment.",
@@ -227,6 +228,12 @@ class BillingPlanPriceForm(forms.ModelForm):
 
         currency = cleaned_data.get("currency")
 
+        if tier == UserPlanTier.BASIC and (
+            currency not in BillingCurrency.values
+            or cleaned_data.get("amount") != basic_price_amount(currency)
+            or cleaned_data.get("interval") != "year"
+        ):
+            raise forms.ValidationError("Basic must cost 100 PLN or 25 EUR per year.")
         if tier and currency and active:
             qs = BillingPlanPrice.objects.filter(
                 tier=tier,
@@ -256,6 +263,7 @@ class BillingPaymentInvoiceForm(forms.ModelForm):
             "invoice_sent_at",
         )
         widgets = {
+            "invoice_document": forms.FileInput(),
             "invoice_issued_at": forms.DateInput(attrs={"type": "date"}),
             "invoice_sent_at": forms.DateInput(attrs={"type": "date"}),
             "invoice_number": forms.TextInput(attrs={"placeholder": "Accounting invoice number"}),
@@ -263,6 +271,11 @@ class BillingPaymentInvoiceForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        invoice_number = (cleaned_data.get("invoice_number") or "").strip()
+        if invoice_number and BillingInvoice.objects.filter(
+            invoice_number=invoice_number
+        ).exclude(payment=self.instance).exists():
+            self.add_error("invoice_number", "This invoice number is already in use.")
         if cleaned_data.get("invoice_issued"):
             if not cleaned_data.get("invoice_issued_at"):
                 self.add_error("invoice_issued_at", "Enter the date when the invoice was issued.")
@@ -283,6 +296,7 @@ class BillingInvoiceForm(forms.ModelForm):
         model = BillingInvoice
         fields = ("issued_at", "sent_at", "invoice_number", "document")
         widgets = {
+            "document": forms.FileInput(),
             "issued_at": forms.DateInput(attrs={"type": "date"}),
             "sent_at": forms.DateInput(attrs={"type": "date"}),
             "invoice_number": forms.TextInput(attrs={"placeholder": "Invoice number"}),
@@ -290,7 +304,8 @@ class BillingInvoiceForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["sent_at"].required = True
+        self.fields["sent_at"].required = False
+        self.fields["sent_at"].label = "Sent externally on (optional)"
 
 
 class BillingProfileForm(forms.ModelForm):
@@ -392,6 +407,7 @@ class ProspectClientForm(forms.Form):
             User.objects.filter(
                 account_type=AccountType.CLIENT,
                 is_superuser=False,
+                is_active=True,
                 attributed_prospect__isnull=True,
             )
             .order_by("email")
@@ -475,11 +491,11 @@ class ProspectLinkClientForm(forms.Form):
             current_client_id = self.prospect.registered_client_id
 
         self.fields["registered_client"].queryset = (
-            User.objects.filter(
-                account_type=AccountType.CLIENT,
-                is_superuser=False,
+            User.objects.filter(account_type=AccountType.CLIENT, is_superuser=False)
+            .filter(
+                Q(is_active=True, attributed_prospect__isnull=True)
+                | Q(pk=current_client_id)
             )
-            .filter(Q(attributed_prospect__isnull=True) | Q(pk=current_client_id))
             .order_by("email")
         )
 

@@ -51,3 +51,7 @@ logs/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Uploaded billing documents are private runtime data
+private_media/
+media/invoices/

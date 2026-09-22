@@ -2,7 +2,8 @@ from django.conf import settings
 from django.conf.urls.i18n import i18n_patterns
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
+from django.http import HttpResponseNotFound
 from django.views.i18n import set_language
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
@@ -22,6 +23,7 @@ admin.site.site_title = "SentAi Admin"
 admin.site.index_title = "Platform management"
 
 urlpatterns = [
+    re_path(r"^media/invoices(?:/|$)", lambda request: HttpResponseNotFound()),
     path("i18n/", include("django.conf.urls.i18n")),
     # OpenAPI schema + interactive docs (GET only by design)
     path("openapi.json", SpectacularAPIView.as_view(), name="openapi-schema"),
@@ -36,6 +38,11 @@ urlpatterns = [
     # Site-wide llms.txt for LLM crawlers
     path("llms.txt", SiteLLMsTextView.as_view(), name="site-llms-txt"),
     path("stripe/webhook/", StripeWebhookView.as_view(), name="stripe-webhook"),
+    path(
+        "companies/<slug:slug>/<str:content_lang>/",
+        PublicCompanyDetailPageView.as_view(),
+        name="public-company-language-detail",
+    ),
     path(
         "api/auth/",
         include(("apps.accounts.api_urls", "accounts_api"), namespace="accounts_api"),

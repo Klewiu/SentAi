@@ -75,6 +75,7 @@
             {% endif %}
         </h1>
 
+        {% include 'registration/google_button.html' %}
         <form method="post" class="mt-6">
             {% csrf_token %}
             <div class="grid gap-4">

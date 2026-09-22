@@ -24,17 +24,25 @@
 </section>
 
 <section class="rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
-    <form class="flex flex-col gap-2 sm:flex-row" method="get">
+    <form class="flex flex-col gap-3 md:flex-row md:items-end" method="get">
         <input type="hidden" name="show" value="{{ show }}">
+        <label class="block min-w-0 md:w-48 md:shrink-0">
+            <span class="mb-1.5 block text-xs font-medium text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Typ powiadomienia{% else %}Notification type{% endif %}</span>
         <select class="min-h-10 rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-sm text-[#353535]" name="type">
             <option value="">{% if request.LANGUAGE_CODE == 'pl' %}Wszystkie typy{% else %}All types{% endif %}</option>
             {% for value, label in type_choices %}
                 <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
-        <input class="min-h-10 min-w-0 flex-1 rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-sm" type="search" name="q" value="{{ search_query }}" placeholder="{% if request.LANGUAGE_CODE == 'pl' %}Szukaj po tytule lub treści{% else %}Search by title or message{% endif %}">
-        <button class="rounded bg-[#284b63] px-4 py-2 font-mono text-sm font-semibold text-white" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Szukaj{% else %}Search{% endif %}</button>
-        {% if search_query or selected_type %}<a class="rounded border border-[#d9d9d9] px-4 py-2 font-mono text-sm" href="{% url 'dashboard:customer-notifications' %}?show={{ show }}">X</a>{% endif %}
+        </label>
+        <label class="block min-w-0 flex-1">
+            <span class="mb-1.5 block text-xs font-medium text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Szukaj w powiadomieniach{% else %}Search notifications{% endif %}</span>
+        <input class="w-full min-h-10 min-w-0 placeholder:text-slate-400 focus:border-[#5ca197] focus:ring-1 focus:ring-[#5ca197]/30 rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-sm" type="search" name="q" value="{{ search_query }}" placeholder="{% if request.LANGUAGE_CODE == 'pl' %}Szukaj po tytule lub treści{% else %}Search by title or message{% endif %}">
+        </label>
+        <div class="flex shrink-0 items-center gap-2">
+        <button class="min-h-10 rounded bg-[#284b63] px-4 py-2 font-mono text-sm font-semibold text-white" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Szukaj{% else %}Search{% endif %}</button>
+        {% if search_query or selected_type %}<a class="rounded border border-[#d9d9d9] px-4 py-2 font-mono text-sm" href="{% url 'dashboard:customer-notifications' %}?show={{ show }}">{% if request.LANGUAGE_CODE == 'pl' %}Wyczyść{% else %}Clear{% endif %}</a>{% endif %}
+        </div>
     </form>
 
     <div class="mt-4 flex flex-wrap gap-2">

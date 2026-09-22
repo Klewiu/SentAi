@@ -1,773 +1,450 @@
 {% extends 'base.html' %}
-
+{% block extra_head %}
+<style>
+.profile-editor{--ink:#284b63;--accent:#387f77;color:#334155;font-family:Inter,system-ui,sans-serif;line-height:1.6}
+.profile-editor .editor-hero{padding:28px;border:1px solid #dbe8e5;border-radius:20px;background:linear-gradient(125deg,#284b63 0%,#2e626b 58%,#387f77 100%);box-shadow:0 10px 28px #284b6318;}
+.profile-editor .editor-hero>p{color:#e0f0ef}.profile-editor .editor-hero>p:first-child{color:#b7e6da;letter-spacing:.1em;text-transform:uppercase;font-size:11px}
+.profile-editor .editor-hero h1{font-size:clamp(25px,4vw,34px);letter-spacing:-.035em;color:#fff}
+.profile-editor #organization-form>section{border-radius:18px;padding:clamp(18px,4vw,30px);box-shadow:0 3px 16px #284b6308;border-top:4px solid #5ca197}
+.profile-editor #organization-form>section>h2{color:#284b63}
+.profile-editor #company-translations{border-top-color:#284b63}
+.profile-editor #profile-review{background:#edf6f3;border-color:#bdd9d1}
+.profile-editor>aside{background:#e6f2ee;border-color:#b3d5cb;border-left:5px solid #5ca197}
+.profile-editor>aside>strong{display:inline-block;background:#284b63;color:#fff;padding:4px 12px;border-radius:20px}
+.profile-editor input:not([type=checkbox]):not([type=hidden]),.profile-editor textarea,.profile-editor select{font-family:Inter,system-ui,sans-serif!important;font-size:14px!important;line-height:1.65!important;border-radius:10px!important;border:1px solid #cbd5e1!important;padding:12px 14px!important;min-height:46px;background:#fff!important;color:#253b4b!important;box-shadow:0 1px 2px #284b6305;width:100%;}
+.profile-editor textarea{resize:vertical}.profile-editor input::placeholder,.profile-editor textarea::placeholder{color:#64748b!important;opacity:1;font-size:13px}
+.profile-editor input:focus,.profile-editor textarea:focus,.profile-editor select:focus{outline:3px solid #5ca19730!important;border-color:#387f77!important;outline-offset:1px}
+.profile-editor [aria-invalid=true]{border-color:#be3455!important;background:#fff8fa!important}
+.profile-editor label{line-height:1.5}.profile-editor .field-help{font-size:12px;line-height:1.7;color:#64748b}
+.profile-editor .language-section{background:#eef6f4;border-color:#bcd8d2;padding:20px;border-radius:14px;min-width:0}
+.profile-editor [hidden]{display:none!important}
+.profile-editor .language-choice:has(input:checked){background:#284b63;border-color:#284b63;color:#fff;box-shadow:0 2px 6px #284b6318}
+.profile-editor .language-choice:has(input:disabled){opacity:.5;cursor:not-allowed}
+.profile-editor input[type=checkbox]{accent-color:#387f77;width:16px;height:16px}
+.profile-editor .editor-steps{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.profile-editor .editor-steps a{background:#ffffff14;border:1px solid #ffffff55;border-radius:24px;padding:8px 14px;font-size:12px;color:#fff}
+.profile-editor .editor-steps a:hover{background:#ffffff28;border-color:#b7e6da}
+.profile-editor .editor-steps a:focus-visible{outline:3px solid #5ca19780}
+.profile-editor section[id]{scroll-margin-top:30px}.profile-editor .example-card{background:#edf5f3;border-left:3px solid #5ca197;padding:12px 16px;border-radius:0 8px 8px 0;font-size:13px;color:#365951}
+.profile-editor .editor-save{border-radius:16px;box-shadow:0 -4px 24px #284b6310;bottom:12px;border-top:3px solid #5ca197;background:#f3f9f7}
+.profile-editor .editor-save button{background:#284b63;box-shadow:0 3px 8px #284b6320}.profile-editor .editor-save button:hover{background:#326b70}
+@media(min-width:640px){.profile-editor .identity-fields{display:grid;grid-template-columns:1fr 1fr;gap:20px}.profile-editor .identity-fields>div:first-child{grid-column:1/-1}}
+@media(max-width:480px){.profile-editor .editor-hero{padding:20px}.profile-editor .editor-save{bottom:0;padding:12px}.profile-editor .language-section{padding:14px}}
+</style>
+{% endblock %}
 {% block content %}
-<section class="relative overflow-visible rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm lg:p-8">
-    <div class="mb-7 flex items-start justify-between gap-4">
-        <div>
-            <span class="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                {% if request.LANGUAGE_CODE == 'pl' %}Domena{% else %}Domain{% endif %}
-            </span>
-            <h1 class="mt-2.5 text-xl font-semibold tracking-tight text-slate-800">
-                {% if object %}
-                    {% if request.LANGUAGE_CODE == 'pl' %}Edytuj domenę{% else %}Edit domain{% endif %}
-                {% else %}
-                    {% if request.LANGUAGE_CODE == 'pl' %}Dodawanie nowej domeny{% else %}Adding new domain{% endif %}
-                {% endif %}
-            </h1>
-            {% if not object %}
-            <p class="mt-2 text-sm text-slate-500 leading-snug">
-                {% if request.LANGUAGE_CODE == 'pl' %}
-                    Uzupełnij profil swojej firmy, który będzie widoczny dla systemów AI, wyszukiwarek i agregatorów danych.
-                {% else %}
-                    Complete your company profile to make it visible to AI systems, search engines, and data aggregators.
-                {% endif %}
-            </p>
-            <p class="mt-1.5 text-sm text-slate-500 leading-snug">
-                {% if request.LANGUAGE_CODE == 'pl' %}
-                    Im dokładniejsze informacje podasz, tym lepiej AI zrozumie czym zajmuje się Twoja firma, do kogo jest skierowana i kiedy warto ją polecić.
-                {% else %}
-                    The more accurate information you provide, the better AI will understand what your company does, who it serves, and when to recommend it.
-                {% endif %}
-            </p>
-            {% endif %}
-        </div>
-    </div>
-    <form method="post" id="organization-form" novalidate>
+<div class="profile-editor mx-auto max-w-4xl space-y-6">
+    <header class="editor-hero">
+        <p class="text-sm font-medium text-[#5ca197]">{% if request.LANGUAGE_CODE == 'pl' %}Profil firmy{% else %}Company profile{% endif %}</p>
+        <h1 class="mt-1 text-2xl font-semibold text-slate-800">{% if object %}{% if request.LANGUAGE_CODE == 'pl' %}Edytuj profil firmy{% else %}Edit your company profile{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Przedstaw swoją firmę{% else %}Introduce your company{% endif %}{% endif %}</h1>
+        <p class="mt-2 text-sm text-slate-600">{% if request.LANGUAGE_CODE == 'pl' %}Opisz, co robisz i komu pomagasz. Podawaj konkretne, sprawdzalne informacje.{% else %}Describe what you do and who you help. Use specific facts that a reader can verify.{% endif %}</p>
+        <nav class="editor-steps" aria-label="{% if request.LANGUAGE_CODE == 'pl' %}Sekcje formularza{% else %}Form sections{% endif %}">
+            <a href="#company-details">1 · {% if request.LANGUAGE_CODE == 'pl' %}Dane firmy{% else %}Company details{% endif %}</a>
+            <a href="#company-translations">2 · {% if request.LANGUAGE_CODE == 'pl' %}Opisy i języki{% else %}Descriptions & languages{% endif %}</a>
+            <a href="#profile-review">3 · {% if request.LANGUAGE_CODE == 'pl' %}Sprawdź i zapisz{% else %}Review & save{% endif %}</a>
+        </nav>
+    </header>
+    <aside class="rounded-xl border border-teal-200 bg-teal-50 p-5 text-sm text-slate-700">
+        <strong>{% if form.plan_features.products %}Pro{% elif form.plan_features.tags %}Plus{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Basic{% else %}Basic{% endif %}{% endif %}</strong>
+        <p class="mt-1">{% if request.LANGUAGE_CODE == 'pl' %}Języki: {{ form.allowed_languages_count }}. Wszystkie plany obejmują JSON, JSON-LD, Markdown i llms.txt po weryfikacji i publikacji profilu.{% else %}{{ form.allowed_languages_count }} content language{{ form.allowed_languages_count|pluralize }}. Every plan includes JSON, JSON-LD, Markdown and llms.txt once your profile is verified and published.{% endif %}</p>
+        <p class="mt-2 text-xs">{% if request.LANGUAGE_CODE == 'pl' %}Publikacja ułatwia dostęp do danych; nie gwarantuje indeksacji ani cytowania przez AI. Edycja profilu nie usuwa aktywnej weryfikacji ani opłaconego planu.{% else %}Publication makes your information accessible; it does not guarantee indexing or AI citations. Editing your profile does not remove an active verification or paid plan.{% endif %}</p>
+    </aside>
+    <form method="post" id="organization-form" data-language-limit="{{ form.allowed_languages_count }}" class="space-y-6">
         {% csrf_token %}
-        {% if form.non_field_errors %}
-            <div class="mb-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
-                {{ form.non_field_errors|striptags }}
-            </div>
-        {% endif %}
-        <div class="space-y-5">
-            <details class="group rounded-xl border border-slate-200 bg-white shadow-sm" {% if object %}open{% endif %}>
-                <summary class="flex cursor-pointer list-none items-center gap-3 px-4 sm:px-5 py-4">
-                    <div class="flex min-w-0 flex-1 items-center gap-3">
-                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#5ca197]/15 font-mono text-[11px] font-bold text-[#5ca197]">1</div>
-                        <h3 class="text-sm font-semibold text-slate-800">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Dane podstawowe{% else %}Basic details{% endif %}
-                        </h3>
-                        <div class="hidden sm:block h-4 w-px shrink-0 bg-slate-200"></div>
-                        <p class="hidden sm:block text-[11px] text-slate-400 leading-snug">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Nazwa, adres WWW i dane kontaktowe — wymagane do identyfikacji firmy w systemie.{% else %}Company name, website and contact info — required to identify your company.{% endif %}
-                        </p>
-                    </div>
-                    <span class="ml-2 shrink-0 text-slate-300 transition group-open:rotate-180">&#8964;</span>
-                </summary>
-                <div class="border-t border-slate-100 px-5 pb-5 pt-4">
-                <div class="grid gap-4 md:grid-cols-2">
-                    <label class="block space-y-1.5 md:col-span-2">
-                        <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.name.label }}</span>
-                        {{ form.name }}
-                        {% if form.name.help_text %}<small class="block text-[11px] text-slate-400">{{ form.name.help_text }}</small>{% endif %}
-                        {% if form.name.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.name.errors|striptags }}</small>{% endif %}
-                    </label>
-
-                    <label class="block space-y-1.5 md:col-span-2">
-                        <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.company_type.label }}</span>
-                        <div class="hidden">{{ form.company_type }}</div>
-                        <div id="company-type-picker" class="relative"></div>
-                        {% if form.company_type.help_text %}<small class="block text-[11px] text-slate-400">{{ form.company_type.help_text }}</small>{% endif %}
-                        {% if form.company_type.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.company_type.errors|striptags }}</small>{% endif %}
-                    </label>
-
-                    <label class="block space-y-1.5 md:col-span-2">
-                        <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.website_url.label }}</span>
-                        {{ form.website_url }}
-                        {% if form.website_url.help_text %}<small class="block text-[11px] text-slate-400">{{ form.website_url.help_text }}</small>{% endif %}
-                        {% if form.website_url.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.website_url.errors|striptags }}</small>{% endif %}
-                    </label>
-
-                    <label class="block space-y-1.5 md:col-span-2">
-                        <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.contact_email.label }}</span>
-                        {{ form.contact_email }}
-                        {% if form.contact_email.help_text %}<small class="block text-[11px] text-slate-400">{{ form.contact_email.help_text }}</small>{% endif %}
-                        {% if form.contact_email.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.contact_email.errors|striptags }}</small>{% endif %}
-                    </label>
-
-                    <label class="block space-y-1.5 md:col-span-2">
-                        <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.phone_number.label }}</span>
-                        {{ form.phone_number }}
-                        {% if form.phone_number.help_text %}<small class="block text-[11px] text-slate-400">{{ form.phone_number.help_text }}</small>{% endif %}
-                        {% if form.phone_number.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.phone_number.errors|striptags }}</small>{% endif %}
-                    </label>
-
-                    <label class="block space-y-1.5 md:col-span-2">
-                        <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.address_line.label }}</span>
-                        {{ form.address_line }}
-                        {% if form.address_line.help_text %}<small class="block text-[11px] text-slate-400">{{ form.address_line.help_text }}</small>{% endif %}
-                        {% if form.address_line.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.address_line.errors|striptags }}</small>{% endif %}
-                    </label>
-
-                    <label class="block space-y-1.5 md:col-span-1">
-                        <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.city.label }}</span>
-                        {{ form.city }}
-                        {% if form.city.help_text %}<small class="block text-[11px] text-slate-400">{{ form.city.help_text }}</small>{% endif %}
-                        {% if form.city.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.city.errors|striptags }}</small>{% endif %}
-                    </label>
-
-                    <label class="block space-y-1.5 md:col-span-1">
-                        <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.postal_code.label }}</span>
-                        {{ form.postal_code }}
-                        {% if form.postal_code.help_text %}<small class="block text-[11px] text-slate-400">{{ form.postal_code.help_text }}</small>{% endif %}
-                        {% if form.postal_code.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.postal_code.errors|striptags }}</small>{% endif %}
-                    </label>
-
-                    <label class="block space-y-1.5 md:col-span-2">
-                        <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.country.label }}</span>
-                        {{ form.country }}
-                        {% if form.country.help_text %}<small class="block text-[11px] text-slate-400">{{ form.country.help_text }}</small>{% endif %}
-                        {% if form.country.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.country.errors|striptags }}</small>{% endif %}
-                    </label>
-                </div>
-                </div>
-            </details>
-
-            <details class="group rounded-xl border border-slate-200 bg-white shadow-sm">
-                <summary class="flex cursor-pointer list-none items-center gap-3 px-4 sm:px-5 py-4">
-                    <div class="flex min-w-0 flex-1 items-center gap-3">
-                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#5ca197]/15 font-mono text-[11px] font-bold text-[#5ca197]">2</div>
-                        <h3 class="text-sm font-semibold text-slate-800">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Języki feedu i opisy{% else %}Feed languages and descriptions{% endif %}
-                        </h3>
-                        <div class="hidden sm:block h-4 w-px shrink-0 bg-slate-200"></div>
-                        <p class="hidden sm:block text-[11px] text-slate-400 leading-snug">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Opisy firmy w językach, w których chcesz pojawiać się w wynikach AI.{% else %}Company descriptions in the languages you want to appear in AI search results.{% endif %}
-                        </p>
-                    </div>
-                    <span class="ml-2 shrink-0 text-slate-300 transition group-open:rotate-180">&#8964;</span>
-                </summary>
-                <div class="border-t border-slate-100 px-5 pb-5 pt-4 space-y-4">
-
-                    <!-- Ustawienia języków -->
-                    <div class="flex flex-wrap items-end gap-3">
-                        <div class="w-full sm:w-48 shrink-0 space-y-1.5">
-                            <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.primary_language.label }}</span>
-                            <div class="hidden">{{ form.primary_language }}</div>
-                            <div id="primary-language-picker" class="relative"></div>
-                            {% if form.primary_language.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.primary_language.errors|striptags }}</small>{% endif %}
-                        </div>
-                        <div class="w-full sm:flex-1 sm:min-w-[160px] space-y-1.5">
-                            <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                {% if request.LANGUAGE_CODE == 'pl' %}Dodaj język{% else %}Add language{% endif %}
-                            </span>
-                            <div id="add-language-buttons" class="w-full"></div>
-                        </div>
-                    </div>
-                    <p class="text-[11px] text-slate-400">
-                        {% if request.LANGUAGE_CODE == 'pl' %}Możesz dodać języki zgodnie z limitem planu.{% else %}You can add languages within your plan limit.{% endif %}
-                    </p>
-
-                    <!-- Taby języków -->
-                    <div id="language-tabs" class="flex flex-wrap gap-2"></div>
-
-                    <!-- Dynamiczne sekcje opisów -->
-                    <div id="descriptions-container" class="space-y-5"></div>
-
-                </div>
-            </details>
-
-            <details class="group rounded-xl border border-slate-200 bg-white shadow-sm">
-                <summary class="flex cursor-pointer list-none items-center gap-3 px-4 sm:px-5 py-4">
-                    <div class="flex min-w-0 flex-1 items-center gap-3">
-                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#5ca197]/15 font-mono text-[11px] font-bold text-[#5ca197]">3</div>
-                        <h3 class="text-sm font-semibold text-slate-800">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Materiał wiedzy - FAQ{% else %}Knowledge content - FAQ{% endif %}
-                        </h3>
-                        <div class="hidden sm:block h-4 w-px shrink-0 bg-slate-200"></div>
-                        <p class="hidden sm:block text-[11px] text-slate-400 leading-snug">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Pytania i odpowiedzi o firmie — AI cytuje je w odpowiedziach na zapytania użytkowników.{% else %}Q&amp;A about your company — AI cites this when answering user queries.{% endif %}
-                        </p>
-                    </div>
-                    <span class="ml-2 shrink-0 text-slate-300 transition group-open:rotate-180">&#8964;</span>
-                </summary>
-                <div class="border-t border-slate-100 px-5 pb-5 pt-4">
-                <div class="grid gap-4 md:grid-cols-2">
-                        <div class="hidden">{{ form.featured_entry_type }}</div>
-                    <div class="hidden">{{ form.ai_summary }}</div>
-
-                        <label class="block space-y-1.5 md:col-span-2">
-                            <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.featured_entry_summary.label }}</span>
-                            {{ form.featured_entry_summary }}
-                            {% if form.featured_entry_summary.help_text %}<small class="block text-[11px] text-slate-400">{{ form.featured_entry_summary.help_text }}</small>{% endif %}
-                            {% if form.featured_entry_summary.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.featured_entry_summary.errors|striptags }}</small>{% endif %}
-                        </label>
-
-                        <label class="block space-y-1.5 md:col-span-2">
-                            <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.featured_entry_url.label }}</span>
-                            {{ form.featured_entry_url }}
-                            {% if form.featured_entry_url.help_text %}<small class="block text-[11px] text-slate-400">{{ form.featured_entry_url.help_text }}</small>{% endif %}
-                            {% if form.featured_entry_url.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.featured_entry_url.errors|striptags }}</small>{% endif %}
-                        </label>
-                </div>
-                </div>
-            </details>
-
-            <details class="group rounded-xl border border-slate-200 bg-white shadow-sm">
-                <summary class="flex cursor-pointer list-none items-center gap-3 px-4 sm:px-5 py-4">
-                    <div class="flex min-w-0 flex-1 items-center gap-3">
-                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#5ca197]/15 font-mono text-[11px] font-bold text-[#5ca197]">4</div>
-                        <h3 class="text-sm font-semibold text-slate-800">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Media społecznościowe{% else %}Social media{% endif %}
-                        </h3>
-                        <div class="hidden sm:block h-4 w-px shrink-0 bg-slate-200"></div>
-                        <p class="hidden sm:block text-[11px] text-slate-400 leading-snug">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Linki do profili — pomagają AI powiązać firmę z jej obecnością w sieci.{% else %}Profile links — help AI connect your company to its online presence.{% endif %}
-                        </p>
-                    </div>
-                    <span class="ml-2 shrink-0 text-slate-300 transition group-open:rotate-180">&#8964;</span>
-                </summary>
-                <div class="border-t border-slate-100 px-5 pb-5 pt-4">
-                <label class="block space-y-1.5">
-                        <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">{{ form.social_profiles_text.label }}</span>
-                        {{ form.social_profiles_text }}
-                        {% if form.social_profiles_text.help_text %}<small class="block text-[11px] text-slate-400">{{ form.social_profiles_text.help_text }}</small>{% endif %}
-                        {% if form.social_profiles_text.errors %}<small class="block text-[11px] font-medium text-rose-500">{{ form.social_profiles_text.errors|striptags }}</small>{% endif %}
-                </label>
-                </div>
-            </details>
+        {{ form.ai_summary.as_hidden }}
+        {% if form.errors %}
+        <div role="alert" tabindex="-1" id="form-errors" class="rounded-xl border border-rose-300 bg-rose-50 p-5 text-sm text-rose-800">
+            <strong>{% if request.LANGUAGE_CODE == 'pl' %}Sprawdź zaznaczone pola. Twoje wpisy zostały zachowane.{% else %}Check the highlighted fields. Your entries have been kept.{% endif %}</strong>
+            {{ form.non_field_errors }}
+            {% for field in form %}{% if field.errors %}<p><a href="#{{ field.id_for_label }}" class="underline">{{ field.label }}</a>: {{ field.errors|striptags }}</p>{% endif %}{% endfor %}
         </div>
-
-        <!-- Hidden field for selected languages -->
-        <input type="hidden" id="id_content_languages" name="content_languages" value="[]">
-
-        <div class="mt-6 flex flex-wrap items-center gap-3">
-            <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-[#5ca197] px-6 text-sm font-semibold text-white transition hover:bg-[#4d8f85] focus:outline-none focus:ring-2 focus:ring-[#5ca197]/30">
-                {% if request.LANGUAGE_CODE == 'pl' %}Zapisz{% else %}Save{% endif %}
-            </button>
-            <a class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 transition hover:bg-slate-50" href="{% url 'dashboard:home' %}">
-                {% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}
-            </a>
+        {% endif %}
+        <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 space-y-4" id="company-details" aria-labelledby="identity-heading">
+            <h2 id="identity-heading" class="text-lg font-semibold text-slate-800">1. {% if request.LANGUAGE_CODE == 'pl' %}Dane firmy{% else %}Company details{% endif %}</h2>
+            <p class="text-sm text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Nazwa i strona internetowa są wymagane. Wybierz typ, który najlepiej opisuje firmę.{% else %}Company name and website are required. Choose the type that best describes your business.{% endif %}</p>
+            <div class="identity-fields">{% for field in form.basic_fields %}{% include 'dashboard/profile_field.html' with field=field %}{% endfor %}</div>
+            <details class="border-t border-slate-100 pt-4" {% if object %}open{% endif %}>
+                <summary class="cursor-pointer font-medium text-slate-700">{% if request.LANGUAGE_CODE == 'pl' %}Publiczne dane kontaktowe i lokalizacja (opcjonalnie){% else %}Public contact details and location (optional){% endif %}</summary>
+                <div class="mt-4 grid gap-4 sm:grid-cols-2">{% for field in form.contact_fields %}{% include 'dashboard/profile_field.html' with field=field %}{% endfor %}</div>
+            </details>
+        </section>
+        <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 space-y-5" id="company-translations" aria-labelledby="description-heading">
+            <h2 id="description-heading" class="text-lg font-semibold text-slate-800">2. {% if request.LANGUAGE_CODE == 'pl' %}Opis firmy i języki{% else %}Company description and languages{% endif %}</h2>
+            <p class="text-sm text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Wybierz do {{ form.allowed_languages_count }} języków i napisz własne tłumaczenia. Niczego nie tłumaczymy automatycznie.{% else %}Choose up to {{ form.allowed_languages_count }} languages and supply your translations. Content is not automatically translated.{% endif %}</p>
+            <fieldset><legend class="mb-2 text-sm font-medium">{% if request.LANGUAGE_CODE == 'pl' %}Języki profilu{% else %}Profile languages{% endif %}</legend>
+                <div class="flex flex-wrap gap-2">{% for language in form.language_sections %}<label class="language-choice inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"><input type="checkbox" name="languages" value="{{ language.code }}" {% if language.selected %}checked{% endif %}>{{ language.label }}</label>{% endfor %}</div>
+                <p id="language-status" aria-live="polite" class="mt-2 text-sm text-slate-600"></p>
+            </fieldset>
+            {% include 'dashboard/profile_field.html' with field=form.primary_language %}
+            <div id="editing-language-control" hidden>
+                <label for="editing-language" class="block text-sm font-medium">{% if request.LANGUAGE_CODE == 'pl' %}Edytowany język{% else %}Editing language{% endif %}</label>
+                <select id="editing-language" class="mt-2" aria-controls="profile-language-fields">{% for language in form.language_sections %}<option value="{{ language.code }}">{{ language.label }}</option>{% endfor %}</select>
+                <p class="mt-1 text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Przełączaj języki, aby edytować ich treść. Niezapisane wpisy pozostają zachowane podczas przełączania.{% else %}Switch languages to edit each translation. Unsaved entries are kept while switching.{% endif %}</p>
+            </div>
+            <div id="profile-language-fields" class="space-y-5">
+            {% for language in form.language_sections %}
+            <fieldset data-language="{{ language.code }}" {% if language.error %}data-has-error="true"{% endif %} class="language-section space-y-4 rounded-lg border border-slate-200 p-4">
+                <legend class="px-2 font-semibold text-slate-700">{{ language.label }}</legend>
+                {% if language.error %}<p role="alert" class="text-sm text-rose-700">{{ language.error }}</p>{% endif %}
+                <details class="example-card"><summary class="cursor-pointer font-medium">{% if request.LANGUAGE_CODE == 'pl' %}Jak napisać dobry opis? Zobacz przykład{% else %}What makes a useful description? See an example{% endif %}</summary>
+                    <p class="mt-2" lang="{{ language.code }}">{{ language.example }}</p>
+                    <p class="mt-2 text-xs">{% if request.LANGUAGE_CODE == 'pl' %}Podaj: co robisz + komu pomagasz + gdzie działasz. Zastąp przykład własnymi informacjami.{% else %}Include what you do + who you help + where you work. Replace the example with your own facts.{% endif %}</p>
+                </details>
+                <div><label for="short-{{ language.code }}" class="block text-sm font-medium">{% if request.LANGUAGE_CODE == 'pl' %}Krótki opis{% else %}Short description{% endif %}</label>
+                    <p id="short-help-{{ language.code }}" class="my-1 text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Jedno lub dwa zdania: co oferujesz, komu i gdzie. Maksymalnie 280 znaków.{% else %}One or two sentences: what you offer, who you serve and where. Up to 280 characters.{% endif %}</p>
+                    <textarea id="short-{{ language.code }}" name="short_description_{{ language.code }}" rows="3" maxlength="280" placeholder="{{ language.example }}" lang="{{ language.code }}" data-counted aria-describedby="short-help-{{ language.code }}">{{ language.short }}</textarea><output class="block text-right text-xs text-slate-500"></output>
+                </div>
+                <div><label for="long-{{ language.code }}" class="block text-sm font-medium">{% if request.LANGUAGE_CODE == 'pl' %}Więcej o firmie (opcjonalnie){% else %}More about your business (optional){% endif %}</label>
+                    <p class="my-1 text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Opisz usługi, typowych klientów i obszar działania. Podawaj fakty zamiast obietnic.{% else %}Explain your services, typical customers and service area. Prefer facts to promotional claims.{% endif %}</p>
+                    <textarea id="long-{{ language.code }}" name="long_description_{{ language.code }}" rows="5" maxlength="20000" lang="{{ language.code }}" placeholder="{% if request.LANGUAGE_CODE == 'pl' %}Rozwiń opis w języku: {{ language.label }}. Wymień główne usługi, sposób współpracy i obsługiwany obszar.{% else %}Expand your description in {{ language.label }}. Include your main services, how you work and the area you serve.{% endif %}">{{ language.long }}</textarea>
+                </div>
+                {% if form.plan_features.tags %}<div><label for="tags-{{ language.code }}" class="block text-sm font-medium">{% if request.LANGUAGE_CODE == 'pl' %}Specjalizacje i słowa kluczowe{% else %}Specialties and keywords{% endif %}</label>
+                    <p class="my-1 text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Oddziel przecinkami, np. księgowość, płace. Limit {{ form.plan_features.tags }} łącznie we wszystkich językach.{% else %}Separate with commas, e.g. bookkeeping, payroll. Up to {{ form.plan_features.tags }} across all languages.{% endif %}</p>
+                    <input type="text" id="tags-{{ language.code }}" name="tags_{{ language.code }}" placeholder="{% if request.LANGUAGE_CODE == 'pl' %}np. projektowanie ogrodów, pielęgnacja zieleni{% else %}e.g. garden design, lawn care{% endif %}" value="{{ language.tags }}">
+                </div>{% endif %}
+                {% if form.plan_features.products %}<div data-product-editor="{{ language.code }}"><label for="products-{{ language.code }}" class="block text-sm font-medium">{% if request.LANGUAGE_CODE == 'pl' %}Produkty i usługi{% else %}Products and services{% endif %}</label>
+                    {% with data_id='product-data-'|add:language.code %}{{ language.product_rows|json_script:data_id }}{% endwith %}
+                    <p class="my-1 text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Limit {{ form.plan_features.products }}. Zachowaj tę samą kolejność produktów w tłumaczeniach. Brakujące tłumaczenia są puste; link do strony jest wspólny.{% else %}Up to {{ form.plan_features.products }}. Keep the same product order in your translations. Missing translations are empty; the website link is shared.{% endif %}</p>
+                    <textarea id="products-{{ language.code }}" name="products_{{ language.code }}" rows="4" data-product-source>{{ language.products }}</textarea>
+                    <p data-product-fallback class="text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Jeden produkt w wierszu: nazwa | opis | adres strony.{% else %}One product per line: name | description | website URL.{% endif %}</p>
+                </div>{% endif %}
+            </fieldset>{% endfor %}
+            </div>
+        </section>
+        {% if form.plan_features.content_entries %}
+        <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-slate-800">3. {% if request.LANGUAGE_CODE == 'pl' %}Pytania klientów i oficjalne profile{% else %}Customer questions and official profiles{% endif %}</h2>
+            <p class="text-sm text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Dodaj odpowiedzi na najczęstsze pytania oraz link do źródła na swojej stronie. Te pola są opcjonalne.{% else %}Answer common customer questions and link to the supporting page on your website. These fields are optional.{% endif %}</p>
+            <aside class="example-card space-y-3" aria-labelledby="faq-example-heading">
+                <h3 id="faq-example-heading" class="font-semibold">{% if request.LANGUAGE_CODE == 'pl' %}Jak przygotować wpis FAQ?{% else %}How to write an FAQ entry{% endif %}</h3>
+                <p>{% if request.LANGUAGE_CODE == 'pl' %}W polu poniżej wpisz jedno pytanie, które często słyszysz od klientów, a pod nim konkretną odpowiedź. Możesz użyć takiego układu:{% else %}In the field below, write one question customers often ask, followed by a specific answer. Use this structure:{% endif %}</p>
+                <div class="rounded-lg border border-[#5ca197]/30 bg-white p-4 space-y-2">
+                    <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Pytanie:{% else %}Question:{% endif %}</strong> {% if request.LANGUAGE_CODE == 'pl' %}Czy wykonujecie projekty ogrodów poza Krakowem?{% else %}Do you design gardens outside London?{% endif %}</p>
+                    <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Odpowiedź:{% else %}Answer:{% endif %}</strong> {% if request.LANGUAGE_CODE == 'pl' %}Tak. Obsługujemy Kraków i miejscowości w promieniu 30 km. Przed przygotowaniem wyceny umawiamy wizytę na działce. Termin ustalamy telefonicznie lub e-mailem.{% else %}Yes. We serve London and locations within 30 miles. We arrange a site visit before preparing a quote. Contact us by phone or email to book a visit.{% endif %}</p>
+                </div>
+                <p>{% if request.LANGUAGE_CODE == 'pl' %}<strong>Link do źródła (opcjonalnie):</strong> w polu „Strona ze szczegółami” podaj np. twojafirma.pl/obszar-dzialania — stronę, na której klient może potwierdzić tę odpowiedź.{% else %}<strong>Source link (optional):</strong> in “Supporting page”, enter a URL such as yourcompany.com/service-area where customers can confirm your answer.{% endif %}</p>
+                <p class="text-xs">{% if request.LANGUAGE_CODE == 'pl' %}To tylko przykład — zastąp go faktami dotyczącymi Twojej firmy. Inne dobre tematy: zakres usługi, czas realizacji, sposób zamówienia lub warunki współpracy. Jasna odpowiedź pomaga klientom i systemom AI zrozumieć Twoją ofertę.{% else %}This is an example — replace it with facts about your company. Other useful topics include what a service covers, delivery times, how to order or working arrangements. A clear answer helps customers and AI systems understand your offering.{% endif %}</p>
+            </aside>
+            <div class="rounded-xl border border-[#5ca197]/30 bg-[#f3f9f7] p-4 sm:p-5">
+                {% for language in form.language_sections %}
+                <div data-faq-language="{{ language.code }}" {% if not language.selected or language.code != form.initial.primary_language %}hidden{% endif %}>
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}FAQ — {{ language.label }}{% else %}FAQ — {{ language.label }}{% endif %}</h3>
+                        <span class="rounded-full bg-white px-3 py-1 font-mono text-xs text-[#387f77]" data-faq-count>0 / {{ form.plan_features.content_entries }}</span>
+                    </div>
+                    <p class="mt-1 text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Pytania i odpowiedzi w tym języku. Pytanie oraz odpowiedź są wymagane w głównym języku profilu.{% else %}Questions and answers in this language. Both fields are required in the main profile language.{% endif %}</p>
+                    {% with data_id='faq-data-'|add:language.code %}{{ language.faq_rows|json_script:data_id }}{% endwith %}
+                    <div class="mt-4 space-y-3" data-faq-rows></div>
+                    <input type="hidden" name="faq_rows_{{ language.code }}" data-faq-source>
+                    <button type="button" class="mt-4 rounded-lg bg-[#5ca197] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#387f77]" data-add-faq>{% if request.LANGUAGE_CODE == 'pl' %}Dodaj pytanie{% else %}Add a question{% endif %}</button>
+                </div>
+                {% endfor %}
+            </div>
+            {% include 'dashboard/profile_field.html' with field=form.social_profiles_text %}
+            <p class="text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Limit profili społecznościowych: {{ form.plan_features.social_profiles }}. Limit FAQ: {{ form.plan_features.content_entries }} na profil, niezależnie od liczby tłumaczeń.{% else %}Up to {{ form.plan_features.social_profiles }} social profiles. Up to {{ form.plan_features.content_entries }} FAQs per profile, regardless of the number of translations.{% endif %}</p>
+        </section>
+        {% else %}
+        <aside class="rounded-xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">{% if request.LANGUAGE_CODE == 'pl' %}Plus dodaje drugi język, specjalizacje, FAQ i profile społecznościowe. Pro dodaje trzeci język i katalog produktów. Zachowane treści spoza bieżącego planu nie są usuwane przy zapisie.{% else %}Plus adds a second language, specialties, FAQ and social profiles. Pro adds a third language and a product catalog. Saved content outside your current plan is kept when you save.{% endif %} <a href="{% url 'dashboard:plan-update' %}" class="underline">{% if request.LANGUAGE_CODE == 'pl' %}Porównaj plany{% else %}Compare plans{% endif %}</a></aside>
+        {% endif %}
+        <section id="profile-review" class="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
+            <h2 class="font-semibold text-slate-800">{% if request.LANGUAGE_CODE == 'pl' %}Przed zapisaniem{% else %}Before you save{% endif %}</h2>
+            <p class="mt-2">{% if request.LANGUAGE_CODE == 'pl' %}Sprawdź nazwę, stronę i opis firmy w każdym wybranym języku. Zapisanie zmian nie oznacza zakończonej weryfikacji.{% else %}Check your name, website and description in each selected language. Saving changes does not mean verification is complete.{% endif %}</p>
+            <p class="mt-3 example-card">{% if request.LANGUAGE_CODE == 'pl' %}Zapisujemy wszystkie wybrane wersje językowe. Dane kontaktowe i opisy będą publiczne po aktywacji planu, weryfikacji i publikacji. Informacje są udostępniane również w formatach do odczytu przez AI.{% else %}Saving includes every selected language. Contact details and descriptions become public after plan activation, verification and publication. The information is also available in formats that AI systems can read.{% endif %}</p>
+            <p id="description-readiness" aria-live="polite" class="mt-3 text-sm text-slate-600"></p>
+            {% if object %}<p class="mt-2">{% if request.LANGUAGE_CODE == 'pl' %}Aktualny status:{% else %}Current status:{% endif %} {{ object.get_verification_status_display }}</p>{% endif %}
+        </section>
+        <div class="editor-save sticky bottom-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <button type="submit" class="rounded-lg bg-[#284b63] px-5 py-3 text-sm font-semibold text-white">{% if request.LANGUAGE_CODE == 'pl' %}Zapisz profil{% else %}Save profile{% endif %}</button>
+            <a href="{% url 'dashboard:home' %}" class="px-3 py-2 text-sm text-slate-600 underline">{% if request.LANGUAGE_CODE == 'pl' %}Wróć do panelu{% else %}Back to dashboard{% endif %}</a>
+            <span id="save-status" aria-live="polite" class="text-xs text-slate-500"></span>
         </div>
     </form>
-    {% comment %} <p class="mt-6 font-mono text-[10px] text-[#353535]/30">
-        {% if request.LANGUAGE_CODE == 'pl' %}
-            // Wersja FULL: w tym formularzu uzupełniasz dane domeny, słowa kluczowe, profile social, główny produkt i wyróżniony wpis do kanałów AI.
-        {% else %}
-            // Full mode: this form lets you fill domain data, keywords, social profiles, main product, and featured content for AI feeds.
-        {% endif %}
-    </p> {% endcomment %}
-</section>
-
-<style>
-    #organization-form input::placeholder,
-    #organization-form textarea::placeholder {
-        color: #94a3b8 !important; /* slate-400 */
-    }
-
-    details[open] summary .group-open\:rotate-180 {
-        transform: rotate(180deg);
-    }
-    summary span.transition {
-        display: inline-block;
-        transition: transform 0.2s ease;
-    }
-
-    .language-picker-menu {
-        scrollbar-width: thin;
-        scrollbar-color: #cbd5e1 #f1f5f9;
-    }
-
-    .language-picker-menu::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    .language-picker-menu::-webkit-scrollbar-track {
-        background: #f1f5f9;
-    }
-
-    .language-picker-menu::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 999px;
-    }
-</style>
-
+</div>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const jsonData = JSON.parse('{{ form.get_json_data|escapejs }}');
-
-    const config = {
-        uiLanguage: '{{ form.ui_language }}',
-        allowedLanguagesCount: {{ form.allowed_languages_count }},
-        selectedLanguages: {{ form.selected_languages|safe }},
-        languageLabels: {{ form.language_labels|safe }},
-        descriptionHelps: jsonData.description_helps,
-        languageButtonHelp: jsonData.languageButtonHelp,
-        availableLanguages: jsonData.availableLanguages,
-        initialDescriptions: jsonData.initialDescriptions || {},
-        initialLanguageTags: jsonData.initialLanguageTags || {},
-        initialLanguageProducts: jsonData.initialLanguageProducts || {}
-    };
-
-    const container = document.getElementById('descriptions-container');
-    const tabsContainer = document.getElementById('language-tabs');
-    const buttonsContainer = document.getElementById('add-language-buttons');
-    const contentLanguagesField = document.getElementById('id_content_languages');
-    const primaryLanguageField = document.getElementById('id_primary_language');
-    const primaryLanguagePicker = document.getElementById('primary-language-picker');
-    const companyTypeField = document.getElementById('id_company_type');
-    const companyTypePicker = document.getElementById('company-type-picker');
-
-    let selectedLanguages = [...config.selectedLanguages];
-    let activeLanguage = selectedLanguages[0] || 'pl';
-
-    const text = {
-        shortDescription: config.uiLanguage === 'pl' ? 'Krótki opis' : 'Short description',
-        longDescription: config.uiLanguage === 'pl' ? 'Pełny opis' : 'Long description',
-        shortDescriptionPlaceholder: config.uiLanguage === 'pl'
-            ? '1-2 zdania czym zajmuje się firma i komu pomaga.'
-            : '1-2 sentences on what the company does and who it helps.',
-        longDescriptionPlaceholder: config.uiLanguage === 'pl'
-            ? 'Opisz firmę szczegółowo: co robi, dla kogo, w jakich branżach działa, gdzie obsługuje klientów i czym różni się od konkurencji. Im więcej konkretnych informacji, tym lepiej AI będzie w stanie polecić Twoją firmę.'
-            : 'Describe the company in detail: what it does, who it serves, which industries it operates in, where it serves clients, and what sets it apart from competitors. The more specific, the better AI can recommend your company.',
-        languageKeywords: config.uiLanguage === 'pl' ? 'Słowa kluczowe dla tego języka' : 'Keywords for this language',
-        languageKeywordsHelp: config.uiLanguage === 'pl'
-            ? 'Opcjonalnie: wpisz słowa kluczowe oddzielone przecinkami dla tego języka.'
-            : 'Optional: enter comma-separated keywords for this language.',
-        languageKeywordsPlaceholder: config.uiLanguage === 'pl'
-            ? 'np. automatyzacja sprzedaży, CRM, lead generation'
-            : 'e.g. sales automation, CRM, lead generation',
-        languageProducts: config.uiLanguage === 'pl' ? 'Produkty i usługi' : 'Products and services',
-        languageProductsHelp: config.uiLanguage === 'pl'
-            ? 'Opcjonalnie: wymień produkty lub usługi oddzielone przecinkami.'
-            : 'Optional: list products or services separated by commas.',
-        languageProductsPlaceholder: config.uiLanguage === 'pl'
-            ? 'np. Audyt SEO, Kampanie Google Ads, Pozycjonowanie lokalne, Copywriting'
-            : 'e.g. SEO Audit, Google Ads Campaigns, Local SEO, Copywriting',
-        remove: config.uiLanguage === 'pl' ? '✕ Usuń' : '✕ Remove',
-        chooseLanguage: config.uiLanguage === 'pl' ? 'Wybierz język' : 'Choose language',
-        selectLanguage: config.uiLanguage === 'pl' ? 'Wybierz język' : 'Select a language',
-        cancel: config.uiLanguage === 'pl' ? 'Anuluj' : 'Cancel',
-        addLanguage: config.uiLanguage === 'pl' ? 'Dodaj język' : 'Add language',
-        defaultLanguageLimitReached: config.uiLanguage === 'pl'
-            ? 'Nie można ustawić tego języka jako domyślnego, ponieważ Twój plan nie pozwala na dodanie kolejnego języka.'
-            : 'Cannot set this as default language because your plan limit does not allow adding another language.',
-        languageLimitReached: config.uiLanguage === 'pl'
-            ? 'Osiągnięto limit języków dla planu.'
-            : 'Your plan language limit has been reached.',
-    };
-
-    const fillInLanguageLabel = {
-        pl: { pl: 'po polsku', en: 'in English', es: 'en español', it: 'in italiano', de: 'auf Deutsch', fr: 'en français' },
-        en: { pl: 'in Polish', en: 'in English', es: 'in Spanish', it: 'in Italian', de: 'in German', fr: 'in French' },
-    };
-
-    function getFillInHint(langCode) {
-        const map = fillInLanguageLabel[config.uiLanguage] || fillInLanguageLabel.en;
-        const lang = map[langCode] || langCode;
-        return config.uiLanguage === 'pl'
-            ? `Uzupełnij tę sekcję ${lang}`
-            : `Fill this section ${lang}`;
+(() => {
+    const form = document.getElementById('organization-form');
+    const polish = document.documentElement.lang.startsWith('pl');
+    const choices = [...form.querySelectorAll('input[name="languages"]')];
+    const primary = document.getElementById('id_primary_language');
+    const limit = Number(form.dataset.languageLimit);
+    const editorLanguage = document.getElementById('editing-language');
+    const sections = [...form.querySelectorAll('[data-language]')];
+    const faqSections = [...form.querySelectorAll('[data-faq-language]')];
+    editorLanguage.value = primary.value;
+    document.getElementById('editing-language-control').hidden = false;
+    function updateLanguages(preferredLanguage = editorLanguage.value) {
+        const selected = choices.filter(input => input.checked).map(input => input.value);
+        choices.forEach(input => { input.disabled = limit > 1 && !input.checked && selected.length >= limit; });
+        [...primary.options].forEach(option => { option.disabled = !selected.includes(option.value); });
+        if (!selected.includes(primary.value)) primary.value = selected[0] || '';
+        [...editorLanguage.options].forEach(option => {
+            option.hidden = option.disabled = !selected.includes(option.value);
+        });
+        editorLanguage.value = selected.includes(preferredLanguage) ? preferredLanguage : primary.value;
+        sections.forEach(section => {
+            const enabled = selected.includes(section.dataset.language);
+            section.hidden = !enabled || section.dataset.language !== editorLanguage.value;
+            // Hidden enabled translations must still be submitted to preserve their content.
+            section.disabled = !enabled;
+            section.querySelectorAll('input[data-key="name"]').forEach(input => { input.required = section.dataset.language === primary.value; });
+        });
+        faqSections.forEach(section => {
+            const enabled = selected.includes(section.dataset.faqLanguage);
+            section.hidden = !enabled || section.dataset.faqLanguage !== editorLanguage.value;
+            section.querySelectorAll('[data-faq-key="question"], [data-faq-key="answer"]').forEach(input => {
+                input.required = enabled && section.dataset.faqLanguage === primary.value;
+            });
+        });
+        document.getElementById('language-status').textContent = `${selected.length} / ${limit}`;
     }
-
-    function getNthLanguageLabel(nextCount) {
-        if (config.uiLanguage === 'pl') {
-            if (nextCount === 2) return 'Dodaj drugi język';
-            if (nextCount === 3) return 'Dodaj trzeci język';
-            return 'Dodaj kolejny język';
+    choices.forEach(input => input.addEventListener('change', () => {
+        if (limit === 1 && input.checked) choices.forEach(choice => { if (choice !== input) choice.checked = false; });
+        if (!choices.some(choice => choice.checked)) input.checked = true;
+        updateLanguages(input.checked ? input.value : editorLanguage.value);
+    }));
+    primary.addEventListener('change', () => updateLanguages(primary.value));
+    editorLanguage.addEventListener('change', () => updateLanguages());
+    // Reveal invalid fields before the browser tries to focus a hidden translation.
+    form.addEventListener('invalid', event => {
+        const section = event.target.closest('[data-language], [data-faq-language]');
+        if (section) updateLanguages(section.dataset.language || section.dataset.faqLanguage);
+    }, true);
+    document.querySelectorAll('#form-errors a').forEach(link => link.addEventListener('click', () => {
+        const field = document.getElementById(link.hash.slice(1));
+        const section = field?.closest('[data-language], [data-faq-language]');
+        if (section) updateLanguages(section.dataset.language || section.dataset.faqLanguage);
+    }));
+    updateLanguages(sections.find(section => section.dataset.hasError)?.dataset.language || editorLanguage.value);
+    form.querySelectorAll('[data-counted]').forEach(input => {
+        const update = () => { input.nextElementSibling.textContent = `${input.value.length} / ${input.maxLength}`; };
+        input.addEventListener('input', update); update();
+    });
+    form.querySelectorAll('[data-product-editor]').forEach(editor => {
+        const source = editor.querySelector('[data-product-source]');
+        const rows = document.createElement('div');
+        rows.className = 'space-y-3 mt-3';
+        const serialized = document.createElement('input');
+        serialized.type = 'hidden';
+        serialized.name = `product_rows_${editor.dataset.productEditor}`;
+        const add = document.createElement('button');
+        add.type = 'button';
+        add.className = 'mt-3 rounded-lg border border-slate-300 px-4 py-2 text-sm';
+        add.textContent = polish ? 'Dodaj produkt lub usługę' : 'Add a product or service';
+        const maximum = {{ form.plan_features.products }};
+        function sync() {
+            const values = [...rows.children].map(row => Object.fromEntries([...row.querySelectorAll('input')].map(input => [input.dataset.key, input.value])));
+            serialized.value = JSON.stringify(values);
+            source.value = values.map(row => `${row.name} | ${row.description} | ${row.url}`).join('\n');
+            add.disabled = rows.children.length >= maximum;
         }
-
-        if (nextCount === 2) return 'Add second language';
-        if (nextCount === 3) return 'Add third language';
-        return 'Add another language';
-    }
-
-    function renderLanguageSection(langCode) {
-        const langLabel = config.languageLabels[langCode];
-        const helps = config.descriptionHelps;
-        const initial = config.initialDescriptions[langCode] || {};
-        const shortValue = initial.short || '';
-        const longValue = initial.long || '';
-        const tagsValue = config.initialLanguageTags[langCode] || '';
-        const productsValue = config.initialLanguageProducts[langCode] || '';
-
-        const section = document.createElement('div');
-        section.className = 'language-section space-y-4 rounded-xl border border-slate-200 bg-white p-4';
-        section.dataset.language = langCode;
-
-        section.innerHTML = `
-            <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
-                <span class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#5ca197]/15 text-[10px] font-bold text-[#5ca197]">${langCode.toUpperCase().slice(0,2)}</span>
-                <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-700">${langLabel}</h4>
-                <span class="inline-flex items-center rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600">${getFillInHint(langCode)}</span>
-                ${selectedLanguages.length > 1 ? `
-                    <button type="button" class="remove-language-btn ml-auto inline-flex h-7 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-2.5 text-[11px] font-medium text-rose-500 transition hover:bg-rose-100" data-language="${langCode}">
-                        ${text.remove}
-                    </button>
-                ` : ''}
-            </div>
-
-            <label class="block space-y-1">
-                <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    ${text.shortDescription}
-                </span>
-                <input type="text" name="short_description_${langCode}" value="${shortValue}" maxlength="280" 
-                      placeholder="${text.shortDescriptionPlaceholder}"
-                       class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 transition hover:border-slate-300 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10">
-            </label>
-
-            <label class="block space-y-1">
-                <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    ${text.longDescription}
-                </span>
-                <textarea name="long_description_${langCode}" rows="5" 
-                          placeholder="${text.longDescriptionPlaceholder}"
-                          style="color:#1e293b" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm placeholder-slate-400 transition hover:border-slate-300 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10 [&::placeholder]:!text-slate-400">${longValue}</textarea>
-            </label>
-
-            <label class="block space-y-1">
-                <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    ${text.languageKeywords}
-                </span>
-                <input type="text" name="tags_${langCode}" value="${tagsValue}"
-                      placeholder="${text.languageKeywordsPlaceholder}"
-                       class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 transition hover:border-slate-300 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10">
-            </label>
-
-            <label class="block space-y-1">
-                <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    ${text.languageProducts}
-                </span>
-                <textarea name="products_${langCode}" rows="2"
-                          placeholder="${text.languageProductsPlaceholder}"
-                          style="color:#1e293b" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm placeholder-slate-400 transition hover:border-slate-300 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10 [&::placeholder]:!text-slate-400">${productsValue}</textarea>
-            </label>
-        `;
-
-        const removeBtn = section.querySelector('.remove-language-btn');
-        if (removeBtn) {
-            removeBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                removeLanguage(langCode);
+        function append(value = {}) {
+            const row = document.createElement('fieldset');
+            row.className = 'rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2';
+            const legend = document.createElement('legend');
+            legend.textContent = polish ? 'Produkt lub usługa' : 'Product or service';
+            row.append(legend);
+            const labels = polish ? ['Nazwa', 'Krótki opis (opcjonalnie)', 'Strona produktu (opcjonalnie)'] : ['Name', 'Short description (optional)', 'Product website (optional)'];
+            ['name', 'description', 'url'].forEach((key, index) => {
+                const label = document.createElement('label');
+                label.className = 'block text-sm text-slate-700';
+                label.append(document.createTextNode(labels[index]));
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.dataset.key = key;
+                input.value = value[key] || '';
+                input.maxLength = key === 'name' ? 255 : key === 'description' ? 280 : 200;
+                input.required = key === 'name' && editor.dataset.productEditor === primary.value;
+                input.placeholder = key === 'name' ? (polish ? 'np. Projekt ogrodu' : 'e.g. Garden design') : key === 'description' ? (polish ? 'Co obejmuje ta usługa lub produkt?' : 'What does this product or service include?') : '';
+                if (key === 'url') { input.inputMode = 'url'; input.placeholder = 'https://example.com/product'; }
+                input.addEventListener('input', sync);
+                label.append(input); row.append(label);
+            });
+            const remove = document.createElement('button');
+            remove.type = 'button'; remove.className = 'text-sm text-rose-700 underline';
+            remove.textContent = polish ? 'Usuń produkt' : 'Remove product';
+            remove.addEventListener('click', () => { row.remove(); sync(); form.dispatchEvent(new Event('input', {bubbles: true})); });
+            row.append(remove); rows.append(row); sync();
+            return row;
+        }
+        const initial = source.value.trim();
+        const initialData = JSON.parse(document.getElementById(`product-data-${editor.dataset.productEditor}`).textContent);
+        if (Array.isArray(initialData)) {
+            initialData.filter(value => value && typeof value === 'object').forEach(value => append(value));
+        } else if (initial) {
+            const lines = initial.includes('|') ? initial.split('\n') : initial.replaceAll('\n', ',').split(',');
+            lines.filter(line => line.trim()).forEach(line => {
+                const [name, description, url] = line.split('|').map(part => part.trim());
+                append({name, description, url});
             });
         }
-
-        container.appendChild(section);
+        add.addEventListener('click', () => {
+            if (rows.children.length < maximum) { append().querySelector('input').focus(); form.dispatchEvent(new Event('input', {bubbles: true})); }
+        });
+        editor.append(rows, serialized, add);
+        source.hidden = true;
+        editor.querySelector('[data-product-fallback]').hidden = true;
+        sync();
+    });
+    const faqEditors = faqSections.map(section => ({
+        section,
+        rows: section.querySelector('[data-faq-rows]'),
+        source: section.querySelector('[data-faq-source]'),
+        add: section.querySelector('[data-add-faq]'),
+        initial: JSON.parse(document.getElementById(`faq-data-${section.dataset.faqLanguage}`).textContent),
+    }));
+    const faqMaximum = {{ form.plan_features.content_entries }};
+    function faqValues(editor) {
+        return [...editor.rows.children].map(row => ({
+            id: row.dataset.entryId || null,
+            question: row.querySelector('[data-faq-key="question"]').value,
+            answer: row.querySelector('[data-faq-key="answer"]').value,
+            url: row.querySelector('[data-faq-key="url"]').value,
+        }));
     }
-
-    function renderLanguageTabs() {
-        if (!tabsContainer) {
-            return;
-        }
-
-        tabsContainer.innerHTML = '';
-        selectedLanguages.forEach((langCode) => {
-            const tabButton = document.createElement('button');
-            tabButton.type = 'button';
-            const isActive = langCode === activeLanguage;
-            tabButton.className = isActive
-                ? 'inline-flex h-8 items-center justify-center rounded-md bg-[#5ca197] px-3 text-xs font-semibold text-white'
-                : 'inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:border-[#5ca197]/40 hover:text-[#5ca197]';
-            tabButton.textContent = config.languageLabels[langCode] || langCode.toUpperCase();
-            tabButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                activeLanguage = langCode;
-                updateVisibleLanguageSection();
-                renderLanguageTabs();
-            });
-            tabsContainer.appendChild(tabButton);
+    function syncFaqs() {
+        faqEditors.forEach(editor => {
+            editor.source.value = JSON.stringify(faqValues(editor));
+            editor.section.querySelector('[data-faq-count]').textContent = `${editor.rows.children.length} / ${faqMaximum}`;
+            editor.add.disabled = editor.rows.children.length >= faqMaximum;
         });
     }
-
-    function updateVisibleLanguageSection() {
-        const sections = container.querySelectorAll('.language-section');
-        sections.forEach((section) => {
-            section.classList.toggle('hidden', section.dataset.language !== activeLanguage);
-        });
-    }
-
-    function addLanguage(langCode) {
-        if (!selectedLanguages.includes(langCode)) {
-            selectedLanguages.push(langCode);
-            activeLanguage = langCode;
-            renderLanguageSection(langCode);
-            updateUI();
-        }
-    }
-
-    function removeLanguage(langCode) {
-        if (selectedLanguages.length > 1) {
-            selectedLanguages = selectedLanguages.filter(l => l !== langCode);
-            container.querySelector(`[data-language="${langCode}"]`)?.remove();
-            if (activeLanguage === langCode) {
-                activeLanguage = selectedLanguages[0];
-            }
-            updateUI();
-        }
-    }
-
-    function renderLanguagePicker() {
-        const unavailable = config.availableLanguages.filter((lang) => !selectedLanguages.includes(lang));
-        const wrapper = document.createElement('div');
-        wrapper.className = 'flex w-full items-start gap-2';
-
-        const pickerWrap = document.createElement('div');
-        pickerWrap.className = 'relative min-w-0 flex-1';
-
-        let selectedLanguage = '';
-
-        const trigger = document.createElement('button');
-        trigger.type = 'button';
-        trigger.className = 'h-10 w-full inline-flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 transition hover:border-slate-300 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10';
-        trigger.innerHTML = `<span>${text.chooseLanguage}</span><span class="text-slate-400">▾</span>`;
-
-        const menu = document.createElement('div');
-        menu.className = 'language-picker-menu absolute left-0 top-full z-30 mt-1 hidden max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg';
-
-        unavailable.forEach((langCode) => {
-            const optionBtn = document.createElement('button');
-            optionBtn.type = 'button';
-            optionBtn.className = 'w-full rounded-md px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100';
-            optionBtn.textContent = config.languageLabels[langCode] || langCode;
-            optionBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                selectedLanguage = langCode;
-                trigger.innerHTML = `<span class="text-slate-800 font-medium">${config.languageLabels[langCode] || langCode}</span><span class="text-slate-400">▾</span>`;
-                menu.classList.add('hidden');
-            });
-            menu.appendChild(optionBtn);
-        });
-
-        trigger.addEventListener('click', (e) => {
-            e.preventDefault();
-            menu.classList.toggle('hidden');
-        });
-
-        const closeMenuOnOutsideClick = (event) => {
-            if (!pickerWrap.contains(event.target)) {
-                menu.classList.add('hidden');
-                document.removeEventListener('click', closeMenuOnOutsideClick);
-            }
-        };
-
-        trigger.addEventListener('click', () => {
-            setTimeout(() => {
-                document.addEventListener('click', closeMenuOnOutsideClick);
-            }, 0);
-        });
-
-        pickerWrap.appendChild(trigger);
-        pickerWrap.appendChild(menu);
-
-        const addBtn = document.createElement('button');
-        addBtn.type = 'button';
-        addBtn.className = 'inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-[#5ca197]/40 bg-[#5ca197]/5 px-4 text-sm font-medium text-[#5ca197] transition hover:bg-[#5ca197]/10';
-        addBtn.textContent = text.addLanguage;
-
-        addBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (!selectedLanguage) {
-                return;
-            }
-            addLanguage(selectedLanguage);
-        });
-
-        wrapper.appendChild(pickerWrap);
-        wrapper.appendChild(addBtn);
-        return wrapper;
-    }
-
-    function renderCustomSelectPicker(field, pickerContainer, onValueChange = null) {
-        if (!field || !pickerContainer) {
-            return;
-        }
-
-        const options = Array.from(field.options);
-        if (options.length === 0) {
-            return;
-        }
-
-        pickerContainer.innerHTML = '';
-
-        const pickerWrap = document.createElement('div');
-        pickerWrap.className = 'relative';
-
-        const trigger = document.createElement('button');
-        trigger.type = 'button';
-        trigger.className = 'h-10 w-full inline-flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 transition hover:border-slate-300 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10';
-
-        const menu = document.createElement('div');
-        menu.className = 'language-picker-menu absolute left-0 top-full z-30 mt-1 hidden max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg';
-
-        function getSelectedOption() {
-            return options.find((option) => option.value === field.value) || options[0];
-        }
-
-        function updateTrigger() {
-            const selectedOption = getSelectedOption();
-            trigger.innerHTML = `<span class="font-medium">${selectedOption.textContent}</span><span class="text-slate-400">▾</span>`;
-        }
-
-        options.forEach((option) => {
-            const optionBtn = document.createElement('button');
-            optionBtn.type = 'button';
-            optionBtn.className = 'w-full rounded px-3 py-2 text-left font-mono text-xs text-[#353535] transition hover:bg-[#5ca197]/20 hover:text-[#5ca197]';
-            optionBtn.textContent = option.textContent;
-            optionBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                field.value = option.value;
-                field.dispatchEvent(new Event('change', { bubbles: true }));
-                if (typeof onValueChange === 'function') {
-                    onValueChange(option.value);
+    function faqRow(editor, value = {}) {
+        const row = document.createElement('fieldset');
+        row.className = 'rounded-xl border border-[#5ca197]/25 bg-white p-4 space-y-3 shadow-sm';
+        row.dataset.entryId = value.id || '';
+        const legend = document.createElement('legend');
+        legend.className = 'px-1 font-medium text-[#284b63]';
+        legend.textContent = polish ? 'Pytanie klienta' : 'Customer question';
+        row.append(legend);
+        const fields = [
+            ['question', polish ? 'Pytanie' : 'Question', polish ? 'np. Czy obsługujecie klientów poza Krakowem?' : 'e.g. Do you serve customers outside London?', 255, false],
+            ['answer', polish ? 'Odpowiedź' : 'Answer', polish ? 'Podaj konkretną, pełną odpowiedź.' : 'Give a specific, complete answer.', 2000, true],
+            ['url', polish ? 'Link do źródła (opcjonalnie)' : 'Supporting source (optional)', 'https://example.com/faq', 200, false],
+        ];
+        fields.forEach(([key, labelText, placeholder, maxLength, multiline]) => {
+            const label = document.createElement('label');
+            label.className = 'block text-sm font-medium text-slate-700';
+            label.append(document.createTextNode(labelText));
+            const input = document.createElement(multiline ? 'textarea' : 'input');
+            if (!multiline) input.type = key === 'url' ? 'url' : 'text';
+            if (multiline) input.rows = 3;
+            input.dataset.faqKey = key;
+            input.value = value[key] || '';
+            input.maxLength = maxLength;
+            input.placeholder = placeholder;
+            input.className = 'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-[#5ca197] focus:outline-none focus:ring-2 focus:ring-[#5ca197]/20';
+            input.required = key !== 'url' && editor.section.dataset.faqLanguage === primary.value;
+            input.addEventListener('input', () => {
+                if (key === 'url') {
+                    const index = [...editor.rows.children].indexOf(row);
+                    faqEditors.forEach(other => {
+                        if (other !== editor && other.rows.children[index]) {
+                            other.rows.children[index].querySelector('[data-faq-key="url"]').value = input.value;
+                        }
+                    });
                 }
-                updateTrigger();
-                menu.classList.add('hidden');
+                syncFaqs();
             });
-            menu.appendChild(optionBtn);
+            label.append(input);
+            row.append(label);
         });
-
-        trigger.addEventListener('click', (e) => {
-            e.preventDefault();
-            menu.classList.toggle('hidden');
-        });
-
-        const closeMenuOnOutsideClick = (event) => {
-            if (!pickerWrap.contains(event.target)) {
-                menu.classList.add('hidden');
-                document.removeEventListener('click', closeMenuOnOutsideClick);
-            }
+        const controls = document.createElement('div');
+        controls.className = 'flex flex-wrap gap-3 text-sm';
+        const control = (text, action, className = 'text-[#284b63] underline') => {
+            const button = document.createElement('button');
+            button.type = 'button'; button.textContent = text; button.className = className;
+            button.addEventListener('click', action); controls.append(button);
         };
-
-        trigger.addEventListener('click', () => {
-            setTimeout(() => {
-                document.addEventListener('click', closeMenuOnOutsideClick);
-            }, 0);
-        });
-
-        field.addEventListener('change', updateTrigger);
-
-        updateTrigger();
-        pickerWrap.appendChild(trigger);
-        pickerWrap.appendChild(menu);
-        pickerContainer.appendChild(pickerWrap);
+        control(polish ? 'W górę' : 'Move up', () => moveFaq(row, -1));
+        control(polish ? 'W dół' : 'Move down', () => moveFaq(row, 1));
+        control(polish ? 'Usuń pytanie' : 'Remove question', () => removeFaq(row), 'text-rose-700 underline');
+        row.append(controls);
+        return row;
     }
-
-    function syncPrimaryLanguagePicker() {
-        if (!primaryLanguageField || !primaryLanguagePicker) {
-            return;
-        }
-
-        const currentValue = primaryLanguageField.value;
-        primaryLanguageField.innerHTML = '';
-
-        config.availableLanguages.forEach((langCode) => {
-            const option = document.createElement('option');
-            option.value = langCode;
-            option.textContent = config.languageLabels[langCode] || langCode.toUpperCase();
-            primaryLanguageField.appendChild(option);
+    function appendFaq(values = {}) {
+        faqEditors.forEach(editor => editor.rows.append(faqRow(editor, values[editor.section.dataset.faqLanguage] || {})));
+        syncFaqs();
+    }
+    function removeFaq(row) {
+        const editor = faqEditors.find(item => item.rows.contains(row));
+        const index = [...editor.rows.children].indexOf(row);
+        faqEditors.forEach(item => item.rows.children[index]?.remove());
+        syncFaqs();
+    }
+    function moveFaq(row, direction) {
+        const editor = faqEditors.find(item => item.rows.contains(row));
+        const index = [...editor.rows.children].indexOf(row);
+        const target = index + direction;
+        if (target < 0 || target >= editor.rows.children.length) return;
+        faqEditors.forEach(item => {
+            const moving = item.rows.children[index];
+            const reference = direction < 0 ? item.rows.children[target] : item.rows.children[target].nextSibling;
+            item.rows.insertBefore(moving, reference);
         });
-
-        if (currentValue && config.availableLanguages.includes(currentValue)) {
-            primaryLanguageField.value = currentValue;
-        } else if (selectedLanguages.length > 0) {
-            primaryLanguageField.value = selectedLanguages[0];
-        } else {
-            primaryLanguageField.value = config.availableLanguages[0] || 'pl';
-        }
-
-        renderCustomSelectPicker(primaryLanguageField, primaryLanguagePicker, (selectedValue) => {
-            if (selectedLanguages.includes(selectedValue)) {
-                selectedLanguages = [
-                    selectedValue,
-                    ...selectedLanguages.filter((lang) => lang !== selectedValue),
-                ];
-                activeLanguage = selectedValue;
-                updateVisibleLanguageSection();
-                renderLanguageTabs();
-                updateUI();
-                return;
+        syncFaqs();
+    }
+    const initialFaqCount = Math.max(0, ...faqEditors.map(editor => Array.isArray(editor.initial) ? editor.initial.length : 0));
+    for (let index = 0; index < initialFaqCount; index += 1) {
+        const values = {};
+        faqEditors.forEach(editor => { values[editor.section.dataset.faqLanguage] = editor.initial[index] || {}; });
+        appendFaq(values);
+    }
+    faqEditors.forEach(editor => editor.add.addEventListener('click', () => {
+        if (editor.rows.children.length >= faqMaximum) return;
+        appendFaq();
+        editor.rows.lastElementChild.querySelector('[data-faq-key="question"]').focus();
+    }));
+    syncFaqs();
+    function updateReadiness() {
+        const selected = choices.filter(choice => choice.checked);
+        const missing = selected.filter(choice => !document.getElementById(`short-${choice.value}`).value.trim() && !document.getElementById(`long-${choice.value}`).value.trim());
+        const labels = missing.map(choice => [...editorLanguage.options].find(option => option.value === choice.value).textContent);
+        document.getElementById('description-readiness').textContent = missing.length
+            ? (polish ? 'Warto uzupełnić opis: ' : 'Descriptions to add: ') + labels.join(', ') + (polish ? '. Możesz zapisać i wrócić do tego później.' : '. You can save and come back to this later.')
+            : (polish ? 'Każdy wybrany język ma opis. Sprawdź jeszcze, czy informacje są aktualne.' : 'Every selected language has a description. Check that the information is up to date.');
+    }
+    form.addEventListener('input', updateReadiness);
+    form.addEventListener('change', updateReadiness);
+    updateReadiness();
+    let validationMessageId = 0;
+    function showFieldValidity(field) {
+        if (!field.willValidate || !field.matches('input, textarea, select')) return;
+        let error = field.parentElement.querySelector('[data-client-error]');
+        if (!field.validity.valid) {
+            if (!error) {
+                error = document.createElement('p');
+                error.dataset.clientError = '';
+                error.id = `profile-validation-${++validationMessageId}`;
+                field.setAttribute('aria-describedby', [field.getAttribute('aria-describedby'), error.id].filter(Boolean).join(' '));
+                error.className = 'mt-2 text-sm text-rose-700';
+                error.setAttribute('role', 'alert');
+                field.parentElement.append(error);
             }
-
-            const previousDefault = selectedLanguages[0];
-            if (previousDefault) {
-                selectedLanguages[0] = selectedValue;
-                container.querySelector(`[data-language="${previousDefault}"]`)?.remove();
-                renderLanguageSection(selectedValue);
-            } else {
-                selectedLanguages = [selectedValue];
-                renderLanguageSection(selectedValue);
-            }
-
-            activeLanguage = selectedValue;
-            updateUI();
-        });
-    }
-
-    function updateUI() {
-        buttonsContainer.innerHTML = '';
-        const canAddMore = selectedLanguages.length < config.allowedLanguagesCount;
-        const unavailable = config.availableLanguages.filter((lang) => !selectedLanguages.includes(lang));
-
-        if (canAddMore && unavailable.length > 0) {
-            const row = document.createElement('div');
-            row.className = 'flex w-full items-start gap-2';
-            row.appendChild(renderLanguagePicker());
-            buttonsContainer.appendChild(row);
+            error.textContent = field.validity.valueMissing
+                ? (polish ? 'Uzupełnij to pole.' : 'Please complete this field.')
+                : field.validity.typeMismatch && field.type === 'email'
+                ? (polish ? 'Podaj pełny adres e-mail, np. kontakt@twojafirma.pl.' : 'Enter a full email address, e.g. hello@yourcompany.com.')
+                : field.validationMessage;
+            field.setAttribute('aria-invalid', 'true');
         } else {
-            const limitInfo = document.createElement('div');
-            limitInfo.className = 'rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500';
-            limitInfo.textContent = text.languageLimitReached;
-            buttonsContainer.appendChild(limitInfo);
+            if (error) {
+                field.setAttribute('aria-describedby', (field.getAttribute('aria-describedby') || '').split(' ').filter(id => id !== error.id).join(' '));
+                error.remove();
+            }
+            field.removeAttribute('aria-invalid');
         }
-
-        contentLanguagesField.value = JSON.stringify(selectedLanguages);
-        syncPrimaryLanguagePicker();
-        renderLanguageTabs();
-        updateVisibleLanguageSection();
     }
-
-    if (!Array.isArray(selectedLanguages) || selectedLanguages.length === 0) {
-        selectedLanguages = ['pl'];
-    }
-
-    if (selectedLanguages.length > config.allowedLanguagesCount) {
-        selectedLanguages = selectedLanguages.slice(0, config.allowedLanguagesCount);
-    }
-
-    selectedLanguages.forEach(langCode => {
-        renderLanguageSection(langCode);
+    form.addEventListener('focusout', event => showFieldValidity(event.target));
+    form.addEventListener('invalid', event => showFieldValidity(event.target), true);
+    form.addEventListener('input', event => {
+        if (event.target.getAttribute('aria-invalid') === 'true') showFieldValidity(event.target);
     });
-    renderCustomSelectPicker(companyTypeField, companyTypePicker);
-    updateUI();
-
-    // --- Otwieranie sekcji z błędami po reload (walidacja serwerowa) ---
-    document.querySelectorAll('#organization-form details').forEach(details => {
-        const hasError = details.querySelector('.text-rose-500');
-        if (hasError) details.open = true;
-    });
-
-    // --- Walidacja JS przy submit (novalidate na formie) ---
-    document.getElementById('organization-form').addEventListener('submit', function(e) {
-        // Usuń poprzednie komunikaty JS
-        this.querySelectorAll('.js-field-error').forEach(el => el.remove());
-
-        let firstInvalid = null;
-
-        this.querySelectorAll('details').forEach(details => {
-            details.querySelectorAll('input[required], textarea[required]').forEach(input => {
-                if (!input.value.trim()) {
-                    details.open = true;
-
-                    // Dodaj komunikat błędu jeśli nie ma już serverowego
-                    const label = input.closest('label');
-                    if (label && !label.querySelector('.text-rose-500')) {
-                        const msg = document.createElement('small');
-                        msg.className = 'js-field-error block text-[11px] font-medium text-rose-500';
-                        msg.textContent = '{{ form.ui_language }}' === 'pl' ? 'To pole jest wymagane.' : 'This field is required.';
-                        label.appendChild(msg);
-                    }
-
-                    if (!firstInvalid) firstInvalid = input;
-                }
-            });
-        });
-
-        if (firstInvalid) {
-            e.preventDefault();
-            firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            firstInvalid.focus();
-        }
-    });
-});
+    let dirty = false;
+    form.addEventListener('input', event => { if (event.target === editorLanguage) return; dirty = true; document.getElementById('save-status').textContent = polish ? 'Niezapisane zmiany' : 'Unsaved changes'; });
+    form.addEventListener('submit', () => { dirty = false; });
+    window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
+    const errors = document.getElementById('form-errors');
+    if (errors) { form.querySelectorAll('details').forEach(section => section.open = true); errors.focus(); }
+})();
 </script>
 {% endblock %}

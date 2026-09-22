@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django import forms
+from django.db import models
 
 from .models import BillingInvoice, BillingPayment, BillingPlanPrice, BillingProfile, BillingSubscription, ManualPlanOrder
 
@@ -26,6 +28,7 @@ class BillingSubscriptionAdmin(admin.ModelAdmin):
 
 @admin.register(BillingPayment)
 class BillingPaymentAdmin(admin.ModelAdmin):
+    formfield_overrides = {models.FileField: {"widget": forms.FileInput}}
     list_display = ("user", "amount_paid", "currency", "status", "paid_at", "invoice_issued", "invoice_issued_at", "invoice_sent", "invoice_sent_at", "invoice_number", "stripe_invoice_id")
     list_filter = ("status", "currency", "invoice_issued", "invoice_sent")
     search_fields = ("user__email", "user__username", "invoice_number", "stripe_invoice_id", "stripe_payment_intent_id")
@@ -40,6 +43,8 @@ class BillingProfileAdmin(admin.ModelAdmin):
 
 @admin.register(BillingInvoice)
 class BillingInvoiceAdmin(admin.ModelAdmin):
+    formfield_overrides = {models.FileField: {"widget": forms.FileInput}}
+    readonly_fields = ("billing_snapshot",)
     list_display = ("invoice_number", "user", "issued_at", "sent", "sent_at")
     list_filter = ("sent", "issued_at")
     search_fields = ("invoice_number", "user__email", "user__username")

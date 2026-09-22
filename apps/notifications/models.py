@@ -15,7 +15,7 @@ class NotificationCategory(models.TextChoices):
     PLAN = "plan", "Plan"
     PAYMENT = "payment", "Payment"
     INVOICE = "invoice", "Invoice"
-    MANUAL_PLAN = "manual_plan", "Pro Manual"
+    MANUAL_PLAN = "manual_plan", "Manual payment"
     STRIPE = "stripe", "Stripe"
 
 
@@ -35,6 +35,7 @@ class AdminNotification(models.Model):
     )
     action_url = models.CharField(max_length=255, blank=True)
     reference_key = models.CharField(max_length=180, unique=True, blank=True, null=True)
+    resolved_at = models.DateTimeField(blank=True, null=True)
     closed_at = models.DateTimeField(blank=True, null=True)
     closed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -81,6 +82,7 @@ class CustomerNotification(models.Model):
     severity = models.CharField(max_length=16, choices=NotificationSeverity.choices, default=NotificationSeverity.INFO)
     action_url = models.CharField(max_length=255, blank=True)
     reference_key = models.CharField(max_length=180, unique=True, blank=True, null=True)
+    resolved_at = models.DateTimeField(blank=True, null=True)
     closed_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -14,6 +14,10 @@ from .views import (
     ProductListCreateView,
     PublicCompanyJsonLdView,
     PublicCompanyJsonView,
+    PublicCompanyLocalizedJsonView,
+    PublicCompanyLocalizedJsonLdView,
+    PublicCompanyLocalizedMarkdownView,
+    PublicCompanyLocalizedLLMsTextView,
     PublicCompanyMarkdownView,
     PublicLLMsTextView,
     SocialProfileDetailView,
@@ -90,5 +94,9 @@ urlpatterns = [
     path("public/<slug:slug>/company.jsonld", PublicCompanyJsonLdView.as_view(), name="public-company-jsonld"),
     path("public/<slug:slug>/company.md", PublicCompanyMarkdownView.as_view(), name="public-company-md"),
     path("public/<slug:slug>/llms.txt", PublicLLMsTextView.as_view(), name="public-company-llms"),
+    path("public/<slug:slug>/<str:language_code>/company.json", PublicCompanyLocalizedJsonView.as_view(), name="public-company-language-json"),
+    path("public/<slug:slug>/<str:language_code>/company.jsonld", PublicCompanyLocalizedJsonLdView.as_view(), name="public-company-language-jsonld"),
+    path("public/<slug:slug>/<str:language_code>/company.md", PublicCompanyLocalizedMarkdownView.as_view(), name="public-company-language-md"),
+    path("public/<slug:slug>/<str:language_code>/llms.txt", PublicCompanyLocalizedLLMsTextView.as_view(), name="public-company-language-llms"),
 ]
 

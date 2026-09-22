@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="mx-auto max-w-xl rounded-xl border border-slate-200 bg-white p-6 sm:p-8 space-y-5">
+<h1 class="text-2xl font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Zabezpiecz konto administratora{% else %}Protect your administrator account{% endif %}</h1>
+{% if error %}<p role="alert" class="text-sm text-rose-700">{{ error }}</p>{% endif %}
+{% if recovery_codes %}
+<p>{% if request.LANGUAGE_CODE == 'pl' %}Gotowe. Zapisz kody odzyskiwania w menedżerze haseł. Każdego możesz użyć tylko raz, jeśli stracisz dostęp do telefonu.{% else %}You're set. Save these recovery codes in your password manager. Each works once if you lose access to your phone.{% endif %}</p>
+<ul class="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-4 font-mono text-sm">{% for code in recovery_codes %}<li>{{ code }}</li>{% endfor %}</ul>
+<a href="{% url 'dashboard:home' %}" class="inline-block rounded-lg bg-[#284b63] px-5 py-3 text-white">{% if request.LANGUAGE_CODE == 'pl' %}Kody zapisane — przejdź do panelu{% else %}I've saved my codes — continue{% endif %}</a>
+{% elif qr %}
+<p>{% if request.LANGUAGE_CODE == 'pl' %}1. Otwórz Google Authenticator, Microsoft Authenticator lub menedżer haseł i dodaj konto przez zeskanowanie kodu.{% else %}1. Open Google Authenticator, Microsoft Authenticator or your password manager and scan this code to add an account.{% endif %}</p>
+<img src="{{ qr }}" alt="Authenticator setup QR code" class="mx-auto h-56 w-56" width="224" height="224">
+<details><summary class="cursor-pointer text-sm underline">{% if request.LANGUAGE_CODE == 'pl' %}Nie możesz zeskanować? Wpisz klucz ręcznie{% else %}Can't scan? Enter the setup key manually{% endif %}</summary><code class="mt-2 block break-all rounded bg-slate-50 p-3 text-sm">{{ setup_key }}</code></details>
+<form method="post" class="space-y-3">{% csrf_token %}
+<label for="setup-code" class="block text-sm font-medium">{% if request.LANGUAGE_CODE == 'pl' %}2. Wpisz 6-cyfrowy kod z aplikacji{% else %}2. Enter the 6-digit code from the app{% endif %}</label>
+<input id="setup-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus>
+<button type="submit" class="rounded-lg bg-[#284b63] px-5 py-3 text-white">{% if request.LANGUAGE_CODE == 'pl' %}Włącz ochronę{% else %}Enable protection{% endif %}</button>
+</form>
+{% else %}
+<p class="text-sm text-slate-600">{% if request.LANGUAGE_CODE == 'pl' %}To jednorazowa konfiguracja dla administratora. Potwierdź hasło, a następnie połącz aplikację uwierzytelniającą. Nie potrzebujesz konsoli ani pomocy programisty.{% else %}This is a one-time setup for administrator access. Confirm your password, then connect an authenticator app. No server commands are needed.{% endif %}</p>
+<form method="post" class="space-y-3">{% csrf_token %}<input type="hidden" name="action" value="start">
+<label for="setup-password" class="block text-sm font-medium">{% if request.LANGUAGE_CODE == 'pl' %}Twoje obecne hasło{% else %}Your current password{% endif %}</label>
+<input id="setup-password" name="password" type="password" autocomplete="current-password" required>
+<button type="submit" class="rounded-lg bg-[#284b63] px-5 py-3 text-white">{% if request.LANGUAGE_CODE == 'pl' %}Dalej — pokaż kod QR{% else %}Continue — show QR code{% endif %}</button>
+</form>
+{% endif %}
+</section>
+{% endblock %}

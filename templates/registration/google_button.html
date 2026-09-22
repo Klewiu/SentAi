@@ -1,0 +1,18 @@
+{% if google_signin_enabled and google_nonce %}
+<div class="my-5 space-y-3">
+    <form method="post" action="{% url 'accounts:google-signin' %}" id="google-signin-form">
+        {% csrf_token %}
+        <input type="hidden" name="credential" id="google-credential">
+    </form>
+    <div id="g_id_onload" data-client_id="{{ google_client_id }}" data-nonce="{{ google_nonce }}" data-callback="completeGoogleSignIn" data-auto_prompt="false"></div>
+    <div class="g_id_signin" data-type="standard" data-size="large" data-text="continue_with" data-shape="rectangular"></div>
+    <p class="text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Gmail lub Google Workspace. Bez dostępu do Twojej poczty.{% else %}Gmail or Google Workspace. We do not request access to your inbox.{% endif %}</p>
+</div>
+<script>
+window.completeGoogleSignIn = function(response) {
+    document.getElementById('google-credential').value = response.credential;
+    document.getElementById('google-signin-form').submit();
+};
+</script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+{% endif %}

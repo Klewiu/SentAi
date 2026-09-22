@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}{{ organization.name }} | xoaila company profile{% endblock %}
-{% block meta_description %}{% firstof organization.ai_summary description organization.name %}{% endblock %}
+{% block title %}{{ organization.name }} | {{ profile_copy.profile_suffix }}{% endblock %}
+{% block meta_description %}{% firstof description organization.ai_summary organization.name %}{% endblock %}
 {% block extra_head %}
     <link rel="canonical" href="{{ canonical_url }}">
+    {% for language in profile_languages %}<link rel="alternate" hreflang="{{ language.code }}" href="{{ language.url }}">{% endfor %}
+    <link rel="alternate" hreflang="x-default" href="{{ x_default_url }}">
     <link rel="alternate" type="application/json" href="{{ feed_urls.company_json }}">
     {% if organization.supports_advanced_formats %}
         <link rel="alternate" type="application/ld+json" href="{{ feed_urls.company_jsonld }}">
@@ -23,16 +25,20 @@
 <article class="grid gap-8">
     <header class="grid gap-5 border-b border-[#d9d9d9] pb-6">
         <nav class="font-mono text-xs text-[#353535]/45">
-            <a class="hover:text-[#5ca197]" href="{% url 'public-company-directory' %}">companies</a>
-            <span>/</span>
             <span>{{ organization.slug }}</span>
         </nav>
         <div class="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
             <div class="grid gap-3">
-                <p class="font-mono text-xs uppercase tracking-widest text-[#5ca197]">{{ organization.get_company_type_display }}</p>
+                <p class="font-mono text-xs uppercase tracking-widest text-[#5ca197]">{{ company_type_label }}</p>
                 <h1 class="font-display text-4xl font-bold tracking-tight text-[#284b63]">{{ organization.name }}</h1>
+                <nav class="flex flex-wrap items-center gap-2" aria-label="{{ profile_copy.profile_language }}">
+                    <span class="text-sm">{{ profile_copy.profile_language }}:</span>
+                    {% for language in profile_languages %}
+                    <a href="{{ language.url }}" hreflang="{{ language.code }}" lang="{{ language.code }}" class="rounded border border-[#5ca197] px-3 py-2 text-sm {% if language.code == content_language %}bg-[#284b63] text-white{% else %}text-[#284b63]{% endif %}" {% if language.code == content_language %}aria-current="page"{% endif %}>{{ language.label }}</a>
+                    {% endfor %}
+                </nav>
                 {% if description %}
-                    <p class="max-w-4xl text-base leading-7 text-[#353535]/70">{{ description }}</p>
+                    <p lang="{{ content_language }}" class="max-w-4xl text-base leading-7 text-[#353535]/70">{{ description }}</p>
                 {% endif %}
             </div>
             <div class="flex flex-wrap gap-2 lg:justify-end">
@@ -53,33 +59,33 @@
     <section class="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div class="grid gap-4">
             <section class="rounded border border-[#d9d9d9] bg-white p-5">
-                <h2 class="font-display text-xl font-semibold text-[#284b63]">Company facts</h2>
+                <h2 class="font-display text-xl font-semibold text-[#284b63]">{{ profile_copy.company_facts }}</h2>
                 <dl class="mt-4 grid gap-3 text-sm text-[#353535]/70 sm:grid-cols-2">
                     <div>
-                        <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">type</dt>
-                        <dd class="mt-1">{{ organization.get_company_type_display }}</dd>
+                        <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">{{ profile_copy.type }}</dt>
+                        <dd class="mt-1">{{ company_type_label }}</dd>
                     </div>
                     <div>
-                        <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">language</dt>
-                        <dd class="mt-1">{{ organization.primary_language }}</dd>
+                        <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">{{ profile_copy.language }}</dt>
+                        <dd class="mt-1">{{ content_language }}</dd>
                     </div>
                     {% if organization.city or organization.country %}
                         <div>
-                            <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">location</dt>
+                            <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">{{ profile_copy.location }}</dt>
                             <dd class="mt-1">{{ organization.city }}{% if organization.city and organization.country %}, {% endif %}{{ organization.country }}</dd>
                         </div>
                     {% endif %}
                     <div>
-                        <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">verification</dt>
-                        <dd class="mt-1">{{ organization.get_verification_status_display }}</dd>
+                        <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">{{ profile_copy.verification }}</dt>
+                        <dd class="mt-1">{{ verification_label }}</dd>
                     </div>
                     <div>
-                        <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">last updated</dt>
+                        <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">{{ profile_copy.last_updated }}</dt>
                         <dd class="mt-1">{{ organization.updated_at|date:"Y-m-d" }}</dd>
                     </div>
                     {% if organization.website_url %}
                         <div>
-                            <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">website</dt>
+                            <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">{{ profile_copy.website }}</dt>
                             <dd class="mt-1"><a class="text-[#284b63] hover:text-[#5ca197]" href="{{ organization.website_url }}" rel="nofollow">{{ organization.website_url }}</a></dd>
                         </div>
                     {% endif %}
@@ -88,16 +94,16 @@
 
             {% if products %}
                 <section class="rounded border border-[#d9d9d9] bg-white p-5">
-                    <h2 class="font-display text-xl font-semibold text-[#284b63]">Products and services</h2>
+                    <h2 class="font-display text-xl font-semibold text-[#284b63]">{{ profile_copy.products }}</h2>
                     <div class="mt-4 grid gap-4">
                         {% for product in products %}
                             <div class="border-t border-[#d9d9d9] pt-4 first:border-t-0 first:pt-0">
-                                <h3 class="font-semibold text-[#353535]">{{ product.name }}</h3>
-                                <p class="mt-1 text-sm leading-6 text-[#353535]/65">{% firstof product.short_description_en product.short_description_pl "No public description yet." %}</p>
+                                <h3 class="font-semibold text-[#353535]">{{ product.display_name }}</h3>
+                                <p class="mt-1 text-sm leading-6 text-[#353535]/65">{{ product.display_summary }}</p>
                                 {% if product.product_url or product.price_from %}
                                     <p class="mt-2 font-mono text-xs text-[#353535]/45">
-                                        {% if product.price_from %}from {{ product.price_from }} {{ product.currency }}{% endif %}
-                                        {% if product.product_url %}<a class="ml-2 text-[#284b63] hover:text-[#5ca197]" href="{{ product.product_url }}" rel="nofollow">source</a>{% endif %}
+                                        {% if product.price_from %}{{ profile_copy.price_from }} {{ product.price_from }} {{ product.currency }}{% endif %}
+                                        {% if product.product_url %}<a class="ml-2 text-[#284b63] hover:text-[#5ca197]" href="{{ product.product_url }}" rel="nofollow">{{ profile_copy.source }}</a>{% endif %}
                                     </p>
                                 {% endif %}
                             </div>
@@ -108,13 +114,13 @@
 
             {% if entries %}
                 <section class="rounded border border-[#d9d9d9] bg-white p-5">
-                    <h2 class="font-display text-xl font-semibold text-[#284b63]">Updates and content</h2>
+                    <h2 class="font-display text-xl font-semibold text-[#284b63]">{{ profile_copy.content }}</h2>
                     <div class="mt-4 grid gap-4">
                         {% for entry in entries %}
                             <div class="border-t border-[#d9d9d9] pt-4 first:border-t-0 first:pt-0">
-                                <h3 class="font-semibold text-[#353535]">{{ entry.title }}</h3>
-                                <p class="mt-1 text-sm leading-6 text-[#353535]/65">{% firstof entry.summary_en entry.summary_pl entry.get_entry_type_display %}</p>
-                                <p class="mt-2 font-mono text-xs text-[#353535]/45">{{ entry.published_at|date:"Y-m-d" }}{% if entry.content_url %} <a class="ml-2 text-[#284b63] hover:text-[#5ca197]" href="{{ entry.content_url }}" rel="nofollow">source</a>{% endif %}</p>
+                                <h3 class="font-semibold text-[#353535]">{{ entry.display_title }}</h3>
+                                <p class="mt-1 text-sm leading-6 text-[#353535]/65">{{ entry.display_summary }}</p>
+                                <p class="mt-2 font-mono text-xs text-[#353535]/45">{{ entry.published_at|date:"Y-m-d" }}{% if entry.content_url %} <a class="ml-2 text-[#284b63] hover:text-[#5ca197]" href="{{ entry.content_url }}" rel="nofollow">{{ profile_copy.source }}</a>{% endif %}</p>
                             </div>
                         {% endfor %}
                     </div>
@@ -125,7 +131,7 @@
         <aside class="grid content-start gap-4">
             {% if tags %}
                 <section class="rounded border border-[#d9d9d9] bg-white p-5">
-                    <h2 class="font-display text-lg font-semibold text-[#284b63]">Topics</h2>
+                    <h2 class="font-display text-lg font-semibold text-[#284b63]">{{ profile_copy.topics }}</h2>
                     <div class="mt-3 flex flex-wrap gap-2">
                         {% for tag in tags %}
                             <span class="rounded border border-[#5ca197]/20 bg-[#5ca197]/5 px-2 py-1 font-mono text-[11px] text-[#5ca197]">{{ tag.name }}</span>
@@ -135,7 +141,7 @@
             {% endif %}
 
             <section class="rounded border border-[#d9d9d9] bg-white p-5">
-                <h2 class="font-display text-lg font-semibold text-[#284b63]">Machine-readable formats</h2>
+                <h2 class="font-display text-lg font-semibold text-[#284b63]">{{ profile_copy.formats }}</h2>
                 <ul class="mt-3 grid gap-2 font-mono text-xs">
                     <li><a class="text-[#284b63] hover:text-[#5ca197]" href="{{ feed_urls.company_json }}">company.json</a></li>
                     {% if organization.supports_advanced_formats %}<li><a class="text-[#284b63] hover:text-[#5ca197]" href="{{ feed_urls.company_jsonld }}">company.jsonld</a></li>{% endif %}
@@ -146,7 +152,7 @@
 
             {% if social_profiles %}
                 <section class="rounded border border-[#d9d9d9] bg-white p-5">
-                    <h2 class="font-display text-lg font-semibold text-[#284b63]">Social profiles</h2>
+                <h2 class="font-display text-lg font-semibold text-[#284b63]">{{ profile_copy.social }}</h2>
                     <ul class="mt-3 grid gap-2 text-sm">
                         {% for profile in social_profiles %}
                             <li><a class="text-[#284b63] hover:text-[#5ca197]" href="{{ profile.url }}" rel="nofollow">{{ profile.get_network_display }}</a></li>

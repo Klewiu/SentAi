@@ -44,7 +44,7 @@ Pagination:
   ?page=2
 
 Filter parameters:
-  search        Search name, AI summary, or description (contains)
+  search        Search company, product, FAQ, keyword, or any supported translation
   city          Filter by city (case-insensitive contains)
   country       Filter by country code, e.g. PL (exact)
   language      Filter by primary language, e.g. en or pl (exact)
@@ -81,11 +81,16 @@ Response shape:
         "verification_status": "human_admin_verified",
         "verified_at": "2026-05-06T21:40:00+00:00",
         "last_reviewed_at": "2026-05-12T10:15:00+00:00",
+        "profile_languages": ["pl", "en"],
+        "profile_urls": {
+          "pl": "http://.../companies/acme-sp-z-o-o/pl/",
+          "en": "http://.../companies/acme-sp-z-o-o/en/"
+        },
         "available_formats": {
           "company_json": true,
-          "company_jsonld": false,
-          "company_md": false,
-          "llms_txt": false
+          "company_jsonld": true,
+          "company_md": true,
+          "llms_txt": true
         },
         "feed_urls": {
           "company_json": "http://.../api/public/acme-sp-z-o-o/company.json",
@@ -194,14 +199,25 @@ per-company endpoints.
   Content-Type: application/json
   Available: all plans
 
-  Full structured company profile including social profiles,
-  products, content entries, and available feed URLs.
+  Multilingual master profile. It includes stable UUIDs, all published
+  translations allowed by the plan, profile URLs, localized feed URLs,
+  social profiles, products, and content entries.
+
+  GET /api/public/{slug}/{language_code}/company.json
+
+  A language-specific JSON profile. Only content authored for the requested
+  language is returned; untranslated products, tags, and FAQs are omitted.
+  Supported language codes: en, pl, de, es, it, fr. A code returns 404 when
+  that translation is not published for the company or exceeds its plan limit.
+  Localized responses include Content-Language and Link headers containing
+  canonical, hreflang alternate, and x-default URLs.
 
 ---
 
   GET /api/public/{slug}/company.jsonld
+  GET /api/public/{slug}/{language_code}/company.jsonld
   Content-Type: application/ld+json
-  Available: PLUS and PRO plans (404 otherwise)
+  Available: all plans for verified, public, opted-in companies
 
   Schema.org structured data for the company. Suitable for
   embedding in pages or feeding to knowledge graph tools.
@@ -209,18 +225,21 @@ per-company endpoints.
 ---
 
   GET /api/public/{slug}/company.md
+  GET /api/public/{slug}/{language_code}/company.md
   Content-Type: text/markdown
-  Available: PRO plan only (404 otherwise)
+  Available: all plans for verified, public, opted-in companies
 
   Human and LLM-readable Markdown profile. Includes name,
   summary, company information, specializations, products,
-  content updates, social profiles, and descriptions by language.
+  content updates and social profiles. The language-specific URL contains
+  only customer content authored in that language.
 
 ---
 
   GET /api/public/{slug}/llms.txt
+  GET /api/public/{slug}/{language_code}/llms.txt
   Content-Type: text/plain
-  Available: PRO plan only (404 otherwise)
+  Available: all plans for verified, public, opted-in companies
 
   Plain-text LLM feed following the llmstxt.org convention.
   Contains key facts, links, and structured text suitable for
@@ -234,8 +253,9 @@ per-company endpoints.
   GET /llms.txt
   Content-Type: text/plain
 
-Site-wide llms.txt listing all verified PRO companies that have opted in
-to AI indexing. Each entry links to that company's llms.txt feed.
+Site-wide llms.txt listing all verified companies that have opted in
+to AI indexing. Each entry links to the multilingual JSON master and every
+published language version of the company profile and llms.txt feed.
 Follows the https://llmstxt.org convention.
 
 Intended for AI crawlers discovering the catalog automatically.
@@ -248,12 +268,12 @@ Intended for AI crawlers discovering the catalog automatically.
   Format          BASIC   PLUS    PRO
   --------------- ------- ------- -------
   company.json      YES     YES     YES
-  company.jsonld    no      YES     YES
-  company.md        no      no      YES
-  llms.txt          no      no      YES
-  site llms.txt     no      no      YES *
+  company.jsonld    YES     YES     YES
+  company.md        YES     YES     YES
+  llms.txt          YES     YES     YES
+  site llms.txt     YES     YES     YES *
 
-  * Only PRO companies appear in /llms.txt
+  * All verified, public, opted-in companies appear in /llms.txt
 
 
 ----------------------------------------------------------------
@@ -275,7 +295,7 @@ You can discover all available slugs via:
 
   400  Bad Request   — invalid parameter (e.g. bad datetime format)
   404  Not Found     — slug not found, company not verified/public,
-                       AI indexing not allowed, or format not available on current plan
+                       AI indexing not allowed, or company not verified for publication
   401  Unauthorized  — missing or invalid token (write endpoints only)
 
 
@@ -298,11 +318,16 @@ curl "http://your-domain.com/api/companies/updates/?since=2026-05-01T00:00:00Z"
 # Download full catalog as NDJSON
 curl "http://your-domain.com/api/public/catalog.ndjson" > catalog.ndjson
 
-# Get Markdown profile for an LLM (PRO company)
+# Get Markdown profile for an LLM (any plan)
 curl "http://your-domain.com/api/public/acme-sp-z-o-o/company.md"
 
-# Get LLM feed for a company (PRO)
+# Get the Polish-only Markdown profile
+curl "http://your-domain.com/api/public/acme-sp-z-o-o/pl/company.md"
+
+# Get LLM feed for a company (any plan)
 curl "http://your-domain.com/api/public/acme-sp-z-o-o/llms.txt"
 
 # Site-wide LLM index
 curl "http://your-domain.com/llms.txt"
+
+Updates pagination: /api/companies/updates/?since=ISO8601&page=1 returns up to 100 records. Keep the same since value and follow next_page until null. Periodically reconcile the full catalog to detect removals. Catalog detail supports If-None-Match and returns 304 when the current representation is unchanged.

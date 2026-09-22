@@ -3,6 +3,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import TemplateView
 
@@ -69,6 +70,8 @@ class AdminNotificationCloseView(AdminNotificationsRequiredMixin, View):
         notification.save(update_fields=["closed_at", "closed_by", "updated_at"])
         messages.success(request, "Powiadomienie zostało zamknięte.")
         next_url = request.POST.get("next") or reverse("dashboard:notifications")
+        if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+            next_url = reverse("dashboard:home")
         return redirect(next_url)
 
 
@@ -122,4 +125,6 @@ class CustomerNotificationCloseView(LoginRequiredMixin, View):
         notification.save(update_fields=["closed_at", "updated_at"])
         messages.success(request, "Notification closed.")
         next_url = request.POST.get("next") or reverse("dashboard:customer-notifications")
+        if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+            next_url = reverse("dashboard:home")
         return redirect(next_url)
