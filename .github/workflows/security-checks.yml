@@ -16,4 +16,4 @@ jobs:
       - run: python -m pip check
       - run: python manage.py makemigrations --check --dry-run --settings=sentai.settings.test
       - run: python manage.py test --settings=sentai.settings.test --noinput
-      - run: python -m pip_audit -r requirements.lock --disable-pip
+      - run: python -m pip_audit -r requirements.lock --disable-pip --no-deps
