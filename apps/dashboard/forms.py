@@ -7,7 +7,6 @@ from django.contrib.auth import get_user_model
 
 from apps.accounts.models import AccountType, USER_PLAN_ORGANIZATION_LIMITS, UserPlanTier
 from apps.billing.models import BillingCurrency, BillingCustomerType, BillingInvoice, BillingPayment, BillingPlanPrice, BillingProfile
-from apps.billing.services import basic_price_amount
 
 
 User = get_user_model()
@@ -228,12 +227,6 @@ class BillingPlanPriceForm(forms.ModelForm):
 
         currency = cleaned_data.get("currency")
 
-        if tier == UserPlanTier.BASIC and (
-            currency not in BillingCurrency.values
-            or cleaned_data.get("amount") != basic_price_amount(currency)
-            or cleaned_data.get("interval") != "year"
-        ):
-            raise forms.ValidationError("Basic must cost 100 PLN or 25 EUR per year.")
         if tier and currency and active:
             qs = BillingPlanPrice.objects.filter(
                 tier=tier,
