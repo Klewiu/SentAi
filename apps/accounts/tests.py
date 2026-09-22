@@ -12,6 +12,23 @@ User = get_user_model()
 
 
 class RegistrationFlowTests(TestCase):
+    @override_settings(REGISTRATION_EMAIL_VERIFICATION_REQUIRED=False)
+    def test_registration_without_confirmation_activates_account_without_email(self):
+        with patch("apps.accounts.verification.send_verification") as send:
+            response = self.client.post(reverse("register"), {
+                "username": "no-confirmation", "company_name": "Example Company",
+                "country": "Poland", "email": "no-confirmation@example.com",
+                "password1": "StrongPass123!", "password2": "StrongPass123!",
+            })
+        self.assertRedirects(response, reverse("login"))
+        send.assert_not_called()
+        user = User.objects.get(username="no-confirmation")
+        self.assertTrue(user.is_active)
+        self.assertFalse(user.registration_pending)
+        self.assertIsNone(user.email_verified_at)
+        self.assertTrue(self.client.login(username=user.username, password="StrongPass123!"))
+
+    @override_settings(REGISTRATION_EMAIL_VERIFICATION_REQUIRED=True)
     def test_register_creates_user_pending_email_verification(self):
         response = self.client.post(
             reverse("register"),
