@@ -424,6 +424,7 @@ class DashboardPlanLimitTests(TestCase):
     )
     @patch("apps.dashboard.views.stripe.checkout.Session.create")
     def test_user_selecting_plus_starts_stripe_checkout(self, mock_checkout_create):
+        BillingPlanPrice.objects.create(tier="PLUS", currency="pln", amount=4900, stripe_price_id="price_plus_test")
         self.create_billing_profile(country="PL")
         mock_checkout_create.return_value = SimpleNamespace(url="https://checkout.stripe.test/session")
 
@@ -757,118 +758,37 @@ class DashboardPlanLimitTests(TestCase):
         subscription.refresh_from_db()
         self.assertFalse(subscription.cancel_at_period_end)
 
-    def test_admin_can_add_billing_plan_price(self):
-        admin = User.objects.create_superuser(
-            username="admin-price",
-            email="admin-price@example.com",
-            password="strong-pass-123",
-        )
+    @patch("apps.billing.catalog.publish_price")
+    def test_admin_can_add_billing_plan_price(self, publish):
+        admin = User.objects.create_superuser(username="price-admin", email="price-admin@example.com", password="test-password")
         self.client.force_login(admin)
-
-        response = self.client.post(
-            reverse("dashboard:billing-price-management"),
-            {
-                "tier": UserPlanTier.PLUS,
-                "stripe_price_id": "price_plus_79",
-                "amount": "79.00",
-                "currency": "pln",
-                "interval": "year",
-                "active_for_new_customers": "on",
-                "notes": "new price",
-            },
-        )
-
+        response = self.client.post(reverse("dashboard:billing-price-management"), {
+            "tier": "PLUS", "currency": "eur", "amount": "46.00",
+        })
         self.assertEqual(response.status_code, 302)
-        price = BillingPlanPrice.objects.get(stripe_price_id="price_plus_79")
-        self.assertEqual(price.amount, 7900)
+        publish.assert_called_once_with("PLUS", "eur", 4600, admin, "")
 
-    def test_admin_can_keep_active_pln_and_eur_prices_for_same_plan(self):
-        admin = User.objects.create_superuser(
-            username="admin-currency",
-            email="admin-currency@example.com",
-            password="strong-pass-123",
-        )
-        BillingPlanPrice.objects.create(
-            tier=UserPlanTier.PLUS,
-            stripe_price_id="price_plus_pln",
-            amount=7900,
-            currency="pln",
-            active_for_new_customers=True,
-        )
+    @patch("apps.billing.catalog.publish_price")
+    def test_admin_price_edit_publishes_replacement_without_overwriting_history(self, publish):
+        admin = User.objects.create_superuser(username="edit-admin", email="edit-admin@example.com", password="test-password")
+        price = BillingPlanPrice.objects.create(tier="PLUS", currency="eur", amount=4600, stripe_price_id="price_old")
         self.client.force_login(admin)
-
-        response = self.client.post(
-            reverse("dashboard:billing-price-management"),
-            {
-                "tier": UserPlanTier.PLUS,
-                "stripe_price_id": "price_plus_eur",
-                "amount": "19.00",
-                "currency": "eur",
-                "interval": "year",
-                "active_for_new_customers": "on",
-                "notes": "eur price",
-            },
-        )
-
+        response = self.client.post(reverse("dashboard:billing-price-edit", args=[price.pk]), {
+            "tier": "PLUS", "currency": "eur", "amount": "55.00",
+        })
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            BillingPlanPrice.objects.filter(tier=UserPlanTier.PLUS, active_for_new_customers=True).count(),
-            2,
-        )
-
-    def test_admin_can_edit_archived_price_with_same_stripe_price_id(self):
-        admin = User.objects.create_superuser(
-            username="admin-price-edit",
-            email="admin-price-edit@example.com",
-            password="strong-pass-123",
-        )
-        price = BillingPlanPrice.objects.create(
-            tier=UserPlanTier.PLUS,
-            stripe_price_id="price_existing_eur",
-            amount=50,
-            currency="eur",
-            active_for_new_customers=False,
-        )
-        self.client.force_login(admin)
-
-        response = self.client.post(
-            reverse("dashboard:billing-price-edit", args=[price.pk]),
-            {
-                "tier": UserPlanTier.PLUS,
-                "stripe_price_id": "price_existing_eur",
-                "amount": "46.00",
-                "currency": "eur",
-                "interval": "year",
-                "active_for_new_customers": "on",
-                "notes": "corrected local amount",
-            },
-        )
-
-        self.assertEqual(response.status_code, 302)
+        publish.assert_called_once_with("PLUS", "eur", 5500, admin, "")
         price.refresh_from_db()
         self.assertEqual(price.amount, 4600)
-        self.assertTrue(price.active_for_new_customers)
 
-    def test_admin_can_activate_archived_price(self):
-        admin = User.objects.create_superuser(
-            username="admin-price-activate",
-            email="admin-price-activate@example.com",
-            password="strong-pass-123",
-        )
-        price = BillingPlanPrice.objects.create(
-            tier=UserPlanTier.PRO,
-            stripe_price_id="price_pro_pln",
-            amount=40000,
-            currency="pln",
-            active_for_new_customers=False,
-        )
+    @patch("apps.billing.catalog.set_price_active")
+    def test_admin_can_activate_archived_price(self, activate):
+        admin = User.objects.create_superuser(username="activate-admin", email="activate-admin@example.com", password="test-password")
+        price = BillingPlanPrice.objects.create(tier="PRO", currency="pln", amount=40000, stripe_price_id="price_archived", active_for_new_customers=False)
         self.client.force_login(admin)
-
         response = self.client.post(reverse("dashboard:billing-price-activate", args=[price.pk]))
-
         self.assertEqual(response.status_code, 302)
-        price.refresh_from_db()
-        self.assertTrue(price.active_for_new_customers)
+        activate.assert_called_once_with(price, True, admin)
 
     @override_settings(STRIPE_PLUS_PRICE_ID="", STRIPE_PRO_PRICE_ID="", STRIPE_PLUS_PRICE_AMOUNT=4900)
     def test_archived_price_does_not_show_fallback_amount_on_plan_page(self):

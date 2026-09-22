@@ -10,9 +10,9 @@
             </h1>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">
                 {% if request.LANGUAGE_CODE == 'pl' %}
-                    Uzyj tego do poprawienia lokalnie blednie wpisanej kwoty albo do ponownej aktywacji zarchiwizowanego price ID.
+                    Nowa kwota tworzy nowa cene w Stripe i zastepuje aktualna oferte. Obecne subskrypcje zachowuja dotychczasowa cene.
                 {% else %}
-                    Use this to correct a locally mistyped amount or reactivate an archived price ID.
+                    A new amount creates a new Stripe price and replaces the current offer. Existing subscriptions retain their previous price.
                 {% endif %}
             </p>
         </div>

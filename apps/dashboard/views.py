@@ -32,7 +32,6 @@ from apps.billing.models import (
 )
 from apps.billing.services import (
     activate_paid_plan,
-    basic_price_amount,
     downgrade_to_basic,
     format_amount,
     object_get,
@@ -99,17 +98,14 @@ class LandingView(TemplateView):
         context["billing_currencies"] = supported_billing_currencies()
         context["basic_price"] = plan_price_label(
             UserPlanTier.BASIC,
-            basic_price_amount(selected_currency),
             selected_currency,
         )
         context["plus_price"] = plan_price_label(
             UserPlanTier.PLUS,
-            settings.STRIPE_PLUS_PRICE_AMOUNT,
             selected_currency,
         )
         context["pro_price"] = plan_price_label(
             UserPlanTier.PRO,
-            settings.STRIPE_PRO_PRICE_AMOUNT,
             selected_currency,
         )
         return context
@@ -309,17 +305,14 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
         context["stripe_test_mode"] = settings.STRIPE_SECRET_KEY.startswith("sk_test_")
         context["basic_price_label"] = plan_price_label(
             UserPlanTier.BASIC,
-            basic_price_amount(selected_currency),
             selected_currency,
         )
         context["plus_price_label"] = plan_price_label(
             UserPlanTier.PLUS,
-            settings.STRIPE_PLUS_PRICE_AMOUNT,
             selected_currency,
         )
         context["pro_price_label"] = plan_price_label(
             UserPlanTier.PRO,
-            settings.STRIPE_PRO_PRICE_AMOUNT,
             selected_currency,
         )
         context["plus_price_configured"] = bool(plus_price)
@@ -875,20 +868,27 @@ class AdminRequiredMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
-class BillingPriceManagementView(AdminRequiredMixin, FormView):
-    form_class = BillingPlanPriceForm
-    template_name = "dashboard/billing_price_management.html"
-    success_url = reverse_lazy("dashboard:billing-price-management")
+class StripePriceEditorMixin:
+    def get_form_class(self):
+        from .forms import StripePriceForm
+        return StripePriceForm
 
     def form_valid(self, form):
-        price = form.save(commit=False)
-        price.created_by = self.request.user
-        price.save()
-        if self.request.LANGUAGE_CODE == "pl":
-            messages.success(self.request, "Cena planu zostala dodana.")
-        else:
-            messages.success(self.request, "Plan price has been added.")
-        return super().form_valid(form)
+        from apps.billing.catalog import publish_price
+        try:
+            publish_price(form.cleaned_data["tier"], form.cleaned_data["currency"],
+                          form.cleaned_data["amount"], self.request.user,
+                          form.cleaned_data.get("existing_price_id", ""))
+        except (ValueError, stripe.StripeError):
+            logger.exception("Stripe price publication failed")
+            form.add_error(None, "Nie zapisano ceny lub synchronizacji. Sprawdz klucz Stripe, walute i kwote. Po przerwaniu polaczenia najpierw synchronizuj ceny. / Price publication or sync failed. Check Stripe configuration and price details; synchronize before retrying.")
+            return self.form_invalid(form)
+        messages.success(self.request, "Cena zapisana w Stripe. Obecne subskrypcje zachowuja cene. / Price saved in Stripe. Existing subscriptions keep their price.")
+        return redirect("dashboard:billing-price-management")
+
+
+class BillingPriceManagementView(AdminRequiredMixin, StripePriceEditorMixin, FormView):
+    template_name = "dashboard/billing_price_management.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -896,54 +896,44 @@ class BillingPriceManagementView(AdminRequiredMixin, FormView):
         return context
 
 
+class BillingPriceSyncView(AdminRequiredMixin, View):
+    def post(self, request):
+        from apps.billing.catalog import sync_prices
+        try:
+            count = sync_prices(request.user)
+            messages.success(request, f"Zsynchronizowano aktywne ceny / Active prices synchronized: {count}/6")
+        except (ValueError, stripe.StripeError) as error:
+            logger.exception("Stripe price synchronization failed")
+            messages.error(request, str(error) if isinstance(error, ValueError) else "Stripe connection failed. Check credentials and try again.")
+        return redirect("dashboard:billing-price-management")
+
+
 class BillingPriceArchiveView(AdminRequiredMixin, View):
+    active = False
+
     def post(self, request, pk, *args, **kwargs):
+        from apps.billing.catalog import set_price_active
         price = get_object_or_404(BillingPlanPrice, pk=pk)
-        price.active_for_new_customers = False
-        price.save(update_fields=["active_for_new_customers", "updated_at"])
-        if request.LANGUAGE_CODE == "pl":
-            messages.success(request, "Cena zostala zarchiwizowana dla nowych klientow.")
-        else:
-            messages.success(request, "Price has been archived for new customers.")
+        try:
+            set_price_active(price, self.active, request.user)
+            messages.success(request, "Status ceny zapisany w Stripe. / Price status saved in Stripe.")
+        except (ValueError, stripe.StripeError):
+            logger.exception("Stripe price status change failed")
+            messages.error(request, "Nie zmieniono statusu lub synchronizacji. / Price status update or sync failed. Synchronize before retrying.")
         return redirect("dashboard:billing-price-management")
 
 
-class BillingPriceActivateView(AdminRequiredMixin, View):
-    def post(self, request, pk, *args, **kwargs):
-        price = get_object_or_404(BillingPlanPrice, pk=pk)
-        active_exists = BillingPlanPrice.objects.filter(
-            tier=price.tier,
-            currency=price.currency,
-            active_for_new_customers=True,
-        ).exclude(pk=price.pk).exists()
-        if active_exists:
-            if request.LANGUAGE_CODE == "pl":
-                messages.error(request, "Ten plan ma juz aktywna cene dla tej waluty. Najpierw ja zarchiwizuj.")
-            else:
-                messages.error(request, "This plan already has an active price for this currency. Archive it first.")
-            return redirect("dashboard:billing-price-management")
-
-        price.active_for_new_customers = True
-        price.save(update_fields=["active_for_new_customers", "updated_at"])
-        if request.LANGUAGE_CODE == "pl":
-            messages.success(request, "Cena jest aktywna dla nowych klientow.")
-        else:
-            messages.success(request, "Price is active for new customers.")
-        return redirect("dashboard:billing-price-management")
+class BillingPriceActivateView(BillingPriceArchiveView):
+    active = True
 
 
-class BillingPriceUpdateView(AdminRequiredMixin, UpdateView):
-    model = BillingPlanPrice
-    form_class = BillingPlanPriceForm
+class BillingPriceUpdateView(AdminRequiredMixin, StripePriceEditorMixin, FormView):
     template_name = "dashboard/billing_price_form.html"
-    success_url = reverse_lazy("dashboard:billing-price-management")
 
-    def form_valid(self, form):
-        if self.request.LANGUAGE_CODE == "pl":
-            messages.success(self.request, "Cena planu zostala zaktualizowana.")
-        else:
-            messages.success(self.request, "Plan price has been updated.")
-        return super().form_valid(form)
+    def get_initial(self):
+        price = get_object_or_404(BillingPlanPrice, pk=self.kwargs["pk"])
+        from decimal import Decimal
+        return {"tier": price.tier, "currency": price.currency, "amount": Decimal(price.amount) / 100}
 
 
 class BillingOverviewView(AdminRequiredMixin, TemplateView):

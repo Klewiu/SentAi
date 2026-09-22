@@ -195,6 +195,24 @@ class SellerCreateForm(forms.Form):
         )
 
 
+class StripePriceForm(forms.Form):
+    tier = forms.ChoiceField(choices=UserPlanTier.choices, label="Plan")
+    currency = forms.ChoiceField(choices=BillingCurrency.choices, label="Waluta / Currency")
+    amount = forms.DecimalField(min_value=Decimal("0.01"), max_digits=8, decimal_places=2, label="Cena roczna / Annual price")
+    existing_price_id = forms.CharField(required=False, max_length=255,
+        label="Istniejące Stripe price ID / Existing Stripe price ID (optional)",
+        help_text="Zostaw puste, aby utworzyć nową cenę. Wpisz price_..., aby powiązać istniejącą cenę o tej samej kwocie. / Leave blank to create a price; enter price_... to link an existing matching price.")
+
+    def clean_amount(self):
+        return int(self.cleaned_data["amount"] * 100)
+
+    def clean_existing_price_id(self):
+        value = self.cleaned_data["existing_price_id"].strip()
+        if value and not value.startswith("price_"):
+            raise forms.ValidationError("Use a Stripe price_... identifier.")
+        return value
+
+
 class BillingPlanPriceForm(forms.ModelForm):
     amount = forms.DecimalField(
         decimal_places=2,
