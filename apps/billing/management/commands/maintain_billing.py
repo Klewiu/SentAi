@@ -16,6 +16,12 @@ class Command(BaseCommand):
         failures = 0
         if settings.STRIPE_SECRET_KEY:
             stripe.api_key = settings.STRIPE_SECRET_KEY
+            from apps.billing.catalog import sync_prices
+            try:
+                sync_prices()
+            except (ValueError, stripe.StripeError):
+                failures += 1
+                self.stderr.write("Price synchronization failed; cached prices retained.")
             for subscription in BillingSubscription.objects.exclude(stripe_subscription_id="").iterator(chunk_size=100):
                 try:
                     sync_subscription_from_stripe(stripe.Subscription.retrieve(subscription.stripe_subscription_id))
@@ -28,6 +34,6 @@ class Command(BaseCommand):
                 scan_customer_notifications(user)
         scan_admin_notifications()
         AuthRateWindow.objects.filter(window__lt=int(time.time()) // 900 - 1).delete()
-        self.stdout.write(f"Reconciliation complete; {failures} subscription failures.")
+        self.stdout.write(f"Reconciliation complete; {failures} synchronization failures.")
         if failures:
-            raise CommandError("Subscription reconciliation requires retry; inspect Stripe connectivity and price mappings.")
+            raise CommandError("Billing reconciliation requires retry; inspect Stripe connectivity and price mappings.")

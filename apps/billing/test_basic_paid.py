@@ -12,6 +12,10 @@ from .services import sync_subscription_from_stripe, get_active_plan_price
 
 
 class PaidBasicTests(TestCase):
+    @override_settings(STRIPE_BASIC_PRICE_ID_PLN="", STRIPE_BASIC_PRICE_ID_EUR="", STRIPE_PLUS_PRICE_ID="", STRIPE_PRO_PRICE_ID="")
+    def test_database_prices_do_not_require_environment_ids(self):
+        self.assertEqual(get_active_plan_price("BASIC", "pln"), self.price)
+
     def test_admin_can_set_custom_basic_price(self):
         from apps.dashboard.forms import BillingPlanPriceForm
         form = BillingPlanPriceForm(instance=self.price, data={

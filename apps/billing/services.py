@@ -20,14 +20,6 @@ def format_amount(amount: int, currency: str) -> str:
     return f"{value} {currency.upper()}"
 
 
-def basic_price_amount(currency: str) -> int:
-    return settings.STRIPE_BASIC_PRICE_AMOUNT_EUR if currency == BillingCurrency.EUR else settings.STRIPE_BASIC_PRICE_AMOUNT_PLN
-
-
-def basic_price_id(currency: str) -> str:
-    return settings.STRIPE_BASIC_PRICE_ID_EUR if currency == BillingCurrency.EUR else settings.STRIPE_BASIC_PRICE_ID_PLN
-
-
 def stripe_timestamp_to_datetime(value: Any):
     if not value:
         return None
@@ -58,52 +50,12 @@ def get_active_plan_price(tier: str, currency: str | None = None) -> BillingPlan
         currency=currency,
         active_for_new_customers=True,
     ).first()
-    if price:
-        return price
-
-    if tier != UserPlanTier.BASIC and currency != normalize_billing_currency(settings.STRIPE_CURRENCY):
-        return None
-
-    env_price_id = {
-        UserPlanTier.BASIC: basic_price_id(currency),
-        UserPlanTier.PLUS: settings.STRIPE_PLUS_PRICE_ID,
-        UserPlanTier.PRO: settings.STRIPE_PRO_PRICE_ID,
-    }.get(tier, "")
-    if not env_price_id:
-        return None
-
-    amount = {
-        UserPlanTier.BASIC: basic_price_amount(currency),
-        UserPlanTier.PLUS: settings.STRIPE_PLUS_PRICE_AMOUNT,
-        UserPlanTier.PRO: settings.STRIPE_PRO_PRICE_AMOUNT,
-    }[tier]
-    price, created = BillingPlanPrice.objects.get_or_create(
-        stripe_price_id=env_price_id,
-        defaults={
-            "tier": tier,
-            "amount": amount,
-            "currency": currency,
-            "active_for_new_customers": True,
-        },
-    )
-    if (created or price.active_for_new_customers) and price.tier == tier and price.currency == currency:
-        return price
-    return None
+    return price
 
 
-def plan_price_label(tier: str, fallback_amount: int | None = None, currency: str | None = None) -> str:
-    currency = normalize_billing_currency(currency)
+def plan_price_label(tier: str, currency: str | None = None) -> str:
     price = get_active_plan_price(tier, currency)
-    if price:
-        return price.formatted_amount()
-    env_price_id = {
-        UserPlanTier.BASIC: basic_price_id(currency),
-        UserPlanTier.PLUS: settings.STRIPE_PLUS_PRICE_ID,
-        UserPlanTier.PRO: settings.STRIPE_PRO_PRICE_ID,
-    }.get(tier, "")
-    if not env_price_id or fallback_amount is None or currency != normalize_billing_currency(settings.STRIPE_CURRENCY):
-        return ""
-    return format_amount(fallback_amount, currency)
+    return price.formatted_amount() if price else ""
 
 
 def paid_access_statuses() -> set[str]:
