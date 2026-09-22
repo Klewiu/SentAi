@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
-from apps.accounts.models import UserPlanTier
+from apps.accounts.models import UserPlanAccessStatus, UserPlanTier
 from apps.subscriptions.models import Subscription
 
 from .models import BillingCurrency, BillingPayment, BillingPaymentStatus, BillingPlanPrice, BillingSubscription
@@ -65,11 +65,12 @@ def paid_access_statuses() -> set[str]:
 @transaction.atomic
 def activate_paid_plan(user, tier: str, billing_subscription: BillingSubscription | None = None):
     user.plan_tier = tier
+    user.plan_access_status = UserPlanAccessStatus.ACTIVE
     if user.paid_plan_started_at is None:
         user.paid_plan_started_at = timezone.now()
     if user.plan_selected_at is None:
         user.plan_selected_at = timezone.now()
-    user.save(update_fields=["plan_tier", "paid_plan_started_at", "plan_selected_at"])
+    user.save(update_fields=["plan_tier", "plan_access_status", "paid_plan_started_at", "plan_selected_at"])
     Subscription.objects.filter(organization__owner=user).update(tier=tier)
 
     if billing_subscription and billing_subscription.status in paid_access_statuses():
@@ -78,13 +79,9 @@ def activate_paid_plan(user, tier: str, billing_subscription: BillingSubscriptio
 
 
 @transaction.atomic
-def downgrade_to_basic(user):
-    user.plan_tier = UserPlanTier.BASIC
-    user.paid_plan_started_at = None
-    if user.plan_selected_at is None:
-        user.plan_selected_at = timezone.now()
-    user.save(update_fields=["plan_tier", "paid_plan_started_at", "plan_selected_at"])
-    Subscription.objects.filter(organization__owner=user).update(tier=UserPlanTier.BASIC)
+def expire_paid_access(user):
+    user.plan_access_status = UserPlanAccessStatus.EXPIRED
+    user.save(update_fields=["plan_access_status"])
 
 
 def _tier_from_metadata(metadata: Any) -> str:

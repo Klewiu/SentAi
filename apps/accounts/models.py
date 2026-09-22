@@ -15,6 +15,11 @@ class UserPlanTier(models.TextChoices):
     PRO = "PRO", "Pro"
 
 
+class UserPlanAccessStatus(models.TextChoices):
+    ACTIVE = "ACTIVE", "Active"
+    EXPIRED = "EXPIRED", "Expired"
+
+
 USER_PLAN_ORGANIZATION_LIMITS = {
     UserPlanTier.BASIC: 1,
     UserPlanTier.PLUS: 2,
@@ -42,6 +47,11 @@ class User(AbstractUser):
         max_length=16,
         choices=UserPlanTier.choices,
         default=UserPlanTier.BASIC,
+    )
+    plan_access_status = models.CharField(
+        max_length=16,
+        choices=UserPlanAccessStatus.choices,
+        default=UserPlanAccessStatus.EXPIRED,
     )
     plan_selected_at = models.DateTimeField(blank=True, null=True)
     paid_plan_started_at = models.DateTimeField(blank=True, null=True)

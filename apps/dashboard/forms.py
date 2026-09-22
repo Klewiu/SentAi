@@ -77,6 +77,12 @@ class RegisteredClientChoiceField(forms.ModelChoiceField):
 
 class UserPlanUpdateForm(forms.Form):
     PRO_MANUAL = "PRO_MANUAL"
+    PLAN_RANKS = {
+        UserPlanTier.BASIC: 0,
+        UserPlanTier.PLUS: 1,
+        UserPlanTier.PRO: 2,
+        PRO_MANUAL: 2,
+    }
     plan_tier = forms.ChoiceField(
         choices=[*UserPlanTier.choices, (PRO_MANUAL, "Pro Manual")],
         widget=forms.RadioSelect(attrs={"class": "plan-tier-radio"}),
@@ -92,13 +98,22 @@ class UserPlanUpdateForm(forms.Form):
     def __init__(self, *args, user=None, **kwargs):
         self.user = user
         super().__init__(*args, **kwargs)
-        if self.user and not self.is_bound:
+        if self.user and not self.is_bound and self._has_active_paid_access():
+            current_rank = self.PLAN_RANKS[self.user.plan_tier]
+            self.fields["plan_tier"].choices = [
+                choice
+                for choice in self.fields["plan_tier"].choices
+                if choice[0] == self.user.plan_tier or self.PLAN_RANKS[choice[0]] > current_rank
+            ]
             self.fields["plan_tier"].initial = self.user.plan_tier
 
     def clean_plan_tier(self):
         selected_tier = self.cleaned_data["plan_tier"]
         if not self.user or self.user.is_superuser:
             return selected_tier
+
+        if self._has_active_paid_access() and self.PLAN_RANKS[selected_tier] < self.PLAN_RANKS[self.user.plan_tier]:
+            raise forms.ValidationError("Selecting a lower plan is not available.")
 
         current_count = self.user.organizations.count()
         effective_tier = UserPlanTier.PRO if selected_tier == self.PRO_MANUAL else selected_tier
@@ -109,6 +124,11 @@ class UserPlanUpdateForm(forms.Form):
                 f"Please reduce to {new_limit} or fewer before selecting this plan."
             )
         return selected_tier
+
+    def _has_active_paid_access(self):
+        from apps.billing.access import has_publication_access
+
+        return has_publication_access(self.user)
 
     def clean_billing_currency(self):
         return (self.cleaned_data.get("billing_currency") or BillingCurrency.PLN).lower()

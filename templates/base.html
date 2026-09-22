@@ -128,7 +128,7 @@
                         {% if navbar_show_account_badges %}
                             <div class="grid w-full {% if request.user.account_type == 'STAFF' %}grid-cols-1{% else %}grid-cols-5{% endif %} gap-2 sm:flex sm:w-auto">
                                 {% if request.user.account_type != 'STAFF' %}
-                                    <a class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-2 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:px-3" href="{% url 'dashboard:plan-update' %}">
+                                    <a class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-2 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:px-3" href="{% if navbar_has_active_billing_subscription %}{% url 'dashboard:billing-portal' %}{% else %}{% url 'dashboard:plan-update' %}{% endif %}">
                                         <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                             <path d="M4 7h16l-2 11H6L4 7zm4-3h8v2H8V4z" fill="currentColor"/>
                                         </svg>

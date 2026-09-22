@@ -55,8 +55,8 @@
         <div>
             <span class="inline-flex items-center gap-1.5 rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">Plan</span>
             <h1 class="font-display mt-3 text-3xl font-bold tracking-tight text-[#284b63] sm:text-4xl">
-                {% if request.user.has_selected_plan %}
-                    {% if request.LANGUAGE_CODE == 'pl' %}Zmień plan{% else %}Change plan{% endif %}
+                {% if is_upgrade_view %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}Ulepsz plan{% else %}Upgrade plan{% endif %}
                 {% else %}
                     {% if request.LANGUAGE_CODE == 'pl' %}Wybierz plan{% else %}Choose a plan{% endif %}
                 {% endif %}
@@ -143,6 +143,7 @@
         <div class="grid gap-3 sm:grid-cols-2">
             {% for radio in form.plan_tier %}
                 {% with tier=radio.data.value %}
+                {% if tier in visible_plan_tiers %}
                 {% if tier == 'BASIC' %}<h2 class="col-span-full font-display text-lg font-semibold text-[#284b63]">1. {% if request.LANGUAGE_CODE == 'pl' %}Subskrypcje roczne Stripe{% else %}Annual Stripe subscriptions{% endif %}</h2>{% endif %}
                 {% if tier == 'PRO_MANUAL' %}<h2 class="col-span-full mt-3 font-display text-lg font-semibold text-[#284b63]">2. {% if request.LANGUAGE_CODE == 'pl' %}Plan roczny płatny przelewem{% else %}Annual plan paid by bank transfer{% endif %}</h2>{% endif %}
                 <label class="group flex cursor-pointer flex-col gap-3 rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-5 transition hover:border-[#5ca197]/50 hover:bg-white">
@@ -192,6 +193,7 @@
                         </div>
                     </div>
                 </label>
+                {% endif %}
                 {% endwith %}
             {% endfor %}
         </div>

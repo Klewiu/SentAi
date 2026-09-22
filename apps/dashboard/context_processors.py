@@ -1,4 +1,5 @@
 from apps.accounts.models import USER_PLAN_ORGANIZATION_LIMITS
+from django.utils import timezone
 
 
 def navbar_account_context(request):
@@ -33,6 +34,14 @@ def navbar_account_context(request):
     except Exception:
         customer_notification_count = 0
 
+    billing_subscription = getattr(user, "billing_subscription", None)
+    has_active_billing_subscription = bool(
+        billing_subscription
+        and billing_subscription.status in {"active", "trialing", "past_due"}
+        and billing_subscription.current_period_end
+        and billing_subscription.current_period_end > timezone.now()
+    )
+
     return {
         "navbar_show_account_badges": True,
         "navbar_user_display_name": user.get_full_name() or user.username,
@@ -43,4 +52,5 @@ def navbar_account_context(request):
         "navbar_plan_limits": USER_PLAN_ORGANIZATION_LIMITS,
         "navbar_active_notification_count": 0,
         "navbar_customer_notification_count": customer_notification_count,
+        "navbar_has_active_billing_subscription": has_active_billing_subscription,
     }

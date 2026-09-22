@@ -32,7 +32,6 @@ from apps.billing.models import (
 )
 from apps.billing.services import (
     activate_paid_plan,
-    downgrade_to_basic,
     format_amount,
     object_get,
     get_active_plan_price,
@@ -271,6 +270,15 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
             else:
                 messages.info(request, "Administrator account does not use plan limits.")
             return redirect("dashboard:home")
+        billing_subscription = getattr(request.user, "billing_subscription", None)
+        if (
+            billing_subscription
+            and billing_subscription.status in {"active", "trialing", "past_due"}
+            and billing_subscription.current_period_end
+            and billing_subscription.current_period_end > timezone.now()
+            and request.GET.get("upgrade") != "1"
+        ):
+            return redirect("dashboard:billing-portal")
         return super().dispatch(request, *args, **kwargs)
 
     def get_form_kwargs(self):
@@ -286,6 +294,18 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
             ).exists():
                 kwargs["initial"]["plan_tier"] = UserPlanUpdateForm.PRO_MANUAL
         return kwargs
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if self.request.method == "GET" and self.request.GET.get("upgrade") == "1":
+            current_rank = UserPlanUpdateForm.PLAN_RANKS[self.request.user.plan_tier]
+            form.fields["plan_tier"].choices = [
+                choice
+                for choice in form.fields["plan_tier"].choices
+                if choice[0] == self.request.user.plan_tier
+                or UserPlanUpdateForm.PLAN_RANKS[choice[0]] > current_rank
+            ]
+        return form
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -320,6 +340,15 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
         context["basic_price_configured"] = bool(basic_price)
         context["billing_subscription"] = getattr(self.request.user, "billing_subscription", None)
         context["billing_profile"] = getattr(self.request.user, "billing_profile", None)
+        context["is_upgrade_view"] = self.request.GET.get("upgrade") == "1"
+        current_rank = UserPlanUpdateForm.PLAN_RANKS[self.request.user.plan_tier]
+        context["visible_plan_tiers"] = [
+            tier
+            for tier, _label in UserPlanUpdateForm.base_fields["plan_tier"].choices
+            if not context["is_upgrade_view"]
+            or tier == self.request.user.plan_tier
+            or UserPlanUpdateForm.PLAN_RANKS[tier] > current_rank
+        ]
         manual_plan_order = self.request.user.manual_plan_orders.filter(
             status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID], access_until__gt=timezone.now()
         ).first()
@@ -649,6 +678,11 @@ class BillingPortalView(LoginRequiredMixin, TemplateView):
             except Exception:
                 context["stripe_sync_error"] = True
         context["billing_subscription"] = billing_subscription
+        context["can_upgrade"] = bool(
+            billing_subscription
+            and billing_subscription.status in {"active", "trialing", "past_due"}
+            and billing_subscription.tier != UserPlanTier.PRO
+        )
         context["current_price"] = billing_subscription.plan_price if billing_subscription else None
         context["failed_payment"] = (
             BillingPayment.objects.filter(

@@ -827,7 +827,7 @@ class DashboardPlanLimitTests(TestCase):
         mock_checkout_create.return_value = SimpleNamespace(url="https://checkout.stripe.test/eur-session")
 
         response = self.client.post(
-            reverse("dashboard:plan-update"),
+            f"{reverse('dashboard:plan-update')}?upgrade=1",
             {
                 "plan_tier": UserPlanTier.PLUS,
                 "billing_currency": "eur",
@@ -1203,7 +1203,7 @@ class DashboardPlanLimitTests(TestCase):
         mock_checkout_create.return_value = "https://invoice.stripe.test/upgrade"
 
         response = self.client.post(
-            reverse("dashboard:plan-update"),
+            f"{reverse('dashboard:plan-update')}?upgrade=1",
             {
                 "plan_tier": UserPlanTier.PRO,
                 "billing_currency": "pln",
@@ -1246,6 +1246,77 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("dashboard:billing-portal"))
         mock_checkout_create.assert_not_called()
+
+    def test_active_subscriber_opening_plans_is_redirected_to_billing_portal(self):
+        BillingSubscription.objects.create(
+            user=self.user,
+            tier=UserPlanTier.BASIC,
+            stripe_customer_id="cus_test_123",
+            stripe_subscription_id="sub_test_123",
+            status="active",
+        )
+
+        response = self.client.get(reverse("dashboard:plan-update"))
+
+        self.assertRedirects(response, reverse("dashboard:billing-portal"))
+
+    def test_expired_subscriber_opening_plans_can_choose_any_plan(self):
+        self.user.plan_tier = UserPlanTier.PRO
+        self.user.save(update_fields=["plan_tier"])
+        BillingSubscription.objects.create(
+            user=self.user,
+            tier=UserPlanTier.PRO,
+            stripe_customer_id="cus_expired",
+            stripe_subscription_id="sub_expired",
+            status="canceled",
+            current_period_end=timezone.now() - timedelta(seconds=1),
+        )
+
+        response = self.client.get(reverse("dashboard:plan-update"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'value="BASIC"')
+        self.assertContains(response, 'value="PLUS"')
+        self.assertContains(response, 'value="PRO"')
+
+    def test_upgrade_view_hides_lower_plan_options(self):
+        self.user.plan_tier = UserPlanTier.PLUS
+        self.user.save(update_fields=["plan_tier"])
+        self.client.logout()
+        self.client.force_login(User.objects.get(pk=self.user.pk))
+        BillingSubscription.objects.create(
+            user=self.user,
+            tier=UserPlanTier.PLUS,
+            stripe_customer_id="cus_test_123",
+            stripe_subscription_id="sub_test_123",
+            status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
+        )
+
+        response = self.client.get(f"{reverse('dashboard:plan-update')}?upgrade=1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.wsgi_request.user.plan_tier, UserPlanTier.PLUS)
+        self.assertContains(response, 'value="PLUS"')
+        self.assertContains(response, 'value="PRO"')
+        self.assertNotContains(response, 'value="BASIC"')
+
+    def test_pro_subscription_has_no_upgrade_option(self):
+        self.user.plan_tier = UserPlanTier.PRO
+        self.user.save(update_fields=["plan_tier"])
+        BillingSubscription.objects.create(
+            user=self.user,
+            tier=UserPlanTier.PRO,
+            stripe_customer_id="cus_test_123",
+            stripe_subscription_id="sub_test_123",
+            status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
+        )
+
+        response = self.client.get(reverse("dashboard:billing-portal"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, f"{reverse('dashboard:plan-update')}?upgrade=1")
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
     @patch("apps.dashboard.views.stripe.Subscription.modify")
@@ -1346,7 +1417,7 @@ class DashboardPlanLimitTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.plan_tier, UserPlanTier.BASIC)
 
-    def test_plan_downgrade_is_blocked_if_user_has_too_many_pages(self):
+    def test_plan_downgrade_is_not_available(self):
         self.user.plan_tier = UserPlanTier.PLUS
         self.user.save(update_fields=["plan_tier"])
         Organization.objects.create(owner=self.user, name="A", slug="a")
@@ -1360,7 +1431,7 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.plan_tier, UserPlanTier.PLUS)
-        self.assertContains(response, "Please reduce to 1 or fewer")
+        self.assertContains(response, "Selecting a lower plan is not available")
 
     def test_user_can_delete_own_organization(self):
         organization = Organization.objects.create(owner=self.user, name="Delete me", slug="delete-me")

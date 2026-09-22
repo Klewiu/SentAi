@@ -105,6 +105,30 @@ class PaidBasicTests(TestCase):
             self.assertEqual(self.client.get(reverse("companies_api:public-company-" + suffix, args=[self.org.slug])).status_code, 200)
         subscription["status"] = "canceled"
         sync_subscription_from_stripe(subscription)
+        self.user.refresh_from_db()
+        self.assertFalse(has_publication_access(self.user))
+        self.assertEqual(self.user.plan_tier, "BASIC")
+        self.assertEqual(self.user.plan_access_status, "EXPIRED")
+
+    def test_expired_paid_plan_keeps_last_tier_without_publication_access(self):
+        self.user.plan_tier = "PRO"
+        self.user.plan_access_status = "ACTIVE"
+        self.user.save(update_fields=["plan_tier", "plan_access_status"])
+        BillingSubscription.objects.create(
+            user=self.user,
+            tier="PRO",
+            stripe_customer_id="cus_expired",
+            stripe_subscription_id="sub_expired",
+            status="canceled",
+            current_period_end=timezone.now() - timedelta(seconds=1),
+        )
+
+        from .access import reconcile_access
+
+        reconcile_access(self.user)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.plan_tier, "PRO")
+        self.assertEqual(self.user.plan_access_status, "EXPIRED")
         self.assertFalse(has_publication_access(self.user))
 
     def test_basic_uses_separate_eur_price(self):
