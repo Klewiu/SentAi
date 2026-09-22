@@ -79,6 +79,17 @@ class RegisterView(FormView):
 
     def form_valid(self, form):
         user = form.save(commit=False)
+        if not settings.REGISTRATION_EMAIL_VERIFICATION_REQUIRED:
+            user.is_active = True
+            user.registration_pending = False
+            user.save()
+            messages.success(
+                self.request,
+                "Konto zostało utworzone. Możesz się zalogować."
+                if self.request.LANGUAGE_CODE == "pl"
+                else "Account created. You can now sign in.",
+            )
+            return redirect("login")
         user.is_active = False
         user.registration_pending = True
         user.save()

@@ -2,6 +2,8 @@
 
 Pliki są przygotowane lokalnie. Samo ich wgranie nie instaluje zadania Cron.
 
+Przed uruchomieniem produkcji skonfiguruj i przetestuj SMTP, a następnie ustaw `REGISTRATION_EMAIL_VERIFICATION_REQUIRED=True`. Tymczasowo rejestracja aktywuje konto bez linku; adres nie jest oznaczany jako zweryfikowany. Przełącznik dotyczy nowych rejestracji, nie odblokowuje wcześniej zablokowanych kont ani nie wyłącza potwierdzania zmiany adresu e-mail.
+
 ## Aplikacja
 
 1. Utwórz środowisko virtualenv na serwerze i zainstaluj zależności projektu. Nie kopiuj `.venv` z Windows.

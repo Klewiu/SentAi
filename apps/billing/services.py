@@ -59,8 +59,6 @@ def get_active_plan_price(tier: str, currency: str | None = None) -> BillingPlan
         active_for_new_customers=True,
     ).first()
     if price:
-        if tier == UserPlanTier.BASIC and (price.amount != basic_price_amount(currency) or price.interval != "year"):
-            return None
         return price
 
     if tier != UserPlanTier.BASIC and currency != normalize_billing_currency(settings.STRIPE_CURRENCY):

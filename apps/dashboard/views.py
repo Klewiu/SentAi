@@ -372,7 +372,7 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
         if selected_tier == UserPlanTier.BASIC:
             remote_price = stripe.Price.retrieve(plan_price.stripe_price_id)
             recurring = object_get(remote_price, "recurring", {}) or {}
-            if (object_get(remote_price, "unit_amount") != basic_price_amount(plan_price.currency) or object_get(remote_price, "currency") != plan_price.currency
+            if (object_get(remote_price, "unit_amount") != plan_price.amount or object_get(remote_price, "currency") != plan_price.currency
                     or object_get(recurring, "interval") != "year" or object_get(recurring, "interval_count", 1) != 1
                     or not object_get(remote_price, "active", False)):
                 raise ValueError("Basic requires the configured annual Stripe price for the selected currency")

@@ -1,4 +1,16 @@
-# Basic: 100 PLN or 25 EUR per year
+# Basic: administrator-managed annual pricing
+
+100 PLN and 25 EUR are initial defaults, not minimum or mandatory prices. The application administrator can configure any positive annual Basic price, just as for other plans. The active database price takes precedence over environment defaults. Basic Checkout checks the remote Stripe amount against that database price, its currency and annual recurrence.
+
+## Setup after cloning the repository
+
+Git does not transfer the local database or `.env`. Prices configured on one developer's machine therefore do not automatically appear on another machine.
+
+After migrations, use the application's administrator price management page to add a price for each plan/currency combination: Basic, Plus and Pro, each in PLN and EUR. Enter the amount in major units (e.g. `100`, not `10000`), the matching Stripe `price_...` ID, annual interval, and mark the price active for new customers. Use IDs from the Stripe account and test/live mode configured on that machine. Only one price per plan/currency can be active.
+
+Changing a number in the app does not change the corresponding price in Stripe. When changing the charge, configure the matching Stripe price ID as well. Do not share customer databases or secret keys through Git. Missing prices indicate missing local configuration; they must not silently enable checkout at invented prices.
+
+The `configure_basic_price` command below provisions the initial Basic defaults only. It is not a general price-editing or synchronization command and should not be rerun to replace customized prices.
 
 Basic replaces the free offering. Its quotas remain one company, one language, all four formats. Stripe is an annual recurring subscription costing 100 PLN or 25 EUR according to the selected billing currency. Manual bank transfers are available exclusively for Pro, with the existing 14-day payment grace and 365-day access period. Plus and Pro prices are unchanged.
 

@@ -250,4 +250,5 @@ LOGGING = {"version": 1, "disable_existing_loggers": False, "handlers": {"consol
 STORAGES["private"] = {"BACKEND": "apps.billing.storage.PrivateFileSystemStorage", "OPTIONS": {"location": PRIVATE_MEDIA_ROOT, "base_url": None}}
 
 ADMIN_MFA_REQUIRED = env_bool("ADMIN_MFA_REQUIRED", True)
+REGISTRATION_EMAIL_VERIFICATION_REQUIRED = env_bool("REGISTRATION_EMAIL_VERIFICATION_REQUIRED", False)
 OTP_TOTP_ISSUER = "SentAi"

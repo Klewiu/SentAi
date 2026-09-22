@@ -47,6 +47,7 @@ class AccountSecurityTests(TestCase):
         form.save()
         self.assertFalse(Token.objects.filter(pk=token.pk).exists())
 
+    @override_settings(REGISTRATION_EMAIL_VERIFICATION_REQUIRED=True)
     def test_registration_requires_email_confirmation_and_rejects_replay(self):
         self.client.post(reverse("register"), {"username": "new", "company_name": "New Company", "country": "Poland", "email": "new@example.com", "password1": "Original-password-123", "password2": "Original-password-123"})
         user = User.objects.get(username="new")

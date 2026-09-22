@@ -409,7 +409,7 @@ class DashboardPlanLimitTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("dashboard:plan-update"))
-        self.assertContains(response, "BASIC")
+        self.assertContains(response, "PLANS")
         self.assertContains(response, reverse("accounts:profile"))
         self.assertContains(response, "0/1")
 

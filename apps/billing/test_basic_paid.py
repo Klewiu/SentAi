@@ -12,6 +12,34 @@ from .services import sync_subscription_from_stripe, get_active_plan_price
 
 
 class PaidBasicTests(TestCase):
+    def test_admin_can_set_custom_basic_price(self):
+        from apps.dashboard.forms import BillingPlanPriceForm
+        form = BillingPlanPriceForm(instance=self.price, data={
+            "tier": "BASIC", "amount": "80.00", "currency": "pln",
+            "interval": "year", "stripe_price_id": "price_basic_updated",
+            "active_for_new_customers": True,
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+        self.assertEqual(get_active_plan_price("BASIC", "pln").amount, 8000)
+        from .services import plan_price_label
+        self.assertEqual(plan_price_label("BASIC", currency="pln"), "80 PLN")
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
+    def test_custom_basic_checkout_checks_database_amount_against_stripe(self):
+        self.price.amount = 8000
+        self.price.save()
+        remote = {"active": True, "currency": "pln", "unit_amount": 10000,
+                  "recurring": {"interval": "year", "interval_count": 1}}
+        with patch("stripe.Price.retrieve", return_value=remote), patch("stripe.checkout.Session.create") as create:
+            self.client.post(reverse("dashboard:plan-update"), {"plan_tier": "BASIC", "subscription_terms_accepted": True})
+            create.assert_not_called()
+        remote["unit_amount"] = 8000
+        with patch("stripe.Price.retrieve", return_value=remote), patch("stripe.checkout.Session.create", return_value={"id": "cs_custom_basic", "url": "https://checkout.stripe.com/custom-basic"}) as create:
+            response = self.client.post(reverse("dashboard:plan-update"), {"plan_tier": "BASIC", "subscription_terms_accepted": True})
+            self.assertEqual(response.url, "https://checkout.stripe.com/custom-basic")
+            create.assert_called_once()
+
     def setUp(self):
         self.user = User.objects.create_user(username="paidbasic", email="paidbasic@example.com", password="test-password")
         BillingProfile.objects.create(user=self.user, company_name="Basic customer", tax_id="1234567890", street="Street 1", postal_code="00-001", city="Warsaw", country="PL", invoice_email=self.user.email)
