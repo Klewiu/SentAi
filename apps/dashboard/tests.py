@@ -380,6 +380,25 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("dashboard:organization-create"))
 
+    def test_empty_dashboard_shows_one_large_add_company_button(self):
+        response = self.client.get(reverse("dashboard:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "+ Dodaj stronę firmy")
+        self.assertNotContains(response, "Dodaj kolejną stronę")
+        self.assertEqual(response.content.decode().count(reverse("dashboard:organization-create")), 1)
+
+    def test_dashboard_labels_add_button_as_another_page_after_first_page(self):
+        self.user.plan_selected_at = timezone.now()
+        self.user.save()
+        Organization.objects.create(owner=self.user, name="First company", slug="first-company")
+
+        response = self.client.get(reverse("dashboard:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Dodaj kolejną stronę")
+        self.assertNotContains(response, "+ Dodaj stronę firmy")
+
     def test_add_company_button_hidden_when_basic_limit_reached(self):
         Organization.objects.create(
             owner=self.user,

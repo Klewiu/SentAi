@@ -49,8 +49,8 @@ from .services import (
 
 
 PROFILE_COPY = {
-    "en": {"profile_suffix": "company profile", "companies": "companies", "profile_language": "Profile language", "company_facts": "Company facts", "type": "type", "language": "language", "location": "location", "verification": "verification", "last_updated": "last updated", "website": "website", "products": "Products and services", "price_from": "from", "source": "source", "content": "FAQs and company content", "topics": "Specialties", "formats": "Machine-readable formats", "social": "Social profiles", "verified": "Verified by an administrator"},
-    "pl": {"profile_suffix": "profil firmy", "companies": "firmy", "profile_language": "Język profilu", "company_facts": "Informacje o firmie", "type": "typ", "language": "język", "location": "lokalizacja", "verification": "weryfikacja", "last_updated": "ostatnia aktualizacja", "website": "strona internetowa", "products": "Produkty i usługi", "price_from": "od", "source": "źródło", "content": "FAQ i materiały firmy", "topics": "Specjalizacje", "formats": "Formaty do odczytu maszynowego", "social": "Profile społecznościowe", "verified": "Zweryfikowano przez administratora"},
+    "en": {"profile_suffix": "company profile", "companies": "companies", "profile_language": "Profile language", "company_facts": "Company facts", "type": "type", "language": "language", "location": "location", "verification": "verification", "last_updated": "last updated", "website": "website", "products": "Products and services", "price_from": "from", "source": "source", "content": "FAQs and company content", "topics": "Specialties", "formats": "AI-ready formats", "formats_intro": "These formats help AI systems, search engines and digital assistants recognize your company and use its information more accurately.", "social": "Social profiles", "verified": "Verified by an administrator"},
+    "pl": {"profile_suffix": "profil firmy", "companies": "firmy", "profile_language": "Język profilu", "company_facts": "Informacje o firmie", "type": "typ", "language": "język", "location": "lokalizacja", "verification": "weryfikacja", "last_updated": "ostatnia aktualizacja", "website": "strona internetowa", "products": "Produkty i usługi", "price_from": "od", "source": "źródło", "content": "FAQ i materiały firmy", "topics": "Specjalizacje", "formats": "Formaty gotowe dla AI", "formats_intro": "Dzięki tym formatom systemy AI, wyszukiwarki i cyfrowi asystenci mogą łatwiej rozpoznać Twoją firmę i poprawnie korzystać z jej informacji.", "social": "Profile społecznościowe", "verified": "Zweryfikowano przez administratora"},
     "de": {"profile_suffix": "Unternehmensprofil", "companies": "Unternehmen", "profile_language": "Profilsprache", "company_facts": "Unternehmensdaten", "type": "Typ", "language": "Sprache", "location": "Standort", "verification": "Verifizierung", "last_updated": "zuletzt aktualisiert", "website": "Website", "products": "Produkte und Dienstleistungen", "price_from": "ab", "source": "Quelle", "content": "FAQ und Unternehmensinhalte", "topics": "Fachgebiete", "formats": "Maschinenlesbare Formate", "social": "Soziale Profile", "verified": "Durch einen Administrator verifiziert"},
     "es": {"profile_suffix": "perfil de empresa", "companies": "empresas", "profile_language": "Idioma del perfil", "company_facts": "Datos de la empresa", "type": "tipo", "language": "idioma", "location": "ubicación", "verification": "verificación", "last_updated": "última actualización", "website": "sitio web", "products": "Productos y servicios", "price_from": "desde", "source": "fuente", "content": "Preguntas frecuentes y contenido", "topics": "Especialidades", "formats": "Formatos legibles por máquina", "social": "Perfiles sociales", "verified": "Verificado por un administrador"},
     "it": {"profile_suffix": "profilo aziendale", "companies": "aziende", "profile_language": "Lingua del profilo", "company_facts": "Dati aziendali", "type": "tipo", "language": "lingua", "location": "sede", "verification": "verifica", "last_updated": "ultimo aggiornamento", "website": "sito web", "products": "Prodotti e servizi", "price_from": "da", "source": "fonte", "content": "FAQ e contenuti aziendali", "topics": "Specializzazioni", "formats": "Formati leggibili dalle macchine", "social": "Profili social", "verified": "Verificato da un amministratore"},
@@ -396,6 +396,7 @@ class PublicCompanyDetailPageView(TemplateView):
         )
         if interface_language not in {"en", "pl"}:
             interface_language = "en"
+        self.request.LANGUAGE_CODE = interface_language
         context["profile_copy"] = PROFILE_COPY[interface_language]
         context["language_fallback"] = False
         context["company_type_label"] = COMPANY_TYPE_COPY[interface_language].get(organization.company_type, organization.get_company_type_display())
@@ -412,6 +413,8 @@ class PublicCompanyDetailPageView(TemplateView):
                 ensure_ascii=False,
             ).replace("<", "\\u003C").replace(">", "\\u003E").replace("&", "\\u0026")
         context["description"] = description
+        context["short_description"] = selected_description.get("short", "")
+        context["long_description"] = selected_description.get("long", "")
         context["products"] = [
             product for product in public_resources(organization, "products")
             if product.translation_in(content_language)

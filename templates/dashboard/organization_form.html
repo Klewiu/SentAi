@@ -111,10 +111,11 @@
             </fieldset>{% endfor %}
             </div>
         </section>
-        {% if form.plan_features.content_entries %}
+        {% if form.plan_features.content_entries or form.plan_features.social_profiles %}
         <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6 space-y-4">
-            <h2 class="text-lg font-semibold text-slate-800">3. {% if request.LANGUAGE_CODE == 'pl' %}Pytania klientów i oficjalne profile{% else %}Customer questions and official profiles{% endif %}</h2>
-            <p class="text-sm text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Dodaj odpowiedzi na najczęstsze pytania oraz link do źródła na swojej stronie. Te pola są opcjonalne.{% else %}Answer common customer questions and link to the supporting page on your website. These fields are optional.{% endif %}</p>
+            <h2 class="text-lg font-semibold text-slate-800">3. {% if request.LANGUAGE_CODE == 'pl' %}{% if form.plan_features.content_entries %}Pytania klientów i oficjalne profile{% else %}Oficjalne profile społecznościowe{% endif %}{% else %}{% if form.plan_features.content_entries %}Customer questions and official profiles{% else %}Official social profiles{% endif %}{% endif %}</h2>
+            <p class="text-sm text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}{% if form.plan_features.content_entries %}Dodaj odpowiedzi na najczęstsze pytania oraz link do źródła na swojej stronie. Te pola są opcjonalne.{% else %}Dodaj oficjalne linki do profili społecznościowych swojej firmy.{% endif %}{% else %}{% if form.plan_features.content_entries %}Answer common customer questions and link to the supporting page on your website. These fields are optional.{% else %}Add official links to your company's social profiles.{% endif %}{% endif %}</p>
+            {% if form.plan_features.content_entries %}
             <aside class="example-card space-y-3" aria-labelledby="faq-example-heading">
                 <h3 id="faq-example-heading" class="font-semibold">{% if request.LANGUAGE_CODE == 'pl' %}Jak przygotować wpis FAQ?{% else %}How to write an FAQ entry{% endif %}</h3>
                 <p>{% if request.LANGUAGE_CODE == 'pl' %}W polu poniżej wpisz jedno pytanie, które często słyszysz od klientów, a pod nim konkretną odpowiedź. Możesz użyć takiego układu:{% else %}In the field below, write one question customers often ask, followed by a specific answer. Use this structure:{% endif %}</p>
@@ -140,6 +141,7 @@
                 </div>
                 {% endfor %}
             </div>
+            {% endif %}
             {% include 'dashboard/profile_field.html' with field=form.social_profiles_text %}
             <p class="text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Limit profili społecznościowych: {{ form.plan_features.social_profiles }}. Limit FAQ: {{ form.plan_features.content_entries }} na profil, niezależnie od liczby tłumaczeń.{% else %}Up to {{ form.plan_features.social_profiles }} social profiles. Up to {{ form.plan_features.content_entries }} FAQs per profile, regardless of the number of translations.{% endif %}</p>
         </section>

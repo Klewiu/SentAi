@@ -11,14 +11,15 @@
 {% endif %}
 
 <section class="space-y-6">
-    <div class="flex items-center gap-2">
+    <div class="flex flex-wrap items-center gap-3">
         <span class="inline-flex items-center gap-1.5 rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">
             <span class="h-1.5 w-1.5 rounded-full bg-[#5ca197]"></span>
             {% if request.LANGUAGE_CODE == 'pl' %}Twoje strony{% else %}Your pages{% endif %}
         </span>
-        {% if can_create_organization %}
-            <a class="inline-flex items-center gap-1.5 rounded-full border border-[#5ca197] bg-[#5ca197] px-3 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-white transition hover:border-[#3d7d78] hover:bg-[#3d7d78]" href="{% url 'dashboard:organization-create' %}">
-                {% if request.LANGUAGE_CODE == 'pl' %}+ Dodaj stronę firmy{% else %}+ Add company page{% endif %}
+        {% if can_create_organization and organization_count %}
+            <a class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#284b63] bg-[#284b63] px-4 py-2 font-sans text-sm font-semibold text-white shadow-sm transition hover:border-[#1e3a4f] hover:bg-[#1e3a4f]" href="{% url 'dashboard:organization-create' %}">
+                <span class="text-lg leading-none">+</span>
+                {% if request.LANGUAGE_CODE == 'pl' %}Dodaj kolejną stronę{% else %}Add another company page{% endif %}
             </a>
         {% endif %}
     </div>
@@ -124,15 +125,16 @@
             </div>
         </article>
     {% empty %}
-        <article class="rounded-xl border border-[#d9d9d9] bg-white p-3 text-center md:col-span-2 xl:col-span-3">
-            <h2 class="font-display text-base font-semibold tracking-tight text-[#284b63]">
+        <article class="rounded-xl border-2 border-dashed border-[#5ca197]/45 bg-[#f8fafa] px-6 py-10 text-center shadow-sm md:col-span-2 xl:col-span-3">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#5ca197]/15 font-display text-3xl font-semibold text-[#284b63]">+</div>
+            <h2 class="mt-4 font-display text-2xl font-semibold tracking-tight text-[#284b63]">
                 {% if request.LANGUAGE_CODE == 'pl' %}
                     Nie masz jeszcze żadnego profilu firmy
                 {% else %}
                     You do not have a company profile yet
                 {% endif %}
             </h2>
-            <p class="mx-auto mt-1 max-w-xl text-sm  text-[#353535]/60">
+            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#353535]/60">
                 {% if request.LANGUAGE_CODE == 'pl' %}
                     Utwórz domenę, którą chcesz promować i wprowadź dane związane ze swoim brandem. W zależności od wybranego planu możesz dodać do 3 domen na jednym koncie użytkownika.
                 {% else %}
@@ -141,7 +143,7 @@
             </p>
 
             {% if can_create_organization %}
-                <a class="mt-2 inline-flex min-h-8 items-center justify-center gap-2 rounded bg-[#284b63] px-4 py-1.5 font-sans text-xs font-semibold text-white shadow transition hover:bg-[#1e3a4f]" href="{% url 'dashboard:organization-create' %}">
+                <a class="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#284b63] px-7 py-3 font-sans text-base font-semibold text-white shadow-md transition hover:bg-[#1e3a4f]" href="{% url 'dashboard:organization-create' %}">
                     {% if request.LANGUAGE_CODE == 'pl' %}+ Dodaj stronę firmy{% else %}+ Add company page{% endif %}
                 </a>
             {% endif %}
@@ -288,7 +290,7 @@
                         <br><b>PRO</b> dodaje trzeci język, katalog produktów i wyższe limity treści.
                     </p>
                     <a class="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded bg-[#284b63] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]" href="{% url 'dashboard:plan-update' %}">
-                        Rozszerz widoczność AI
+                        Ulepsz plan
                         <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                             <path fill-rule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clip-rule="evenodd"/>
                         </svg>
@@ -303,7 +305,7 @@
                         <br><b>PRO</b> adds a third language, a product catalog and higher content limits.
                     </p>
                     <a class="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded bg-[#284b63] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]" href="{% url 'dashboard:plan-update' %}">
-                        Expand AI visibility
+                        Upgrade plan
                         <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                             <path fill-rule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clip-rule="evenodd"/>
                         </svg>

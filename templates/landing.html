@@ -667,7 +667,6 @@
         </div>
 
         <!-- Plan cards -->
-        {% include 'dashboard/plan_contents.html' %}
         <div class="grid gap-6 lg:grid-cols-3 lg:items-start">
 
             <!-- BASIC -->
@@ -720,9 +719,9 @@
                 </div>
                 <p class="mb-6 font-sans text-sm text-[#353535]/60">
                     {% if request.LANGUAGE_CODE == 'pl' %}
-                        Dodaj drugi język, specjalizacje, pytania FAQ i oficjalne profile społecznościowe.
+                        Dodaj drugi język, specjalizacje i oficjalny profil społecznościowy.
                     {% else %}
-                        Add a second language, specialties, customer FAQs and official social profiles.
+                        Add a second language, specialties and two official social profiles.
                     {% endif %}
                 </p>
                 <ul class="space-y-3 mb-8 flex-1">
@@ -740,7 +739,7 @@
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-[#353535]/70">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
-                        {% if request.LANGUAGE_CODE == 'pl' %}5 FAQ i 5 profili społecznościowych{% else %}5 FAQs and 5 social profiles{% endif %}
+                        {% if request.LANGUAGE_CODE == 'pl' %}2 oficjalne profile społecznościowe{% else %}2 official social profiles{% endif %}
                     </li>
                 </ul>
                 <a href="{% url 'register' %}" class="block text-center rounded border border-[#5ca197] bg-white px-4 py-2.5 font-sans text-sm font-semibold text-[#5ca197] hover:bg-[#5ca197] hover:text-white transition">
@@ -782,11 +781,11 @@
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-white/80">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
-                        {% if request.LANGUAGE_CODE == 'pl' %}50 specjalizacji i 15 FAQ{% else %}50 specialties and 15 FAQs{% endif %}
+                        {% if request.LANGUAGE_CODE == 'pl' %}50 specjalizacji i 5 FAQ{% else %}50 specialties and 5 FAQs{% endif %}
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-white/80">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>
-                        {% if request.LANGUAGE_CODE == 'pl' %}6 oficjalnych profili społecznościowych{% else %}6 official social profiles{% endif %}
+                        {% if request.LANGUAGE_CODE == 'pl' %}5 oficjalnych profili społecznościowych{% else %}5 official social profiles{% endif %}
                     </li>
                     <li class="flex items-start gap-2.5 font-sans text-sm text-white/80">
                         <svg class="h-4 w-4 text-[#5ca197] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>

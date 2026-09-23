@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.utils import timezone
 from apps.accounts.models import User
 from .forms import OrganizationForm
-from .models import ContentEntry, EntryType, Organization, Product, Tag, VerificationStatus
+from .models import ContentEntry, EntryType, Organization, Product, SocialProfile, Tag, VerificationStatus
 from .services import build_basic_feed
 from apps.subscriptions.models import PLAN_FEATURES, PlanTier
 
@@ -156,10 +156,10 @@ class PlanExperienceTests(TestCase):
         self.assertEqual(entries[0].content_url, "https://example.com/area")
         self.assertTrue(entries[0].is_featured)
 
-    def test_pro_form_accepts_fifteen_faqs_and_rejects_sixteen(self):
+    def test_pro_form_accepts_five_faqs_and_rejects_six(self):
         rows = [
             {"id": None, "question": f"Question {index}?", "answer": f"Answer {index}.", "url": ""}
-            for index in range(1, 16)
+            for index in range(1, 6)
         ]
         valid_form = OrganizationForm(
             instance=self.org,
@@ -173,6 +173,41 @@ class PlanExperienceTests(TestCase):
             data=self.payload(faq_rows_en=json.dumps(rows + [{"question": "Too many?", "answer": "Yes.", "url": ""}])),
         )
         self.assertFalse(invalid_form.is_valid())
+
+    def test_plus_form_and_feed_limit_social_profiles_and_faqs(self):
+        User.objects.filter(pk=self.owner.pk).update(plan_tier="PLUS")
+        self.owner.refresh_from_db()
+        valid_form = OrganizationForm(
+            instance=self.org,
+            organization=self.org,
+            data=self.payload(
+                social_profiles_text="linkedin.com/company/profile\nhttps://facebook.com/profile",
+            ),
+        )
+        self.assertTrue(valid_form.is_valid(), valid_form.errors)
+
+        form = OrganizationForm(
+            instance=self.org,
+            organization=self.org,
+            data=self.payload(
+                social_profiles_text="linkedin.com/company/profile\nhttps://example.com/second",
+                faq_rows_en=json.dumps([{"question": "Question?", "answer": "Answer.", "url": ""}]),
+            ),
+        )
+        self.assertFalse(form.is_valid())
+
+        SocialProfile.objects.create(organization=self.org, network="linkedin", url="https://linkedin.com/company/profile")
+        SocialProfile.objects.create(organization=self.org, network="facebook", url="https://facebook.com/profile")
+        ContentEntry.objects.create(
+            organization=self.org,
+            entry_type=EntryType.FAQ,
+            title="Question?",
+            questions_by_language={"en": "Question?"},
+            answers_by_language={"en": "Answer."},
+        )
+        payload = build_basic_feed(self.org)
+        self.assertEqual(len(payload["discovery"]["social_profiles"]), 2)
+        self.assertNotIn("content_entries", payload["discovery"])
 
     def test_faq_form_preserves_non_faq_knowledge_entries(self):
         guide = ContentEntry.objects.create(
@@ -193,9 +228,10 @@ class PlanExperienceTests(TestCase):
         self.assertTrue(ContentEntry.objects.filter(pk=guide.pk).exists())
 
     def test_agreed_customer_content_limits_are_consistent(self):
-        self.assertEqual(PLAN_FEATURES[PlanTier.PLUS]["content_entries"], 5)
-        self.assertEqual(PLAN_FEATURES[PlanTier.PRO]["content_entries"], 15)
-        self.assertEqual(PLAN_FEATURES[PlanTier.PRO]["social_profiles"], 6)
+        self.assertEqual(PLAN_FEATURES[PlanTier.PLUS]["content_entries"], 0)
+        self.assertEqual(PLAN_FEATURES[PlanTier.PLUS]["social_profiles"], 2)
+        self.assertEqual(PLAN_FEATURES[PlanTier.PRO]["content_entries"], 5)
+        self.assertEqual(PLAN_FEATURES[PlanTier.PRO]["social_profiles"], 5)
         self.assertEqual(PLAN_FEATURES[PlanTier.PRO]["tags"], 50)
 
     def test_downgrade_hides_archived_faq_translations_from_public_feed(self):

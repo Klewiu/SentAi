@@ -37,21 +37,6 @@
                     <a href="{{ language.url }}" hreflang="{{ language.code }}" lang="{{ language.code }}" class="rounded border border-[#5ca197] px-3 py-2 text-sm {% if language.code == content_language %}bg-[#284b63] text-white{% else %}text-[#284b63]{% endif %}" {% if language.code == content_language %}aria-current="page"{% endif %}>{{ language.label }}</a>
                     {% endfor %}
                 </nav>
-                {% if description %}
-                    <p lang="{{ content_language }}" class="max-w-4xl text-base leading-7 text-[#353535]/70">{{ description }}</p>
-                {% endif %}
-            </div>
-            <div class="flex flex-wrap gap-2 lg:justify-end">
-                <a class="inline-flex items-center rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-xs text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{{ feed_urls.company_json }}">JSON</a>
-                {% if organization.supports_advanced_formats %}
-                    <a class="inline-flex items-center rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-xs text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{{ feed_urls.company_jsonld }}">JSON-LD</a>
-                {% endif %}
-                {% if organization.supports_company_md %}
-                    <a class="inline-flex items-center rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-xs text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{{ feed_urls.company_md }}">Markdown</a>
-                {% endif %}
-                {% if organization.supports_llms_txt %}
-                    <a class="inline-flex items-center rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-xs text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{{ feed_urls.llms_txt }}">llms.txt</a>
-                {% endif %}
             </div>
         </div>
     </header>
@@ -60,6 +45,22 @@
         <div class="grid gap-4">
             <section class="rounded border border-[#d9d9d9] bg-white p-5">
                 <h2 class="font-display text-xl font-semibold text-[#284b63]">{{ profile_copy.company_facts }}</h2>
+                {% if short_description or long_description %}
+                    <div class="mt-5 grid gap-4 border-t border-[#d9d9d9] pt-5">
+                        {% if short_description %}
+                            <div>
+                                <h3 class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">{% if request.LANGUAGE_CODE == 'pl' %}W skrócie{% else %}At a glance{% endif %}</h3>
+                                <p lang="{{ content_language }}" class="mt-2 text-base leading-7 text-[#353535]/80">{{ short_description }}</p>
+                            </div>
+                        {% endif %}
+                        {% if long_description %}
+                            <div>
+                                <h3 class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">{% if request.LANGUAGE_CODE == 'pl' %}Więcej o firmie{% else %}About the company{% endif %}</h3>
+                                <p lang="{{ content_language }}" class="mt-2 whitespace-pre-line text-sm leading-7 text-[#353535]/70">{{ long_description }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
                 <dl class="mt-4 grid gap-3 text-sm text-[#353535]/70 sm:grid-cols-2">
                     <div>
                         <dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">{{ profile_copy.type }}</dt>
@@ -89,6 +90,9 @@
                             <dd class="mt-1"><a class="text-[#284b63] hover:text-[#5ca197]" href="{{ organization.website_url }}" rel="nofollow">{{ organization.website_url }}</a></dd>
                         </div>
                     {% endif %}
+                    {% if organization.contact_email %}<div><dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">{% if request.LANGUAGE_CODE == 'pl' %}e-mail{% else %}email{% endif %}</dt><dd class="mt-1"><a class="text-[#284b63] hover:text-[#5ca197]" href="mailto:{{ organization.contact_email }}">{{ organization.contact_email }}</a></dd></div>{% endif %}
+                    {% if organization.phone_number %}<div><dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">{% if request.LANGUAGE_CODE == 'pl' %}telefon{% else %}phone{% endif %}</dt><dd class="mt-1">{{ organization.phone_number }}</dd></div>{% endif %}
+                    {% if organization.address_line or organization.postal_code %}<div><dt class="font-mono text-xs uppercase tracking-widest text-[#353535]/35">{% if request.LANGUAGE_CODE == 'pl' %}adres{% else %}address{% endif %}</dt><dd class="mt-1">{{ organization.address_line }}{% if organization.address_line and organization.postal_code %}, {% endif %}{{ organization.postal_code }}</dd></div>{% endif %}
                 </dl>
             </section>
 
@@ -129,6 +133,18 @@
         </div>
 
         <aside class="grid content-start gap-4">
+            <section class="rounded-xl border-2 border-[#5ca197] bg-[#edf6f3] p-5 shadow-sm">
+                <p class="font-mono text-[10px] font-semibold uppercase tracking-widest text-[#387f77]">AI-ready</p>
+                <h2 class="mt-1 font-display text-xl font-semibold text-[#284b63]">{{ profile_copy.formats }}</h2>
+                <p class="mt-2 text-sm leading-6 text-[#365951]">{{ profile_copy.formats_intro }}</p>
+                <ul class="mt-4 grid gap-2 sm:grid-cols-2">
+                    <li><a class="flex min-h-12 items-center rounded-lg border border-[#5ca197]/30 bg-white px-3 py-2 font-mono text-xs font-semibold text-[#284b63] transition hover:border-[#284b63] hover:bg-[#f8fafa]" href="{{ feed_urls.company_json }}">company.json</a></li>
+                    {% if organization.supports_advanced_formats %}<li><a class="flex min-h-12 items-center rounded-lg border border-[#5ca197]/30 bg-white px-3 py-2 font-mono text-xs font-semibold text-[#284b63] transition hover:border-[#284b63] hover:bg-[#f8fafa]" href="{{ feed_urls.company_jsonld }}">company.jsonld</a></li>{% endif %}
+                    {% if organization.supports_company_md %}<li><a class="flex min-h-12 items-center rounded-lg border border-[#5ca197]/30 bg-white px-3 py-2 font-mono text-xs font-semibold text-[#284b63] transition hover:border-[#284b63] hover:bg-[#f8fafa]" href="{{ feed_urls.company_md }}">company.md</a></li>{% endif %}
+                    {% if organization.supports_llms_txt %}<li><a class="flex min-h-12 items-center rounded-lg border border-[#5ca197]/30 bg-white px-3 py-2 font-mono text-xs font-semibold text-[#284b63] transition hover:border-[#284b63] hover:bg-[#f8fafa]" href="{{ feed_urls.llms_txt }}">llms.txt</a></li>{% endif %}
+                </ul>
+            </section>
+
             {% if tags %}
                 <section class="rounded border border-[#d9d9d9] bg-white p-5">
                     <h2 class="font-display text-lg font-semibold text-[#284b63]">{{ profile_copy.topics }}</h2>
@@ -139,16 +155,6 @@
                     </div>
                 </section>
             {% endif %}
-
-            <section class="rounded border border-[#d9d9d9] bg-white p-5">
-                <h2 class="font-display text-lg font-semibold text-[#284b63]">{{ profile_copy.formats }}</h2>
-                <ul class="mt-3 grid gap-2 font-mono text-xs">
-                    <li><a class="text-[#284b63] hover:text-[#5ca197]" href="{{ feed_urls.company_json }}">company.json</a></li>
-                    {% if organization.supports_advanced_formats %}<li><a class="text-[#284b63] hover:text-[#5ca197]" href="{{ feed_urls.company_jsonld }}">company.jsonld</a></li>{% endif %}
-                    {% if organization.supports_company_md %}<li><a class="text-[#284b63] hover:text-[#5ca197]" href="{{ feed_urls.company_md }}">company.md</a></li>{% endif %}
-                    {% if organization.supports_llms_txt %}<li><a class="text-[#284b63] hover:text-[#5ca197]" href="{{ feed_urls.llms_txt }}">llms.txt</a></li>{% endif %}
-                </ul>
-            </section>
 
             {% if social_profiles %}
                 <section class="rounded border border-[#d9d9d9] bg-white p-5">
