@@ -553,9 +553,9 @@
                 </p>
                 <p class="mt-4 text-base text-[#353535]/70 leading-relaxed">
                     {% if request.LANGUAGE_CODE == 'pl' %}
-                        Xoaila pomaga publikować dane firmy w formie gotowej dla systemów AI.
+                        Xoaila publikuje i hostuje dane firmy oraz endpointy w formacie gotowym dla wyszukiwarek AI.
                     {% else %}
-                        Xoaila helps publish company data in a form ready for AI systems.
+                        Xoaila publishes and hosts company data and endpoints in a format ready for AI search engines.
                     {% endif %}
                 </p>
                 <a href="{% url 'register' %}" class="mt-8 inline-flex items-center gap-2 rounded bg-[#5ca197] px-5 py-2.5 font-sans text-sm font-semibold text-white hover:bg-[#2e5558] transition shadow-sm">
@@ -811,9 +811,6 @@
      ============================================================ -->
 <section class="bg-[#284b63] py-20">
     <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
-        <svg class="mx-auto mb-6 h-8 w-8 text-white/30" fill="currentColor" viewBox="0 0 32 32" aria-hidden="true">
-            <path d="M9.352 4C4.456 7.456 1 13.12 1 19.36c0 5.088 3.072 8.064 6.624 8.064 3.36 0 5.856-2.688 5.856-5.856 0-3.168-2.208-5.472-5.088-5.472-.576 0-1.344.096-1.536.192.48-3.264 3.552-7.104 6.624-9.024L9.352 4zm16.512 0c-4.8 3.456-8.256 9.12-8.256 15.36 0 5.088 3.072 8.064 6.624 8.064 3.264 0 5.856-2.688 5.856-5.856 0-3.168-2.304-5.472-5.184-5.472-.576 0-1.248.096-1.44.192.48-3.264 3.456-7.104 6.528-9.024L25.864 4z"/>
-        </svg>
         <blockquote class="font-display text-2xl font-bold leading-relaxed text-white sm:text-3xl lg:text-4xl">
             {% if request.LANGUAGE_CODE == 'pl' %}
                 Twoja strona jest dla ludzi.<br>
