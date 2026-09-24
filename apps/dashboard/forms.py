@@ -1,12 +1,11 @@
 import re
 
 from django import forms
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 
 from apps.accounts.models import AccountType, USER_PLAN_ORGANIZATION_LIMITS, UserPlanTier
-from apps.billing.models import BillingCurrency, BillingCustomerType, BillingInvoice, BillingPayment, BillingPlanPrice, BillingProfile
+from apps.billing.models import BillingCurrency, BillingCustomerType, BillingInvoice, BillingPayment, BillingProfile
 
 
 User = get_user_model()
@@ -217,69 +216,25 @@ class SellerCreateForm(forms.Form):
 
 class StripePriceForm(forms.Form):
     tier = forms.ChoiceField(choices=UserPlanTier.choices, label="Plan")
-    currency = forms.ChoiceField(choices=BillingCurrency.choices, label="Waluta / Currency")
-    amount = forms.DecimalField(min_value=Decimal("0.01"), max_digits=8, decimal_places=2, label="Cena roczna / Annual price")
-    existing_price_id = forms.CharField(required=False, max_length=255,
-        label="Istniejące Stripe price ID / Existing Stripe price ID (optional)",
-        help_text="Zostaw puste, aby utworzyć nową cenę. Wpisz price_..., aby powiązać istniejącą cenę o tej samej kwocie. / Leave blank to create a price; enter price_... to link an existing matching price.")
-
-    def clean_amount(self):
-        return int(self.cleaned_data["amount"] * 100)
-
-    def clean_existing_price_id(self):
-        value = self.cleaned_data["existing_price_id"].strip()
-        if value and not value.startswith("price_"):
-            raise forms.ValidationError("Use a Stripe price_... identifier.")
-        return value
-
-
-class BillingPlanPriceForm(forms.ModelForm):
-    amount = forms.DecimalField(
-        decimal_places=2,
-        min_value=Decimal("0.01"),
-        label="Amount",
-        help_text="Enter the amount like Stripe, e.g. 49.00 PLN or 12.00 EUR.",
+    stripe_price_id = forms.CharField(
+        max_length=255,
+        label="Stripe Price ID",
+        help_text=(
+            "Skopiuj identyfikator ceny z katalogu produktów Stripe. Zaczyna się od price_, nie prod_. "
+            "/ Copy the price identifier from the Stripe product catalog. It begins with price_, not prod_."
+        ),
+        widget=forms.TextInput(attrs={"placeholder": "price_...", "autocomplete": "off"}),
     )
 
-    class Meta:
-        model = BillingPlanPrice
-        fields = ("tier", "stripe_price_id", "amount", "currency", "interval", "active_for_new_customers", "notes")
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.instance and self.instance.pk and not self.is_bound:
-            self.initial["amount"] = Decimal(self.instance.amount) / Decimal("100")
-
-    def clean_amount(self):
-        value = self.cleaned_data["amount"]
-        try:
-            smallest_unit_amount = (value * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-        except (InvalidOperation, TypeError):
-            raise forms.ValidationError("Enter a valid amount, e.g. 49.00.")
-        return int(smallest_unit_amount)
-
-    def clean(self):
-        cleaned_data = super().clean()
-        tier = cleaned_data.get("tier")
-        active = cleaned_data.get("active_for_new_customers")
-
-        currency = cleaned_data.get("currency")
-
-        if tier and currency and active:
-            qs = BillingPlanPrice.objects.filter(
-                tier=tier,
-                currency=currency,
-                active_for_new_customers=True,
+    def clean_stripe_price_id(self):
+        value = self.cleaned_data["stripe_price_id"].strip()
+        if value.startswith("prod_"):
+            raise forms.ValidationError(
+                "To jest Product ID (prod_...). Otwórz produkt w Stripe i skopiuj Price ID zaczynające się od price_."
             )
-            if self.instance.pk:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                raise forms.ValidationError(
-                    "This plan already has an active price for new customers. "
-                    "Archive the current active price for this currency before activating another one."
-                )
-
-        return cleaned_data
+        if not value.startswith("price_"):
+            raise forms.ValidationError("Stripe Price ID musi zaczynać się od price_.")
+        return value
 
 
 class BillingPaymentInvoiceForm(forms.ModelForm):
@@ -352,16 +307,43 @@ class BillingProfileForm(forms.ModelForm):
             "invoice_email",
         )
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, user=None, language="en", **kwargs):
         self.user = user
+        self.language = "pl" if language == "pl" else "en"
         super().__init__(*args, **kwargs)
         if self.user and not self.is_bound:
             self.fields["invoice_email"].initial = self.user.email
             if getattr(self.user, "company_name", ""):
                 self.fields["company_name"].initial = self.user.company_name
-        self.fields["country"].help_text = "Use PL for Polish customers. Other countries will use EUR checkout."
-        self.fields["tax_id"].label = "VAT ID"
-        self.fields["tax_id"].help_text = "Use the country prefix, e.g. PL5260250995. If omitted, we add the selected country."
+        if self.language == "pl":
+            labels = {
+                "company_name": "Nazwa firmy",
+                "tax_id": "NIP / numer VAT UE",
+                "street": "Ulica i numer",
+                "postal_code": "Kod pocztowy",
+                "city": "Miejscowość",
+                "country": "Kraj (kod ISO)",
+                "invoice_email": "E-mail do faktur",
+            }
+            self.fields["country"].help_text = "Wpisz PL dla firmy z Polski. Dla pozostałych krajów płatność będzie realizowana w EUR."
+            self.fields["tax_id"].help_text = "Podaj prefiks kraju, np. PL5260250995. Jeśli go pominiesz, dodamy kod wybranego kraju."
+            required_message = "To pole jest wymagane."
+        else:
+            labels = {
+                "company_name": "Company name",
+                "tax_id": "VAT ID",
+                "street": "Street and building number",
+                "postal_code": "Postal code",
+                "city": "City",
+                "country": "Country (ISO code)",
+                "invoice_email": "Invoice email",
+            }
+            self.fields["country"].help_text = "Use PL for Polish customers. Other countries will use EUR checkout."
+            self.fields["tax_id"].help_text = "Use the country prefix, e.g. PL5260250995. If omitted, we add the selected country."
+            required_message = "This field is required."
+        for field_name, label in labels.items():
+            self.fields[field_name].label = label
+            self.fields[field_name].error_messages["required"] = required_message
         self.fields["tax_id"].required = True
         self.fields["company_name"].required = True
 
@@ -376,20 +358,22 @@ class BillingProfileForm(forms.ModelForm):
 
         cleaned_data["customer_type"] = BillingCustomerType.COMPANY
         if not company_name:
-            self.add_error("company_name", "Company name is required for company billing.")
+            self.add_error("company_name", "Nazwa firmy jest wymagana do wystawienia faktury." if self.language == "pl" else "Company name is required for company billing.")
         if not tax_id:
-            self.add_error("tax_id", "VAT ID is required for billing.")
+            self.add_error("tax_id", "NIP lub numer VAT UE jest wymagany do wystawienia faktury." if self.language == "pl" else "VAT ID is required for billing.")
         elif country and tax_id[:2].isalpha() and tax_id[:2] != country:
-            self.add_error("tax_id", "VAT ID country prefix must match the selected billing country.")
+            self.add_error("tax_id", "Prefiks numeru VAT musi odpowiadać wybranemu krajowi rozliczenia." if self.language == "pl" else "VAT ID country prefix must match the selected billing country.")
         elif country == "PL" and not is_valid_polish_nip(tax_id):
             self.add_error(
                 "tax_id",
-                "Enter a valid Polish VAT ID/NIP. It must contain 10 digits and pass the NIP checksum, e.g. PL5260250995.",
+                "Podaj prawidłowy polski NIP. Musi zawierać 10 cyfr i mieć poprawną sumę kontrolną, np. PL5260250995."
+                if self.language == "pl"
+                else "Enter a valid Polish VAT ID/NIP. It must contain 10 digits and pass the NIP checksum, e.g. PL5260250995.",
             )
         elif country in EU_VAT_COUNTRY_CODES and not re.fullmatch(r"[A-Z]{2}[A-Z0-9]{2,13}", tax_id):
-            self.add_error("tax_id", "Enter a valid EU VAT ID with country prefix, e.g. DE123456789.")
+            self.add_error("tax_id", "Podaj prawidłowy numer VAT UE z prefiksem kraju, np. DE123456789." if self.language == "pl" else "Enter a valid EU VAT ID with country prefix, e.g. DE123456789.")
         elif not re.fullmatch(r"[A-Z]{2}[A-Z0-9]{2,20}", tax_id):
-            self.add_error("tax_id", "Enter a valid VAT ID with country prefix.")
+            self.add_error("tax_id", "Podaj prawidłowy numer VAT z prefiksem kraju." if self.language == "pl" else "Enter a valid VAT ID with country prefix.")
         else:
             cleaned_data["tax_id"] = tax_id
 

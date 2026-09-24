@@ -2,6 +2,8 @@ from datetime import timedelta
 
 from django.urls import reverse
 from django.utils import timezone
+from django.db.models import Q
+from django.core.exceptions import ObjectDoesNotExist
 
 from apps.accounts.models import UserPlanTier
 from apps.billing.models import BillingInvoice, BillingPayment, BillingPaymentStatus, BillingSubscription, ManualPlanOrder, ManualPlanOrderStatus
@@ -9,10 +11,12 @@ from apps.billing.models import BillingInvoice, BillingPayment, BillingPaymentSt
 from .models import AdminNotification, CustomerNotification, NotificationCategory, NotificationSeverity
 
 
-def notify_admin(*, title, message, category, severity=NotificationSeverity.INFO, customer=None, action_url="", reference_key=None):
+def notify_admin(*, title, message, category, severity=NotificationSeverity.INFO, customer=None, action_url="", reference_key=None, title_pl="", message_pl=""):
     defaults = {
         "title": title,
         "message": message,
+        "title_pl": title_pl,
+        "message_pl": message_pl,
         "category": category,
         "severity": severity,
         "customer": customer,
@@ -80,6 +84,8 @@ def notify_new_customer(user):
     notify_admin(
         title="New customer account",
         message=f"{user.email} created a customer account.",
+        title_pl="Nowe konto klienta",
+        message_pl=f"{user.email} utworzył konto klienta.",
         category=NotificationCategory.CUSTOMER,
         severity=NotificationSeverity.INFO,
         customer=user,
@@ -135,6 +141,8 @@ def notify_plan_selected(user, plan_tier):
     notify_admin(
         title=f"New {plan_tier} plan selected",
         message=f"{user.email} selected the {plan_tier} plan.",
+        title_pl=f"Wybrano nowy plan {plan_tier}",
+        message_pl=f"{user.email} wybrał plan {plan_tier}.",
         category=NotificationCategory.PLAN,
         severity=NotificationSeverity.INFO,
         customer=user,
@@ -147,6 +155,8 @@ def notify_manual_order_created(order):
     notify_admin(
         title=f"New {order.get_tier_display()} Manual order",
         message=f"{order.user.email} activated {order.get_tier_display()} Manual. Payment is due by {order.payment_due_at:%Y-%m-%d %H:%M}.",
+        title_pl=f"Nowe zamówienie {order.get_tier_display()} Manual",
+        message_pl=f"{order.user.email} aktywował plan {order.get_tier_display()} Manual. Termin płatności: {order.payment_due_at:%Y-%m-%d %H:%M}.",
         category=NotificationCategory.MANUAL_PLAN,
         severity=NotificationSeverity.WARNING,
         customer=order.user,
@@ -159,6 +169,8 @@ def notify_invoice_needed_for_payment(payment):
     notify_admin(
         title="Stripe payment needs invoice",
         message=f"{payment.user.email} paid {payment.formatted_amount()}. Upload and send an invoice.",
+        title_pl="Płatność Stripe wymaga wystawienia faktury",
+        message_pl=f"{payment.user.email} zapłacił {payment.formatted_amount()}. Wystaw i wyślij fakturę.",
         category=NotificationCategory.INVOICE,
         severity=NotificationSeverity.WARNING,
         customer=payment.user,
@@ -171,6 +183,8 @@ def notify_invoice_needed_for_manual_order(order):
     notify_admin(
         title=f"{order.get_tier_display()} Manual payment needs invoice",
         message=f"{order.user.email} paid {order.formatted_amount()}. Upload and send an invoice.",
+        title_pl=f"Płatność {order.get_tier_display()} Manual wymaga wystawienia faktury",
+        message_pl=f"{order.user.email} zapłacił {order.formatted_amount()}. Wystaw i wyślij fakturę.",
         category=NotificationCategory.INVOICE,
         severity=NotificationSeverity.WARNING,
         customer=order.user,
@@ -183,6 +197,8 @@ def notify_manual_order_overdue(order):
     notify_admin(
         title=f"{order.get_tier_display()} Manual payment overdue",
         message=f"{order.user.email} has not paid {order.get_tier_display()} Manual by {order.payment_due_at:%Y-%m-%d %H:%M}. Review and disable the plan if needed.",
+        title_pl=f"Przekroczony termin płatności {order.get_tier_display()} Manual",
+        message_pl=f"{order.user.email} nie opłacił planu {order.get_tier_display()} Manual do {order.payment_due_at:%Y-%m-%d %H:%M}. Sprawdź zamówienie i w razie potrzeby wyłącz plan.",
         category=NotificationCategory.MANUAL_PLAN,
         severity=NotificationSeverity.URGENT,
         customer=order.user,
@@ -195,6 +211,8 @@ def notify_subscription_past_due(subscription):
     notify_admin(
         title="Stripe subscription payment issue",
         message=f"{subscription.user.email} has subscription status {subscription.status}. Payment method may need attention.",
+        title_pl="Problem z płatnością subskrypcji Stripe",
+        message_pl=f"Subskrypcja klienta {subscription.user.email} ma status {subscription.status}. Metoda płatności może wymagać aktualizacji.",
         category=NotificationCategory.STRIPE,
         severity=NotificationSeverity.URGENT,
         customer=subscription.user,
@@ -207,6 +225,8 @@ def notify_subscription_canceling(subscription):
     notify_admin(
         title="Stripe subscription renewal canceled",
         message=f"{subscription.user.email} canceled renewal. Access remains until {subscription.current_period_end:%Y-%m-%d}." if subscription.current_period_end else f"{subscription.user.email} canceled renewal.",
+        title_pl="Anulowano odnowienie subskrypcji Stripe",
+        message_pl=f"{subscription.user.email} anulował odnowienie. Dostęp pozostaje aktywny do {subscription.current_period_end:%Y-%m-%d}." if subscription.current_period_end else f"{subscription.user.email} anulował odnowienie.",
         category=NotificationCategory.STRIPE,
         severity=NotificationSeverity.INFO,
         customer=subscription.user,
@@ -243,10 +263,65 @@ def notify_customer_invoice_available(invoice):
     )
 
 
+def backfill_admin_notification_translations():
+    """Fill Polish text for notifications created before bilingual admin alerts."""
+    notifications = AdminNotification.objects.filter(Q(title_pl="") | Q(message_pl="")).select_related("customer")
+    for notification in notifications.iterator(chunk_size=100):
+        reference = notification.reference_key or ""
+        title_pl = ""
+        message_pl = ""
+        try:
+            if reference.startswith("user:") and reference.endswith(":created") and notification.customer:
+                title_pl = "Nowe konto klienta"
+                message_pl = f"{notification.customer.email} utworzył konto klienta."
+            elif ":plan:" in reference and notification.customer:
+                tier = reference.split(":plan:", 1)[1].split(":", 1)[0]
+                title_pl = f"Wybrano nowy plan {tier}"
+                message_pl = f"{notification.customer.email} wybrał plan {tier}."
+            elif reference.startswith("manual-order:"):
+                order_id = int(reference.split(":", 2)[1])
+                order = ManualPlanOrder.objects.select_related("user").get(pk=order_id)
+                if reference.endswith(":created"):
+                    title_pl = f"Nowe zamówienie {order.get_tier_display()} Manual"
+                    message_pl = f"{order.user.email} aktywował plan {order.get_tier_display()} Manual. Termin płatności: {order.payment_due_at:%Y-%m-%d %H:%M}."
+                elif reference.endswith(":invoice-needed"):
+                    title_pl = f"Płatność {order.get_tier_display()} Manual wymaga wystawienia faktury"
+                    message_pl = f"{order.user.email} zapłacił {order.formatted_amount()}. Wystaw i wyślij fakturę."
+                elif reference.endswith(":overdue"):
+                    title_pl = f"Przekroczony termin płatności {order.get_tier_display()} Manual"
+                    message_pl = f"{order.user.email} nie opłacił planu {order.get_tier_display()} Manual do {order.payment_due_at:%Y-%m-%d %H:%M}. Sprawdź zamówienie i w razie potrzeby wyłącz plan."
+            elif reference.startswith("payment:") and reference.endswith(":invoice-needed"):
+                payment_id = int(reference.split(":", 2)[1])
+                payment = BillingPayment.objects.select_related("user").get(pk=payment_id)
+                title_pl = "Płatność Stripe wymaga wystawienia faktury"
+                message_pl = f"{payment.user.email} zapłacił {payment.formatted_amount()}. Wystaw i wyślij fakturę."
+            elif reference.startswith("organization:") and reference.endswith(":verification-needed"):
+                from apps.companies.models import Organization
+                organization_id = int(reference.split(":", 2)[1])
+                organization = Organization.objects.get(pk=organization_id)
+                title_pl = "Profil firmy wymaga weryfikacji"
+                message_pl = f"Profil firmy {organization.name} został przesłany i oczekuje na weryfikację administratora."
+            elif reference.startswith("subscription:"):
+                subscription_id = int(reference.split(":", 2)[1])
+                subscription = BillingSubscription.objects.select_related("user").get(pk=subscription_id)
+                if reference.endswith(":canceling"):
+                    title_pl = "Anulowano odnowienie subskrypcji Stripe"
+                    message_pl = f"{subscription.user.email} anulował odnowienie. Dostęp pozostaje aktywny do {subscription.current_period_end:%Y-%m-%d}." if subscription.current_period_end else f"{subscription.user.email} anulował odnowienie."
+                elif ":status:" in reference:
+                    title_pl = "Problem z płatnością subskrypcji Stripe"
+                    message_pl = f"Subskrypcja klienta {subscription.user.email} ma status {subscription.status}. Metoda płatności może wymagać aktualizacji."
+        except (ValueError, ObjectDoesNotExist):
+            continue
+        if title_pl and message_pl:
+            AdminNotification.objects.filter(pk=notification.pk).update(title_pl=title_pl, message_pl=message_pl)
+
+
 def notify_organization_verification_needed(organization):
     notify_admin(
         title="Company profile needs verification",
         message=f"{organization.name} was submitted and is waiting for administrator verification.",
+        title_pl="Profil firmy wymaga weryfikacji",
+        message_pl=f"Profil firmy {organization.name} został przesłany i oczekuje na weryfikację administratora.",
         category=NotificationCategory.CUSTOMER,
         severity=NotificationSeverity.WARNING,
         customer=organization.owner,
@@ -319,6 +394,7 @@ def notify_customer_manual_renewal(order, days):
 
 def scan_admin_notifications():
     reconcile_notification_conditions()
+    backfill_admin_notification_translations()
     from apps.companies.models import Organization, VerificationStatus
 
     for organization in Organization.objects.filter(

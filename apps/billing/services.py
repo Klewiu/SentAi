@@ -118,7 +118,7 @@ def sync_subscription_from_stripe(subscription: Any, fallback_user=None, fallbac
     if current and current.stripe_customer_id and current.stripe_customer_id != customer_id:
         raise ValueError("Stripe customer mismatch")
     if current and current.stripe_subscription_id and current.stripe_subscription_id != subscription_id:
-        if current.status not in {"canceled", "unpaid", "incomplete_expired"} or status in {"canceled", "unpaid", "incomplete_expired"}:
+        if current.blocks_new_purchase or status in {"canceled", "unpaid", "incomplete_expired"}:
             raise ValueError("Unexpected subscription replacement")
     items = object_get(subscription, "items", {}) or {}
     item_data = object_get(items, "data", []) or []
@@ -205,6 +205,22 @@ def record_invoice_payment(invoice: Any):
             notify_invoice_needed_for_payment(payment)
 
     return payment
+
+
+def reconcile_latest_invoice_payment(billing_subscription: BillingSubscription):
+    """Recover the latest invoice when a webhook was delayed or unavailable."""
+    invoice_id = billing_subscription.latest_invoice_id
+    if not invoice_id.startswith("in_"):
+        return None
+    existing = BillingPayment.objects.filter(stripe_invoice_id=invoice_id).first()
+    if existing and existing.status == BillingPaymentStatus.PAID:
+        return existing
+
+    import stripe
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    invoice = stripe.Invoice.retrieve(invoice_id)
+    return record_invoice_payment(invoice)
 
 
 def stripe_id(value):

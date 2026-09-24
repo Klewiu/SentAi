@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
+from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -9,6 +10,22 @@ from django.views.generic import TemplateView
 
 from .models import AdminNotification, CustomerNotification, NotificationCategory
 from .services import scan_admin_notifications, scan_customer_notifications
+
+
+ADMIN_CATEGORY_LABELS_PL = {
+    "customer": "Klient",
+    "plan": "Plan",
+    "payment": "Płatność",
+    "invoice": "Faktura",
+    "manual_plan": "Płatność Manual",
+    "stripe": "Stripe",
+}
+ADMIN_SEVERITY_LABELS_PL = {
+    "info": "Informacja",
+    "success": "Sukces",
+    "warning": "Ostrzeżenie",
+    "urgent": "Pilne",
+}
 
 
 class AdminNotificationsRequiredMixin(LoginRequiredMixin):
@@ -41,23 +58,35 @@ class AdminNotificationListView(AdminNotificationsRequiredMixin, TemplateView):
             notifications = notifications.filter(closed_at__isnull=True)
         if q:
             notifications = notifications.filter(
-                title__icontains=q
-            ) | notifications.filter(
-                message__icontains=q
-            ) | notifications.filter(
-                customer__email__icontains=q
+                Q(title__icontains=q)
+                | Q(message__icontains=q)
+                | Q(title_pl__icontains=q)
+                | Q(message_pl__icontains=q)
+                | Q(customer__email__icontains=q)
             )
-            notifications = notifications.select_related("customer", "closed_by")
         notification_rows = list(notifications.order_by("closed_at", "-created_at"))
         for notification in notification_rows:
             notification.display_title = notification.localized_title(self.request.LANGUAGE_CODE)
             notification.display_message = notification.localized_message(self.request.LANGUAGE_CODE)
+            notification.display_category = (
+                ADMIN_CATEGORY_LABELS_PL.get(notification.category, notification.get_category_display())
+                if self.request.LANGUAGE_CODE == "pl"
+                else notification.get_category_display()
+            )
+            notification.display_severity = (
+                ADMIN_SEVERITY_LABELS_PL.get(notification.severity, notification.get_severity_display())
+                if self.request.LANGUAGE_CODE == "pl"
+                else notification.get_severity_display()
+            )
         context["notifications"] = notification_rows
         context["active_count"] = AdminNotification.objects.filter(closed_at__isnull=True).count()
         context["closed_count"] = AdminNotification.objects.filter(closed_at__isnull=False).count()
         context["show"] = show
         context["selected_type"] = selected_type
-        context["type_choices"] = NotificationCategory.choices
+        context["type_choices"] = [
+            (value, ADMIN_CATEGORY_LABELS_PL.get(value, label) if self.request.LANGUAGE_CODE == "pl" else label)
+            for value, label in NotificationCategory.choices
+        ]
         context["search_query"] = q
         return context
 

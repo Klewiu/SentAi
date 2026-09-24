@@ -8,18 +8,18 @@
                 {% if request.LANGUAGE_CODE == 'pl' %}Dane do faktury{% else %}Billing details{% endif %}
             </span>
             <h1 class="mt-3 font-display text-3xl font-bold tracking-tight text-[#284b63]">
-                {% if request.LANGUAGE_CODE == 'pl' %}Uzupelnij dane przed platnoscia{% else %}Complete billing details before payment{% endif %}
+                {% if request.LANGUAGE_CODE == 'pl' %}Uzupe&#322;nij dane przed p&#322;atno&#347;ci&#261;{% else %}Complete billing details before payment{% endif %}
             </h1>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">
                 {% if request.LANGUAGE_CODE == 'pl' %}
-                    Klienci z Polska placa w PLN. Pozostale kraje beda kierowane do cen EUR.
+                    Firmy z Polski p&#322;ac&#261; w PLN. Dla pozosta&#322;ych kraj&#243;w stosujemy ceny w EUR.
                 {% else %}
                     Customers from Poland pay in PLN. Other countries use EUR prices at checkout.
                 {% endif %}
             </p>
         </div>
         <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:plan-update' %}">
-            {% if request.LANGUAGE_CODE == 'pl' %}Wroc{% else %}Back{% endif %}
+            {% if request.LANGUAGE_CODE == 'pl' %}Wr&#243;&#263;{% else %}Back{% endif %}
         </a>
     </div>
 

@@ -234,7 +234,7 @@ class PlanExperienceTests(TestCase):
         self.assertEqual(PLAN_FEATURES[PlanTier.PRO]["social_profiles"], 5)
         self.assertEqual(PLAN_FEATURES[PlanTier.PRO]["tags"], 50)
 
-    def test_downgrade_hides_archived_faq_translations_from_public_feed(self):
+    def test_plus_plan_hides_faq_entries_from_public_feed(self):
         self.org.content_languages = ["en", "pl", "es"]
         self.org.descriptions_by_language = {
             "en": {"short": "English profile"},
@@ -253,7 +253,5 @@ class PlanExperienceTests(TestCase):
         self.owner.save(update_fields=["plan_tier"])
 
         payload = build_basic_feed(self.org)
-
-        faq = next(item for item in payload["discovery"]["content_entries"] if item["title"] == entry.title)
-        self.assertEqual(faq["questions"], {"en": "English question?", "pl": "Polskie pytanie?"})
-        self.assertEqual(faq["summaries"], {"en": "English answer.", "pl": "Polska odpowiedź."})
+        self.assertNotIn("content_entries", payload["discovery"])
+        self.assertTrue(ContentEntry.objects.filter(pk=entry.pk).exists())

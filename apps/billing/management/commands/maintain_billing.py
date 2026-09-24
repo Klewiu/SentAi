@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 from apps.accounts.models import User, AuthRateWindow
 from apps.billing.access import reconcile_access
 from apps.billing.models import BillingSubscription
-from apps.billing.services import sync_subscription_from_stripe
+from apps.billing.services import reconcile_latest_invoice_payment, sync_subscription_from_stripe
 from apps.notifications.services import scan_admin_notifications, scan_customer_notifications
 
 
@@ -16,15 +16,12 @@ class Command(BaseCommand):
         failures = 0
         if settings.STRIPE_SECRET_KEY:
             stripe.api_key = settings.STRIPE_SECRET_KEY
-            from apps.billing.catalog import sync_prices
-            try:
-                sync_prices()
-            except (ValueError, stripe.StripeError):
-                failures += 1
-                self.stderr.write("Price synchronization failed; cached prices retained.")
             for subscription in BillingSubscription.objects.exclude(stripe_subscription_id="").iterator(chunk_size=100):
                 try:
-                    sync_subscription_from_stripe(stripe.Subscription.retrieve(subscription.stripe_subscription_id))
+                    subscription = sync_subscription_from_stripe(
+                        stripe.Subscription.retrieve(subscription.stripe_subscription_id)
+                    )
+                    reconcile_latest_invoice_payment(subscription)
                 except Exception:
                     failures += 1
                     self.stderr.write(f"Subscription {subscription.pk}: reconciliation failed; retry required.")
