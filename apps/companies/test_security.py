@@ -1,8 +1,10 @@
 import json
+from datetime import timedelta
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from apps.accounts.models import User
+from apps.billing.models import BillingSubscription
 from .forms import OrganizationForm
 from .models import Organization, Product, VerificationStatus
 
@@ -24,6 +26,12 @@ class PublishingSecurityTests(TestCase):
         self.assertEqual(response.json()["next_page"], 2)
     def setUp(self):
         self.user = User.objects.create_user(username="audit", email="private@example.com", password="test-password", plan_tier="PRO", plan_selected_at=timezone.now())
+        BillingSubscription.objects.create(
+            user=self.user,
+            tier="PRO",
+            status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
+        )
         self.org = Organization.objects.create(owner=self.user, name="Audit", contact_email="public@example.com", verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED)
 
     def test_public_contact_is_explicit_business_email(self):
@@ -63,6 +71,7 @@ class PublishingSecurityTests(TestCase):
     def test_basic_form_cannot_bypass_api_limits(self):
         self.user.plan_tier = "BASIC"
         self.user.save()
+        BillingSubscription.objects.filter(user=self.user).update(tier="BASIC")
         self.assertFalse(self.form().is_valid())
 
     def test_downgrade_after_validation_cannot_save_premium_resources(self):
@@ -70,6 +79,7 @@ class PublishingSecurityTests(TestCase):
         form = self.form()
         self.assertTrue(form.is_valid(), form.errors)
         User.objects.filter(pk=self.user.pk).update(plan_tier="BASIC")
+        BillingSubscription.objects.filter(user=self.user).update(tier="BASIC")
         with self.assertRaises(ValidationError):
             form.save()
         self.assertFalse(self.org.products.exists())
@@ -83,9 +93,10 @@ class PublishingSecurityTests(TestCase):
         self.assertEqual(first.status_code, 200)
         self.assertEqual(self.client.get(url, HTTP_IF_NONE_MATCH=first["ETag"]).status_code, 304)
         User.objects.filter(pk=self.user.pk).update(plan_tier="BASIC")
+        BillingSubscription.objects.filter(user=self.user).update(tier="BASIC")
         changed = self.client.get(url, HTTP_IF_NONE_MATCH=first["ETag"])
-        self.assertEqual(changed.status_code, 404)
-        self.assertNotIn("ETag", changed)
+        self.assertEqual(changed.status_code, 200)
+        self.assertNotEqual(changed["ETag"], first["ETag"])
         self.assertNotIn("paid-tag", changed.content.decode())
 
     def test_form_preserves_product_id_and_price(self):

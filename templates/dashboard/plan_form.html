@@ -250,17 +250,26 @@
         {% endif %}
 
         {% if manual_plan_order %}
-            <div class="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5 text-amber-950">
-                <p class="font-mono text-[10px] uppercase tracking-widest">{{ manual_plan_order.get_tier_display }} Manual / {{ manual_plan_order.status }}</p>
-                <h2 class="mt-2 font-display text-xl font-semibold">{% if request.LANGUAGE_CODE == 'pl' %}Dane do przelewu{% else %}Bank transfer details{% endif %}</h2>
+            <div class="mt-6 rounded-xl border {% if manual_plan_order.status == 'paid' %}border-emerald-300 bg-emerald-50 text-emerald-950{% else %}border-amber-300 bg-amber-50 text-amber-950{% endif %} p-5">
+                <p class="font-mono text-[10px] uppercase tracking-widest">
+                    PRO MANUAL /
+                    {% if manual_plan_order.status == 'paid' %}
+                        {% if request.LANGUAGE_CODE == 'pl' %}OP&#321;ACONO{% else %}PAID{% endif %}
+                    {% elif manual_plan_order.is_overdue %}
+                        {% if request.LANGUAGE_CODE == 'pl' %}P&#321;ATNO&#346;&#262; PO TERMINIE{% else %}PAYMENT OVERDUE{% endif %}
+                    {% else %}
+                        {% if request.LANGUAGE_CODE == 'pl' %}OCZEKUJE NA P&#321;ATNO&#346;&#262;{% else %}AWAITING PAYMENT{% endif %}
+                    {% endif %}
+                </p>
+                <h2 class="mt-2 font-display text-xl font-semibold">{% if request.LANGUAGE_CODE == 'pl' %}{% if manual_plan_order.status == 'paid' %}P&#322;atno&#347;&#263; potwierdzona{% else %}Dane do przelewu{% endif %}{% else %}{% if manual_plan_order.status == 'paid' %}Payment confirmed{% else %}Bank transfer details{% endif %}{% endif %}</h2>
                 <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                     <div><dt class="text-amber-800/60">Odbiorca</dt><dd class="font-semibold">{{ manual_payment_recipient }}</dd></div>
                     <div><dt class="text-amber-800/60">Bank</dt><dd class="font-semibold">{{ manual_payment_bank }}</dd></div>
                     <div><dt class="text-amber-800/60">IBAN</dt><dd class="font-mono font-semibold">{{ manual_payment_iban }}</dd></div>
                     <div><dt class="text-amber-800/60">Kwota</dt><dd class="font-semibold">{{ manual_pro_price_label }}</dd></div>
                     <div class="sm:col-span-2"><dt class="text-amber-800/60">Tytuł przelewu</dt><dd class="break-all font-mono font-semibold">{{ manual_plan_order.payment_reference }}</dd></div>
-                    <div><dt class="text-amber-800/60">Termin płatności</dt><dd class="font-semibold">{{ manual_plan_order.payment_due_at|date:'Y-m-d H:i' }}</dd></div>
-                    <div><dt class="text-amber-800/60">Plan aktywny do</dt><dd class="font-semibold">{{ manual_plan_order.access_until|date:'Y-m-d H:i' }}</dd></div>
+                    <div><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Termin p&#322;atno&#347;ci{% else %}Payment due{% endif %}</dt><dd class="font-semibold">{{ manual_plan_order.payment_due_at|date:'Y-m-d H:i' }}</dd></div>
+                    <div><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Plan aktywny do{% else %}Plan active until{% endif %}</dt><dd class="font-semibold">{{ manual_plan_order.access_until|date:'Y-m-d H:i' }}</dd></div>
                 </dl>
             </div>
         {% endif %}
@@ -275,9 +284,9 @@
         </div>
         <p class="mt-3 font-mono text-[11px] text-[#353535]/40">
             {% if request.LANGUAGE_CODE == 'pl' %}
-                Basic, Plus i Pro są płatne rocznie przez Stripe. Pro Manual jest płatny przelewem w ciągu 14 dni. Basic kosztuje 100 PLN lub 25 EUR rocznie.
+                Basic, Plus i Pro s&#261; p&#322;atne rocznie przez Stripe. Pro Manual jest p&#322;atny przelewem w ci&#261;gu 12 dni. Basic kosztuje 100 PLN lub 25 EUR rocznie.
             {% else %}
-                Basic, Plus and Pro are annual Stripe subscriptions. Pro Manual is paid by bank transfer within 14 days. Basic costs 100 PLN or 25 EUR per year.
+                Basic, Plus and Pro are annual Stripe subscriptions. Pro Manual is paid by bank transfer within 12 days. Basic costs 100 PLN or 25 EUR per year.
             {% endif %}
         </p>
 

@@ -41,6 +41,10 @@ def navbar_account_context(request):
         and billing_subscription.current_period_end
         and billing_subscription.current_period_end > timezone.now()
     )
+    has_manual_plan = user.manual_plan_orders.filter(
+        status__in=["awaiting_payment", "paid"],
+        access_until__gt=timezone.now(),
+    ).exists()
 
     return {
         "navbar_show_account_badges": True,
@@ -52,5 +56,5 @@ def navbar_account_context(request):
         "navbar_plan_limits": USER_PLAN_ORGANIZATION_LIMITS,
         "navbar_active_notification_count": 0,
         "navbar_customer_notification_count": customer_notification_count,
-        "navbar_has_active_billing_subscription": has_active_billing_subscription,
+        "navbar_has_active_billing_subscription": has_active_billing_subscription or has_manual_plan,
     }

@@ -42,7 +42,12 @@ def process_event(event):
             notify_admin(title="Legacy upgrade payment needs review", message="Review the standalone upgrade payment in Stripe before granting access or refunding it.", category="payment", severity="urgent", reference_key=f"stripe:{event_id}:legacy-upgrade")
     elif event_type.startswith("customer.subscription."):
         sync_subscription_from_stripe(stripe.Subscription.retrieve(subscription_id))
-    elif event_type in {"invoice.paid", "invoice.payment_failed", "invoice.payment_action_required"}:
+    elif event_type in {
+        "invoice.paid",
+        "invoice.payment_succeeded",
+        "invoice.payment_failed",
+        "invoice.payment_action_required",
+    }:
         invoice = stripe.Invoice.retrieve(object_get(obj, "id"))
         record_invoice_payment(invoice)
     row.processed_at = timezone.now()
