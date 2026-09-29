@@ -15,6 +15,7 @@ class SentAiUserAdmin(UserAdmin):
                     "preferred_language",
                     "account_type",
                     "plan_tier",
+                    "plan_access_status",
                 )
             },
         ),
@@ -38,8 +39,10 @@ class SentAiUserAdmin(UserAdmin):
         "email",
         "account_type",
         "plan_tier",
+        "plan_access_status",
         "preferred_language",
         "is_staff",
         "is_superuser",
     )
+    readonly_fields = ("plan_access_status",)
     search_fields = ("username", "email", "company_name")

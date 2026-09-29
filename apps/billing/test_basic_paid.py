@@ -16,19 +16,6 @@ class PaidBasicTests(TestCase):
     def test_database_prices_do_not_require_environment_ids(self):
         self.assertEqual(get_active_plan_price("BASIC", "pln"), self.price)
 
-    def test_admin_can_set_custom_basic_price(self):
-        from apps.dashboard.forms import BillingPlanPriceForm
-        form = BillingPlanPriceForm(instance=self.price, data={
-            "tier": "BASIC", "amount": "80.00", "currency": "pln",
-            "interval": "year", "stripe_price_id": "price_basic_updated",
-            "active_for_new_customers": True,
-        })
-        self.assertTrue(form.is_valid(), form.errors)
-        form.save()
-        self.assertEqual(get_active_plan_price("BASIC", "pln").amount, 8000)
-        from .services import plan_price_label
-        self.assertEqual(plan_price_label("BASIC", currency="pln"), "80 PLN")
-
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
     def test_custom_basic_checkout_checks_database_amount_against_stripe(self):
         self.price.amount = 8000

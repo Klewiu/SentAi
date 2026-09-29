@@ -40,7 +40,10 @@ class BillingSecurityTests(TestCase):
         with patch("stripe.Subscription.retrieve", return_value=canceled):
             self.assertEqual(self.post_event(event).status_code, 200)
         self.user.refresh_from_db()
-        self.assertEqual(self.user.plan_tier, "BASIC")
+        self.assertEqual(self.user.plan_tier, "PRO")
+        self.assertEqual(self.user.plan_access_status, "EXPIRED")
+        from .access import has_publication_access
+        self.assertFalse(has_publication_access(self.user))
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
     def test_upgrade_uses_one_pending_subscription_invoice_and_reuses_it(self):
@@ -76,6 +79,29 @@ class BillingSecurityTests(TestCase):
         with self.assertRaises(ValueError):
             sync_subscription_from_stripe(self.subscription)
         self.assertFalse(BillingSubscription.objects.filter(user=self.user).exists())
+
+    def test_new_paid_subscription_reactivates_expired_account(self):
+        from .services import sync_subscription_from_stripe
+        org = Organization.objects.create(owner=self.user, name="Saved", slug="saved")
+        BillingSubscription.objects.create(
+            user=self.user,
+            tier="PRO",
+            stripe_customer_id="cus_audit",
+            stripe_subscription_id="sub_old",
+            status="canceled",
+            current_period_end=timezone.now() - timedelta(days=1),
+        )
+        self.user.plan_tier = "PRO"
+        self.user.plan_access_status = "EXPIRED"
+        self.user.save(update_fields=["plan_tier", "plan_access_status"])
+
+        billing = sync_subscription_from_stripe(self.subscription)
+
+        self.user.refresh_from_db()
+        self.assertEqual(billing.stripe_subscription_id, "sub_audit")
+        self.assertEqual(self.user.plan_tier, "PRO")
+        self.assertEqual(self.user.plan_access_status, "ACTIVE")
+        self.assertTrue(Organization.objects.filter(pk=org.pk).exists())
 
     def setUp(self):
         self.user = User.objects.create_user(username="audit", email="audit@example.com", password="test-password", plan_selected_at=timezone.now())
@@ -131,10 +157,10 @@ class BillingSecurityTests(TestCase):
         org = Organization.objects.create(owner=self.user, name="Audit", verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED)
         order = ManualPlanOrder.objects.create(user=self.user, amount=40000, currency="pln", payment_reference="audit", status="paid", payment_due_at=timezone.now()-timedelta(days=365), access_until=timezone.now()-timedelta(seconds=1))
         from .access import effective_tier
-        self.assertEqual(effective_tier(self.user), "BASIC")
+        self.assertEqual(effective_tier(self.user), "PRO")
         self.assertEqual(self.client.get(reverse("companies_api:public-company-md", args=[org.slug])).status_code, 404)
         order.status = "awaiting_payment"
         order.access_until = timezone.now()+timedelta(days=300)
         order.save()
-        self.assertEqual(effective_tier(self.user), "BASIC")
+        self.assertEqual(effective_tier(self.user), "PRO")
         self.assertEqual(self.client.get(reverse("companies_api:public-company-md", args=[org.slug])).status_code, 404)

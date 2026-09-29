@@ -181,6 +181,17 @@ class BillingSubscription(models.Model):
     def is_active_for_access(self) -> bool:
         return self.status in {BillingSubscriptionStatus.ACTIVE, BillingSubscriptionStatus.TRIALING} and bool(self.current_period_end and self.current_period_end > timezone.now())
 
+    @property
+    def blocks_new_purchase(self) -> bool:
+        """An ongoing Stripe subscription must be managed instead of duplicated."""
+        if self.status not in {
+            BillingSubscriptionStatus.ACTIVE,
+            BillingSubscriptionStatus.TRIALING,
+            BillingSubscriptionStatus.PAST_DUE,
+        }:
+            return False
+        return self.current_period_end is None or self.current_period_end > timezone.now()
+
 
 class ManualPlanOrder(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="manual_plan_orders")

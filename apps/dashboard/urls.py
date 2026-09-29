@@ -1,7 +1,6 @@
 from django.urls import path
 
 from .views import (
-    BillingPriceSyncView,
     ClientChangeSellerView,
     ClientDetailView,
     ClientListView,
@@ -81,7 +80,6 @@ urlpatterns = [
     path("notifications/", AdminNotificationListView.as_view(), name="notifications"),
     path("notifications/<int:pk>/close/", AdminNotificationCloseView.as_view(), name="notification-close"),
     path("billing/prices/", BillingPriceManagementView.as_view(), name="billing-price-management"),
-    path("billing/prices/sync/", BillingPriceSyncView.as_view(), name="billing-price-sync"),
     path("billing/prices/<int:pk>/edit/", BillingPriceUpdateView.as_view(), name="billing-price-edit"),
     path("billing/prices/<int:pk>/activate/", BillingPriceActivateView.as_view(), name="billing-price-activate"),
     path("billing/prices/<int:pk>/archive/", BillingPriceArchiveView.as_view(), name="billing-price-archive"),

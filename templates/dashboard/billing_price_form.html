@@ -6,13 +6,13 @@
         <div>
             <span class="inline-flex items-center gap-1.5 rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">Price</span>
             <h1 class="mt-3 font-display text-3xl font-bold tracking-tight text-[#284b63]">
-                {% if request.LANGUAGE_CODE == 'pl' %}Edytuj cene planu{% else %}Edit Plan Price{% endif %}
+                {% if request.LANGUAGE_CODE == 'pl' %}Zastąp cenę planu{% else %}Replace Plan Price{% endif %}
             </h1>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">
                 {% if request.LANGUAGE_CODE == 'pl' %}
-                    Nowa kwota tworzy nowa cene w Stripe i zastepuje aktualna oferte. Obecne subskrypcje zachowuja dotychczasowa cene.
+                    Najpierw utwórz nową cenę w Stripe, a następnie wklej jej Price ID. Aplikacja pobierze kwotę i walutę ze Stripe. Obecne subskrypcje zachowają dotychczasową cenę.
                 {% else %}
-                    A new amount creates a new Stripe price and replaces the current offer. Existing subscriptions retain their previous price.
+                    First create a new price in Stripe, then paste its Price ID. The application retrieves the amount and currency from Stripe. Existing subscriptions retain their previous price.
                 {% endif %}
             </p>
         </div>
@@ -40,7 +40,7 @@
         {% endif %}
         <div class="md:col-span-2 xl:col-span-4">
             <button class="inline-flex min-h-10 items-center justify-center rounded bg-[#284b63] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]" type="submit">
-                {% if request.LANGUAGE_CODE == 'pl' %}Zapisz cene{% else %}Save price{% endif %}
+                {% if request.LANGUAGE_CODE == 'pl' %}Sprawdź i zastąp cenę{% else %}Verify and replace price{% endif %}
             </button>
         </div>
     </form>

@@ -39,6 +39,12 @@ class PublicLanguageTests(TestCase):
         Organization.objects.filter(pk=self.org.pk).update(
             verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED
         )
+        self.billing_subscription = BillingSubscription.objects.create(
+            user=user,
+            tier="PRO",
+            status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
+        )
 
     def page(self, interface_language, content_language=None):
         self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = interface_language
@@ -97,12 +103,8 @@ class PublicLanguageTests(TestCase):
         self.assertEqual(self.page("en", "xx").status_code, 404)
         self.org.owner.plan_tier = "BASIC"
         self.org.owner.save(update_fields=["plan_tier"])
-        BillingSubscription.objects.create(
-            user=self.org.owner,
-            tier="BASIC",
-            status="active",
-            current_period_end=timezone.now() + timedelta(days=365),
-        )
+        self.billing_subscription.tier = "BASIC"
+        self.billing_subscription.save(update_fields=["tier", "updated_at"])
         self.assertEqual(self.page("en", "pl").status_code, 404)
 
     def test_dashboard_lists_each_profile_language(self):
@@ -131,6 +133,8 @@ class PublicLanguageTests(TestCase):
             with self.subTest(tier=tier):
                 self.org.owner.plan_tier = tier
                 self.org.owner.save(update_fields=["plan_tier"])
+                self.billing_subscription.tier = tier
+                self.billing_subscription.save(update_fields=["tier", "updated_at"])
                 org = Organization.objects.select_related("owner").get(pk=self.org.pk)
                 self.assertEqual(len(profile_language_choices(org)), count)
 

@@ -59,6 +59,17 @@
                         <span class="inline-flex items-center rounded-full border border-[#d9d9d9] bg-[#f5f5f5] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/60">BASIC</span>
                     {% endif %}
                 </p>
+                <p class="mt-1">
+                    {% if client.plan_access_status == 'ACTIVE' %}
+                        <span class="inline-flex items-center rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-widest text-[#5ca197]">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Plan aktywny{% else %}Plan active{% endif %}
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-widest text-amber-700">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Brak aktywnego dost&#281;pu{% else %}No active access{% endif %}
+                        </span>
+                    {% endif %}
+                </p>
             </div>
             <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 space-y-0.5">
                 <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">

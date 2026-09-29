@@ -12,9 +12,9 @@
             </h1>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">
                 {% if request.LANGUAGE_CODE == 'pl' %}
-                    Nowa kwota tworzy nowa cene w Stripe dla nowych zakupow. Obecne subskrypcje zachowuja dotychczasowe ceny. Inne instalacje pobieraja zmiany przy synchronizacji.
+                    Utwórz cenę roczną w Stripe, a następnie wklej jej Price ID zaczynające się od <span class="font-mono">price_</span>. Kwota i waluta zostaną pobrane oraz sprawdzone automatycznie. Nie wpisuj Product ID zaczynającego się od <span class="font-mono">prod_</span>.
                 {% else %}
-                    Changing the amount creates a new Stripe price for new purchases. Existing subscriptions keep their prices. Other installations receive changes when synchronized.
+                    Create an annual price in Stripe, then paste its Price ID beginning with <span class="font-mono">price_</span>. Its amount and currency are retrieved and verified automatically. Do not enter a Product ID beginning with <span class="font-mono">prod_</span>.
                 {% endif %}
             </p>
         </div>
@@ -23,10 +23,6 @@
         </a>
     </div>
 
-    <form method="post" action="{% url 'dashboard:billing-price-sync' %}" class="mt-6">
-        {% csrf_token %}
-        <button type="submit" class="rounded bg-[#5ca197] px-4 py-3 font-semibold text-white">{% if request.LANGUAGE_CODE == 'pl' %}Synchronizuj ceny ze Stripe{% else %}Sync prices from Stripe{% endif %}</button>
-    </form>
     <form method="post" class="mt-6 grid gap-4 rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4 md:grid-cols-2 xl:grid-cols-4">
         {% csrf_token %}
         {% for field in form %}
@@ -46,7 +42,7 @@
         {% endif %}
         <div class="md:col-span-2 xl:col-span-4">
             <button class="inline-flex min-h-10 items-center justify-center rounded bg-[#284b63] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]" type="submit">
-                {% if request.LANGUAGE_CODE == 'pl' %}Dodaj cene{% else %}Add price{% endif %}
+                {% if request.LANGUAGE_CODE == 'pl' %}Sprawdź i dodaj cenę{% else %}Verify and add price{% endif %}
             </button>
         </div>
     </form>
@@ -84,10 +80,10 @@
                         </td>
                         <td class="px-4 py-3">
                             <div class="flex flex-wrap gap-2">
-                                <a class="inline-flex items-center rounded border border-[#d9d9d9] bg-white px-3 py-1.5 text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:billing-price-edit' price.pk %}">
-                                    {% if request.LANGUAGE_CODE == 'pl' %}Edytuj{% else %}Edit{% endif %}
-                                </a>
                                 {% if price.active_for_new_customers %}
+                                    <a class="inline-flex items-center rounded border border-[#d9d9d9] bg-white px-3 py-1.5 text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:billing-price-edit' price.pk %}">
+                                        {% if request.LANGUAGE_CODE == 'pl' %}Zastąp{% else %}Replace{% endif %}
+                                    </a>
                                     <form method="post" action="{% url 'dashboard:billing-price-archive' price.pk %}">
                                     {% csrf_token %}
                                         <button class="rounded border border-[#d9d9d9] bg-white px-3 py-1.5 text-[#353535]/60 transition hover:border-rose-400 hover:text-rose-500" type="submit">

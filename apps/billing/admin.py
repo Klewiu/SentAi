@@ -17,6 +17,16 @@ class BillingPlanPriceAdmin(admin.ModelAdmin):
     list_display = ("tier", "formatted_amount", "currency", "interval", "active_for_new_customers", "stripe_price_id")
     list_filter = ("tier", "active_for_new_customers", "currency", "interval")
     search_fields = ("stripe_price_id", "notes")
+    readonly_fields = (
+        "tier", "stripe_price_id", "amount", "currency", "interval",
+        "active_for_new_customers", "notes", "created_by", "created_at", "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(BillingSubscription)
