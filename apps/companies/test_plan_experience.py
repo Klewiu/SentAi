@@ -106,27 +106,63 @@ class PlanExperienceTests(TestCase):
         self.org.primary_language = "pl"
         self.org.content_languages = ["pl", "en"]
         self.org.save()
+        self.product.language = "pl"
         self.product.name = "Polski produkt"
         self.product.short_description_pl = "Polski opis produktu"
         self.product.save()
         form = OrganizationForm(instance=self.org, organization=self.org)
         sections = {row["code"]: row for row in form.language_sections}
         self.assertEqual(sections["pl"]["product_rows"][0]["name"], "Polski produkt")
-        self.assertEqual(sections["en"]["product_rows"][0]["name"], "")
-        self.assertEqual(sections["en"]["product_rows"][0]["description"], "")
+        self.assertEqual(sections["en"]["product_rows"], [])
 
-    def test_translated_product_names_and_descriptions_survive_save(self):
-        payload = self.payload(content_languages='["en", "pl"]', product_rows_en=json.dumps([{"name": "Garden design", "description": "English service", "url": ""}]), product_rows_pl=json.dumps([{"name": "Projekt ogrodu", "description": "Polska usluga", "url": ""}]))
+    def test_faq_editor_does_not_fill_missing_translation_from_another_language(self):
+        self.org.primary_language = "pl"
+        self.org.content_languages = ["pl", "de"]
+        self.org.save()
+        entry = ContentEntry.objects.create(
+            organization=self.org,
+            entry_type=EntryType.FAQ,
+            title="Polskie pytanie?",
+            questions_by_language={"pl": "Polskie pytanie?"},
+            answers_by_language={"pl": "Polska odpowiedź."},
+        )
+
+        form = OrganizationForm(instance=self.org, organization=self.org)
+
+        sections = {row["code"]: row for row in form.language_sections}
+        self.assertEqual(sections["pl"]["faq_rows"][0]["question"], "Polskie pytanie?")
+        self.assertEqual(sections["de"]["faq_rows"], [])
+
+    def test_products_and_urls_are_saved_independently_per_language(self):
+        payload = self.payload(
+            content_languages='["en", "pl"]',
+            product_rows_en=json.dumps([{
+                "id": self.product.pk,
+                "name": "Garden design",
+                "description": "English service",
+                "url": "https://example.com/en/garden",
+            }]),
+            product_rows_pl=json.dumps([{
+                "name": "Projekt ogrodu",
+                "description": "Polska usluga",
+                "url": "https://example.com/pl/ogrod",
+            }]),
+        )
         form = OrganizationForm(instance=self.org, organization=self.org, data=payload)
         self.assertTrue(form.is_valid(), form.errors)
         form.save()
         self.product.refresh_from_db()
-        self.assertEqual(self.product.localized_name("en"), "Garden design")
-        self.assertEqual(self.product.localized_name("pl"), "Projekt ogrodu")
-        self.assertEqual(self.product.translation_for_editor("pl")["description"], "Polska usluga")
+        polish_product = self.org.products.get(language="pl")
+        self.assertEqual(self.product.name, "Garden design")
+        self.assertEqual(self.product.language, "en")
+        self.assertEqual(self.product.product_url, "https://example.com/en/garden")
+        self.assertEqual(polish_product.name, "Projekt ogrodu")
+        self.assertEqual(polish_product.product_url, "https://example.com/pl/ogrod")
+        self.assertNotEqual(self.product.pk, polish_product.pk)
+        self.assertEqual(polish_product.translation_for_editor("pl")["description"], "Polska usluga")
         self.assertEqual(self.product.price_from, 120)
 
-    def test_customer_form_saves_multiple_multilingual_faqs(self):
+    def test_customer_form_saves_independent_faqs_per_language(self):
         english = [
             {"id": None, "question": "Where do you work?", "answer": "We serve Greater London.", "url": "https://example.com/area"},
             {"id": None, "question": "How do I order?", "answer": "Send us the project brief.", "url": ""},
@@ -148,13 +184,49 @@ class PlanExperienceTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         form.save()
 
-        entries = list(self.org.content_entries.filter(entry_type=EntryType.FAQ).order_by("-is_featured", "pk"))
-        self.assertEqual(len(entries), 2)
-        self.assertEqual(entries[0].localized_question("en"), "Where do you work?")
-        self.assertEqual(entries[0].localized_question("pl"), "Gdzie działacie?")
-        self.assertEqual(entries[0].localized_answer("pl"), "Obsługujemy cały Kraków.")
-        self.assertEqual(entries[0].content_url, "https://example.com/area")
-        self.assertTrue(entries[0].is_featured)
+        english_entries = list(self.org.content_entries.filter(entry_type=EntryType.FAQ, language="en"))
+        polish_entries = list(self.org.content_entries.filter(entry_type=EntryType.FAQ, language="pl"))
+        self.assertEqual(len(english_entries), 2)
+        self.assertEqual(len(polish_entries), 2)
+        english_by_question = {entry.localized_question("en"): entry for entry in english_entries}
+        polish_by_question = {entry.localized_question("pl"): entry for entry in polish_entries}
+        english_area = english_by_question["Where do you work?"]
+        polish_area = polish_by_question["Gdzie działacie?"]
+        self.assertNotEqual(english_area.pk, polish_area.pk)
+        self.assertEqual(english_area.localized_question("pl"), "")
+        self.assertEqual(polish_area.localized_question("en"), "")
+        self.assertEqual(english_area.localized_answer("en"), "We serve Greater London.")
+        self.assertEqual(polish_area.localized_answer("pl"), "Obsługujemy cały Kraków.")
+        self.assertEqual(english_area.content_url, "https://example.com/area")
+        self.assertEqual(polish_area.content_url, "https://example.com/area")
+        self.assertTrue(english_area.is_featured)
+        self.assertTrue(polish_area.is_featured)
+
+        english[0]["answer"] = "We serve London and nearby towns."
+        english[0]["url"] = "https://example.com/en/area"
+        updated_form = OrganizationForm(
+            instance=self.org,
+            organization=self.org,
+            data=self.payload(
+                content_languages='["en", "pl"]',
+                faq_rows_en=json.dumps([
+                    {**english[0], "id": english_area.pk},
+                    {**english[1], "id": english_by_question["How do I order?"].pk},
+                ]),
+                faq_rows_pl=json.dumps([
+                    {**polish[0], "id": polish_area.pk},
+                    {**polish[1], "id": polish_by_question["Jak zamówić?"].pk},
+                ]),
+            ),
+        )
+        self.assertTrue(updated_form.is_valid(), updated_form.errors)
+        updated_form.save()
+        english_area.refresh_from_db()
+        polish_area.refresh_from_db()
+        self.assertEqual(english_area.localized_answer("en"), "We serve London and nearby towns.")
+        self.assertEqual(english_area.content_url, "https://example.com/en/area")
+        self.assertEqual(polish_area.localized_answer("pl"), "Obsługujemy cały Kraków.")
+        self.assertEqual(polish_area.content_url, "https://example.com/area")
 
     def test_pro_form_accepts_five_faqs_and_rejects_six(self):
         rows = [

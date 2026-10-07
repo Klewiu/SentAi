@@ -104,7 +104,7 @@
                 </div>{% endif %}
                 {% if form.plan_features.products %}<div data-product-editor="{{ language.code }}"><label for="products-{{ language.code }}" class="block text-sm font-medium">{% if request.LANGUAGE_CODE == 'pl' %}Produkty i usługi{% else %}Products and services{% endif %}</label>
                     {% with data_id='product-data-'|add:language.code %}{{ language.product_rows|json_script:data_id }}{% endwith %}
-                    <p class="my-1 text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Limit {{ form.plan_features.products }}. Zachowaj tę samą kolejność produktów w tłumaczeniach. Brakujące tłumaczenia są puste; link do strony jest wspólny.{% else %}Up to {{ form.plan_features.products }}. Keep the same product order in your translations. Missing translations are empty; the website link is shared.{% endif %}</p>
+                    <p class="my-1 text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Limit {{ form.plan_features.products }} produktów w każdym języku. Produkty w różnych językach są niezależne — nazwa, opis i adres strony mogą się różnić. Dodanie lub usunięcie produktu dotyczy tylko tego języka.{% else %}Up to {{ form.plan_features.products }} products per language. Products in different languages are independent; names, descriptions and website URLs can differ. Adding or removing a product affects only that language.{% endif %}</p>
                     <textarea id="products-{{ language.code }}" name="products_{{ language.code }}" rows="4" data-product-source>{{ language.products }}</textarea>
                     <p data-product-fallback class="text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Jeden produkt w wierszu: nazwa | opis | adres strony.{% else %}One product per line: name | description | website URL.{% endif %}</p>
                 </div>{% endif %}
@@ -133,7 +133,7 @@
                         <h3 class="font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}FAQ — {{ language.label }}{% else %}FAQ — {{ language.label }}{% endif %}</h3>
                         <span class="rounded-full bg-white px-3 py-1 font-mono text-xs text-[#387f77]" data-faq-count>0 / {{ form.plan_features.content_entries }}</span>
                     </div>
-                    <p class="mt-1 text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Pytania i odpowiedzi w tym języku. Pytanie oraz odpowiedź są wymagane w głównym języku profilu.{% else %}Questions and answers in this language. Both fields are required in the main profile language.{% endif %}</p>
+                    <p class="mt-1 text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}FAQ w każdym języku są osobnymi wpisami. Zmiany w tej sekcji nie wpływają na FAQ w innych językach.{% else %}FAQs in each language are separate entries. Changes in this section do not affect FAQs in other languages.{% endif %}</p>
                     {% with data_id='faq-data-'|add:language.code %}{{ language.faq_rows|json_script:data_id }}{% endwith %}
                     <div class="mt-4 space-y-3" data-faq-rows></div>
                     <input type="hidden" name="faq_rows_{{ language.code }}" data-faq-source>
@@ -188,7 +188,7 @@
             section.hidden = !enabled || section.dataset.language !== editorLanguage.value;
             // Hidden enabled translations must still be submitted to preserve their content.
             section.disabled = !enabled;
-            section.querySelectorAll('input[data-key="name"]').forEach(input => { input.required = section.dataset.language === primary.value; });
+            section.querySelectorAll('input[data-key="name"]').forEach(input => { input.required = section.dataset.language === editorLanguage.value; });
         });
         faqSections.forEach(section => {
             const enabled = selected.includes(section.dataset.faqLanguage);
@@ -221,7 +221,9 @@
         const update = () => { input.nextElementSibling.textContent = `${input.value.length} / ${input.maxLength}`; };
         input.addEventListener('input', update); update();
     });
-    form.querySelectorAll('[data-product-editor]').forEach(editor => {
+    const productEditors = [...form.querySelectorAll('[data-product-editor]')];
+    const productEditorStates = [];
+    productEditors.forEach(editor => {
         const source = editor.querySelector('[data-product-source]');
         const rows = document.createElement('div');
         rows.className = 'space-y-3 mt-3';
@@ -234,7 +236,10 @@
         add.textContent = polish ? 'Dodaj produkt lub usługę' : 'Add a product or service';
         const maximum = {{ form.plan_features.products }};
         function sync() {
-            const values = [...rows.children].map(row => Object.fromEntries([...row.querySelectorAll('input')].map(input => [input.dataset.key, input.value])));
+            const values = [...rows.children].map(row => ({
+                id: row.dataset.productId || null,
+                ...Object.fromEntries([...row.querySelectorAll('input')].map(input => [input.dataset.key, input.value])),
+            }));
             serialized.value = JSON.stringify(values);
             source.value = values.map(row => `${row.name} | ${row.description} | ${row.url}`).join('\n');
             add.disabled = rows.children.length >= maximum;
@@ -242,6 +247,7 @@
         function append(value = {}) {
             const row = document.createElement('fieldset');
             row.className = 'rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2';
+            row.dataset.productId = value.id || '';
             const legend = document.createElement('legend');
             legend.textContent = polish ? 'Produkt lub usługa' : 'Product or service';
             row.append(legend);
@@ -255,7 +261,7 @@
                 input.dataset.key = key;
                 input.value = value[key] || '';
                 input.maxLength = key === 'name' ? 255 : key === 'description' ? 280 : 200;
-                input.required = key === 'name' && editor.dataset.productEditor === primary.value;
+                input.required = key === 'name' && editor.dataset.productEditor === editorLanguage.value;
                 input.placeholder = key === 'name' ? (polish ? 'np. Projekt ogrodu' : 'e.g. Garden design') : key === 'description' ? (polish ? 'Co obejmuje ta usługa lub produkt?' : 'What does this product or service include?') : '';
                 if (key === 'url') { input.inputMode = 'url'; input.placeholder = 'https://example.com/product'; }
                 input.addEventListener('input', sync);
@@ -264,7 +270,11 @@
             const remove = document.createElement('button');
             remove.type = 'button'; remove.className = 'text-sm text-rose-700 underline';
             remove.textContent = polish ? 'Usuń produkt' : 'Remove product';
-            remove.addEventListener('click', () => { row.remove(); sync(); form.dispatchEvent(new Event('input', {bubbles: true})); });
+            remove.addEventListener('click', () => {
+                row.remove();
+                sync();
+                form.dispatchEvent(new Event('input', {bubbles: true}));
+            });
             row.append(remove); rows.append(row); sync();
             return row;
         }
@@ -279,13 +289,20 @@
                 append({name, description, url});
             });
         }
-        add.addEventListener('click', () => {
-            if (rows.children.length < maximum) { append().querySelector('input').focus(); form.dispatchEvent(new Event('input', {bubbles: true})); }
-        });
         editor.append(rows, serialized, add);
         source.hidden = true;
         editor.querySelector('[data-product-fallback]').hidden = true;
         sync();
+        productEditorStates.push({code: editor.dataset.productEditor, editor, rows, append, sync, add, maximum});
+    });
+    productEditors.forEach(editor => {
+        const state = productEditorStates.find(item => item.editor === editor);
+        state.add.addEventListener('click', () => {
+            if (state.rows.children.length >= state.maximum) return;
+            const addedRow = state.append();
+            addedRow.querySelector('input')?.focus();
+            form.dispatchEvent(new Event('input', {bubbles: true}));
+        });
     });
     const faqEditors = faqSections.map(section => ({
         section,
@@ -337,14 +354,6 @@
             input.className = 'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-[#5ca197] focus:outline-none focus:ring-2 focus:ring-[#5ca197]/20';
             input.required = key !== 'url' && editor.section.dataset.faqLanguage === primary.value;
             input.addEventListener('input', () => {
-                if (key === 'url') {
-                    const index = [...editor.rows.children].indexOf(row);
-                    faqEditors.forEach(other => {
-                        if (other !== editor && other.rows.children[index]) {
-                            other.rows.children[index].querySelector('[data-faq-key="url"]').value = input.value;
-                        }
-                    });
-                }
                 syncFaqs();
             });
             label.append(input);
@@ -363,14 +372,13 @@
         row.append(controls);
         return row;
     }
-    function appendFaq(values = {}) {
-        faqEditors.forEach(editor => editor.rows.append(faqRow(editor, values[editor.section.dataset.faqLanguage] || {})));
+    function appendFaq(editor, values = {}) {
+        editor.rows.append(faqRow(editor, values));
         syncFaqs();
     }
     function removeFaq(row) {
         const editor = faqEditors.find(item => item.rows.contains(row));
-        const index = [...editor.rows.children].indexOf(row);
-        faqEditors.forEach(item => item.rows.children[index]?.remove());
+        row.remove();
         syncFaqs();
     }
     function moveFaq(row, direction) {
@@ -378,24 +386,20 @@
         const index = [...editor.rows.children].indexOf(row);
         const target = index + direction;
         if (target < 0 || target >= editor.rows.children.length) return;
-        faqEditors.forEach(item => {
-            const moving = item.rows.children[index];
-            const reference = direction < 0 ? item.rows.children[target] : item.rows.children[target].nextSibling;
-            item.rows.insertBefore(moving, reference);
-        });
+        const reference = direction < 0 ? editor.rows.children[target] : editor.rows.children[target].nextSibling;
+        editor.rows.insertBefore(row, reference);
         syncFaqs();
     }
-    const initialFaqCount = Math.max(0, ...faqEditors.map(editor => Array.isArray(editor.initial) ? editor.initial.length : 0));
-    for (let index = 0; index < initialFaqCount; index += 1) {
-        const values = {};
-        faqEditors.forEach(editor => { values[editor.section.dataset.faqLanguage] = editor.initial[index] || {}; });
-        appendFaq(values);
-    }
-    faqEditors.forEach(editor => editor.add.addEventListener('click', () => {
-        if (editor.rows.children.length >= faqMaximum) return;
-        appendFaq();
-        editor.rows.lastElementChild.querySelector('[data-faq-key="question"]').focus();
-    }));
+    faqEditors.forEach(editor => {
+        if (Array.isArray(editor.initial)) {
+            editor.initial.filter(value => value && typeof value === 'object').forEach(value => appendFaq(editor, value));
+        }
+        editor.add.addEventListener('click', () => {
+            if (editor.rows.children.length >= faqMaximum) return;
+            appendFaq(editor);
+            editor.rows.lastElementChild.querySelector('[data-faq-key="question"]').focus();
+        });
+    });
     syncFaqs();
     function updateReadiness() {
         const selected = choices.filter(choice => choice.checked);

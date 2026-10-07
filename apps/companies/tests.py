@@ -230,7 +230,7 @@ class CompanyApiTests(TestCase):
         self.assertEqual(fourth_response.status_code, 400)
         self.assertIn("plan", fourth_response.json())
 
-    def test_product_api_accepts_enabled_translations_and_returns_stable_public_id(self):
+    def test_product_api_stores_each_language_as_an_independent_product(self):
         self.user.plan_tier = UserPlanTier.PRO
         self.user.save(update_fields=["plan_tier"])
         organization = self.create_organization(
@@ -246,15 +246,82 @@ class CompanyApiTests(TestCase):
         response = self.api_client.post(
             f"/api/organizations/{organization.id}/products/",
             {
+                "language": "en",
                 "name": "Service",
-                "names_by_language": {"en": "Service", "pl": "Usługa"},
-                "descriptions_by_language": {"en": "English details", "pl": "Polskie szczegóły"},
+                "names_by_language": {"en": "Service"},
+                "descriptions_by_language": {"en": "English details"},
+                "product_url": "https://example.com/en/service",
             },
             format="json",
         )
         self.assertEqual(response.status_code, 201, response.content)
         self.assertTrue(response.json()["public_id"])
-        self.assertEqual(response.json()["names_by_language"]["pl"], "Usługa")
+        self.assertEqual(response.json()["language"], "en")
+        self.assertEqual(response.json()["product_url"], "https://example.com/en/service")
+        polish_response = self.api_client.post(
+            f"/api/organizations/{organization.id}/products/",
+            {
+                "language": "pl",
+                "name": "Usługa",
+                "names_by_language": {"pl": "Usługa"},
+                "descriptions_by_language": {"pl": "Polskie szczegóły"},
+                "product_url": "https://example.com/pl/usluga",
+            },
+            format="json",
+        )
+        self.assertEqual(polish_response.status_code, 201, polish_response.content)
+        self.assertNotEqual(response.json()["id"], polish_response.json()["id"])
+        self.assertEqual(polish_response.json()["product_url"], "https://example.com/pl/usluga")
+
+    def test_faq_api_stores_each_language_as_an_independent_entry(self):
+        self.user.plan_tier = UserPlanTier.PRO
+        self.user.save(update_fields=["plan_tier"])
+        organization = self.create_organization(
+            slug="localized-faq-api",
+            primary_language="en",
+            content_languages=["en", "pl"],
+            descriptions_by_language={
+                "en": {"short": "English profile"},
+                "pl": {"short": "Polski profil"},
+            },
+        )
+        self.api_client.force_authenticate(self.user)
+        english_response = self.api_client.post(
+            f"/api/organizations/{organization.id}/entries/",
+            {
+                "entry_type": "faq",
+                "language": "en",
+                "title": "Do you serve London?",
+                "questions_by_language": {"en": "Do you serve London?"},
+                "answers_by_language": {"en": "Yes, across Greater London."},
+            },
+            format="json",
+        )
+        polish_response = self.api_client.post(
+            f"/api/organizations/{organization.id}/entries/",
+            {
+                "entry_type": "faq",
+                "language": "pl",
+                "title": "Czy obsługujecie Kraków?",
+                "questions_by_language": {"pl": "Czy obsługujecie Kraków?"},
+                "answers_by_language": {"pl": "Tak, działamy w Krakowie."},
+            },
+            format="json",
+        )
+
+        self.assertEqual(english_response.status_code, 201, english_response.content)
+        self.assertEqual(polish_response.status_code, 201, polish_response.content)
+        self.assertNotEqual(english_response.json()["id"], polish_response.json()["id"])
+        self.assertEqual(english_response.json()["language"], "en")
+        self.assertEqual(polish_response.json()["language"], "pl")
+        self.assertEqual(
+            set(english_response.json()["questions_by_language"]),
+            {"en"},
+        )
+        self.assertEqual(
+            set(polish_response.json()["questions_by_language"]),
+            {"pl"},
+        )
 
     def test_organization_api_accepts_supported_description_maps(self):
         self.user.plan_tier = UserPlanTier.PLUS
@@ -385,4 +452,3 @@ class OrganizationFormLocalizationTests(TestCase):
         organization = form.save()
 
         self.assertEqual(organization.primary_language, "es")
-

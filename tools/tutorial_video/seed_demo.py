@@ -161,17 +161,20 @@ def run():
         ),
     ]
     for index, (questions, answers) in enumerate(faqs):
-        ContentEntry.objects.create(
-            organization=organization,
-            entry_type="faq",
-            title=questions["pl"],
-            questions_by_language=questions,
-            answers_by_language=answers,
-            summary_pl=answers["pl"],
-            summary_en=answers["en"],
-            content_url="https://greenwise.example/faq",
-            is_featured=index == 0,
-        )
+        for language, question in questions.items():
+            answer = answers[language]
+            ContentEntry.objects.create(
+                organization=organization,
+                entry_type="faq",
+                language=language,
+                title=question,
+                questions_by_language={language: question},
+                answers_by_language={language: answer},
+                summary_pl=answer[:280] if language == "pl" else "",
+                summary_en=answer[:280] if language == "en" else "",
+                content_url="https://greenwise.example/faq",
+                is_featured=index == 0,
+            )
 
     print(f"DEMO_USER={user.username}")
     print(f"DEMO_PASSWORD={DEMO_PASSWORD}")

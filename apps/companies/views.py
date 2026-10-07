@@ -49,12 +49,12 @@ from .services import (
 
 
 PROFILE_COPY = {
-    "en": {"profile_suffix": "company profile", "companies": "companies", "profile_language": "Profile language", "company_facts": "Company facts", "type": "type", "language": "language", "location": "location", "verification": "verification", "last_updated": "last updated", "website": "website", "products": "Products and services", "price_from": "from", "source": "source", "content": "FAQs and company content", "topics": "Specialties", "formats": "AI-ready formats", "formats_intro": "These formats help AI systems, search engines and digital assistants recognize your company and use its information more accurately.", "social": "Social profiles", "verified": "Verified by an administrator"},
-    "pl": {"profile_suffix": "profil firmy", "companies": "firmy", "profile_language": "Język profilu", "company_facts": "Informacje o firmie", "type": "typ", "language": "język", "location": "lokalizacja", "verification": "weryfikacja", "last_updated": "ostatnia aktualizacja", "website": "strona internetowa", "products": "Produkty i usługi", "price_from": "od", "source": "źródło", "content": "FAQ i materiały firmy", "topics": "Specjalizacje", "formats": "Formaty gotowe dla AI", "formats_intro": "Dzięki tym formatom systemy AI, wyszukiwarki i cyfrowi asystenci mogą łatwiej rozpoznać Twoją firmę i poprawnie korzystać z jej informacji.", "social": "Profile społecznościowe", "verified": "Zweryfikowano przez administratora"},
-    "de": {"profile_suffix": "Unternehmensprofil", "companies": "Unternehmen", "profile_language": "Profilsprache", "company_facts": "Unternehmensdaten", "type": "Typ", "language": "Sprache", "location": "Standort", "verification": "Verifizierung", "last_updated": "zuletzt aktualisiert", "website": "Website", "products": "Produkte und Dienstleistungen", "price_from": "ab", "source": "Quelle", "content": "FAQ und Unternehmensinhalte", "topics": "Fachgebiete", "formats": "Maschinenlesbare Formate", "social": "Soziale Profile", "verified": "Durch einen Administrator verifiziert"},
-    "es": {"profile_suffix": "perfil de empresa", "companies": "empresas", "profile_language": "Idioma del perfil", "company_facts": "Datos de la empresa", "type": "tipo", "language": "idioma", "location": "ubicación", "verification": "verificación", "last_updated": "última actualización", "website": "sitio web", "products": "Productos y servicios", "price_from": "desde", "source": "fuente", "content": "Preguntas frecuentes y contenido", "topics": "Especialidades", "formats": "Formatos legibles por máquina", "social": "Perfiles sociales", "verified": "Verificado por un administrador"},
-    "it": {"profile_suffix": "profilo aziendale", "companies": "aziende", "profile_language": "Lingua del profilo", "company_facts": "Dati aziendali", "type": "tipo", "language": "lingua", "location": "sede", "verification": "verifica", "last_updated": "ultimo aggiornamento", "website": "sito web", "products": "Prodotti e servizi", "price_from": "da", "source": "fonte", "content": "FAQ e contenuti aziendali", "topics": "Specializzazioni", "formats": "Formati leggibili dalle macchine", "social": "Profili social", "verified": "Verificato da un amministratore"},
-    "fr": {"profile_suffix": "profil d’entreprise", "companies": "entreprises", "profile_language": "Langue du profil", "company_facts": "Informations sur l’entreprise", "type": "type", "language": "langue", "location": "localisation", "verification": "vérification", "last_updated": "dernière mise à jour", "website": "site web", "products": "Produits et services", "price_from": "à partir de", "source": "source", "content": "FAQ et contenus de l’entreprise", "topics": "Spécialités", "formats": "Formats lisibles par machine", "social": "Profils sociaux", "verified": "Vérifié par un administrateur"},
+    "en": {"profile_suffix": "company profile", "companies": "companies", "profile_language": "Profile language", "company_facts": "Company facts", "type": "type", "language": "language", "location": "location", "verification": "verification", "last_updated": "last updated", "website": "website", "products": "Products and services", "price_from": "from", "source": "source", "content": "FAQs and company content", "topics": "Specialties", "formats": "AI-ready formats", "service_status": "SERVICE ACTIVE", "formats_intro": "Xoaila hosts specially prepared files in these formats so AI systems, search engines and digital assistants can recognize your company and use its information more accurately.", "social": "Social profiles", "verified": "Verified by an administrator"},
+    "pl": {"profile_suffix": "profil firmy", "companies": "firmy", "profile_language": "Język profilu", "company_facts": "Informacje o firmie", "type": "typ", "language": "język", "location": "lokalizacja", "verification": "weryfikacja", "last_updated": "ostatnia aktualizacja", "website": "strona internetowa", "products": "Produkty i usługi", "price_from": "od", "source": "źródło", "content": "FAQ i materiały firmy", "topics": "Specjalizacje", "formats": "Formaty gotowe dla AI", "service_status": "USŁUGA DZIAŁA", "formats_intro": "Xoaila hostuje specjalnie przygotowane pliki w tych formatach, dzięki którym systemy AI, wyszukiwarki i cyfrowi asystenci mogą łatwiej rozpoznać Twoją firmę i poprawnie korzystać z jej informacji.", "social": "Profile społecznościowe", "verified": "Zweryfikowano przez administratora"},
+    "de": {"profile_suffix": "Unternehmensprofil", "companies": "Unternehmen", "profile_language": "Profilsprache", "company_facts": "Unternehmensdaten", "type": "Typ", "language": "Sprache", "location": "Standort", "verification": "Verifizierung", "last_updated": "zuletzt aktualisiert", "website": "Website", "products": "Produkte und Dienstleistungen", "price_from": "ab", "source": "Quelle", "content": "FAQ und Unternehmensinhalte", "topics": "Fachgebiete", "formats": "Maschinenlesbare Formate", "service_status": "DIENST AKTIV", "formats_intro": "Xoaila hostet speziell vorbereitete Dateien in diesen Formaten, damit KI-Systeme, Suchmaschinen und digitale Assistenten Ihr Unternehmen leichter erkennen und seine Informationen genauer nutzen können.", "social": "Soziale Profile", "verified": "Durch einen Administrator verifiziert"},
+    "es": {"profile_suffix": "perfil de empresa", "companies": "empresas", "profile_language": "Idioma del perfil", "company_facts": "Datos de la empresa", "type": "tipo", "language": "idioma", "location": "ubicación", "verification": "verificación", "last_updated": "última actualización", "website": "sitio web", "products": "Productos y servicios", "price_from": "desde", "source": "fuente", "content": "Preguntas frecuentes y contenido", "topics": "Especialidades", "formats": "Formatos legibles por máquina", "service_status": "SERVICIO ACTIVO", "formats_intro": "Xoaila aloja archivos especialmente preparados en estos formatos para que los sistemas de IA, los buscadores y los asistentes digitales reconozcan mejor tu empresa y utilicen su información con mayor precisión.", "social": "Perfiles sociales", "verified": "Verificado por un administrador"},
+    "it": {"profile_suffix": "profilo aziendale", "companies": "aziende", "profile_language": "Lingua del profilo", "company_facts": "Dati aziendali", "type": "tipo", "language": "lingua", "location": "sede", "verification": "verifica", "last_updated": "ultimo aggiornamento", "website": "sito web", "products": "Prodotti e servizi", "price_from": "da", "source": "fonte", "content": "FAQ e contenuti aziendali", "topics": "Specializzazioni", "formats": "Formati leggibili dalle macchine", "service_status": "SERVIZIO ATTIVO", "formats_intro": "Xoaila ospita file appositamente preparati in questi formati, così i sistemi di IA, i motori di ricerca e gli assistenti digitali possono riconoscere meglio la tua azienda e utilizzare le sue informazioni con maggiore precisione.", "social": "Profili social", "verified": "Verificato da un amministratore"},
+    "fr": {"profile_suffix": "profil d’entreprise", "companies": "entreprises", "profile_language": "Langue du profil", "company_facts": "Informations sur l’entreprise", "type": "type", "language": "langue", "location": "localisation", "verification": "vérification", "last_updated": "dernière mise à jour", "website": "site web", "products": "Produits et services", "price_from": "à partir de", "source": "source", "content": "FAQ et contenus de l’entreprise", "topics": "Spécialités", "formats": "Formats lisibles par machine", "service_status": "SERVICE ACTIF", "formats_intro": "Xoaila héberge des fichiers spécialement préparés dans ces formats afin que les systèmes d’IA, les moteurs de recherche et les assistants numériques reconnaissent mieux votre entreprise et utilisent ses informations avec plus de précision.", "social": "Profils sociaux", "verified": "Vérifié par un administrateur"},
 }
 
 COMPANY_TYPE_COPY = {
@@ -301,10 +301,19 @@ class PublicOrganizationMixin:
                 raise Http404()
         return language_code
 
-    def add_language_headers(self, response, organization, language_code, format_key):
+    def add_language_headers(
+        self,
+        response,
+        organization,
+        language_code,
+        format_key,
+        *,
+        content_language=True,
+    ):
         if not language_code:
             return response
-        response["Content-Language"] = language_code
+        if content_language:
+            response["Content-Language"] = language_code
         alternates = []
         for item in profile_language_choices(organization):
             url = public_feed_urls(organization, self.request, item["code"])[format_key]
@@ -416,11 +425,15 @@ class PublicCompanyDetailPageView(TemplateView):
         context["short_description"] = selected_description.get("short", "")
         context["long_description"] = selected_description.get("long", "")
         context["products"] = [
-            product for product in public_resources(organization, "products")
+            product for product in public_resources(organization, "products", language_code=content_language)
             if product.translation_in(content_language)
         ]
         context["entries"] = [
-            entry for entry in public_resources(organization, "content_entries")
+            entry for entry in public_resources(
+                organization,
+                "content_entries",
+                language_code=content_language,
+            )
             if entry.translation_in(content_language)
         ]
         for product in context["products"]:
@@ -468,49 +481,76 @@ class PublicCompanyJsonView(PublicOrganizationMixin, APIView):
 class PublicCompanyJsonLdView(PublicOrganizationMixin, APIView):
     @extend_schema(
         operation_id="public_company_jsonld_retrieve",
-        description="Return Schema.org JSON-LD in the company's primary published language.",
+        description="Return the multilingual Schema.org master feed, or one requested language.",
         responses=OpenApiTypes.OBJECT,
     )
     def get(self, request, *args, **kwargs):
         organization = self.get_organization()
         if not organization.get_subscription().supports("advanced_formats"):
             raise Http404()
-        language_code = self.get_public_language(organization, default_to_primary=True)
-        response = Response(build_jsonld_feed(organization, request, language_code), content_type="application/ld+json")
-        return self.add_language_headers(response, organization, language_code, "company_jsonld")
+        response_language = self.get_public_language(organization, default_to_primary=True)
+        feed_language = self.kwargs.get("language_code")
+        response = Response(
+            build_jsonld_feed(organization, request, feed_language),
+            content_type="application/ld+json",
+        )
+        return self.add_language_headers(
+            response,
+            organization,
+            response_language,
+            "company_jsonld",
+            content_language=feed_language is not None,
+        )
 
 
 class PublicLLMsTextView(PublicOrganizationMixin, APIView):
     @extend_schema(
         operation_id="public_company_llms_retrieve",
-        description="Return the llms.txt profile in the company's primary published language.",
+        description="Return the multilingual llms.txt master feed, or one requested language.",
         responses=OpenApiTypes.STR,
     )
     def get(self, request, *args, **kwargs):
         organization = self.get_organization()
         if not organization.get_subscription().supports("llms_txt"):
             raise Http404()
-        language_code = self.get_public_language(organization, default_to_primary=True)
-        response = HttpResponse(build_llms_text(organization, request, language_code), content_type="text/plain; charset=utf-8")
-        return self.add_language_headers(response, organization, language_code, "llms_txt")
+        response_language = self.get_public_language(organization, default_to_primary=True)
+        feed_language = self.kwargs.get("language_code")
+        response = HttpResponse(
+            build_llms_text(organization, request, feed_language),
+            content_type="text/plain; charset=utf-8",
+        )
+        return self.add_language_headers(
+            response,
+            organization,
+            response_language,
+            "llms_txt",
+            content_language=feed_language is not None,
+        )
 
 
 class PublicCompanyMarkdownView(PublicOrganizationMixin, APIView):
     @extend_schema(
         operation_id="public_company_markdown_retrieve",
-        description="Return Markdown in the company's primary published language.",
+        description="Return the multilingual Markdown master feed, or one requested language.",
         responses=OpenApiTypes.STR,
     )
     def get(self, request, *args, **kwargs):
         organization = self.get_organization()
         if not organization.get_subscription().supports("company_md"):
             raise Http404()
-        language_code = self.get_public_language(organization, default_to_primary=True)
+        response_language = self.get_public_language(organization, default_to_primary=True)
+        feed_language = self.kwargs.get("language_code")
         response = HttpResponse(
-            build_markdown_feed(organization, request, language_code),
+            build_markdown_feed(organization, request, feed_language),
             content_type="text/markdown; charset=utf-8",
         )
-        return self.add_language_headers(response, organization, language_code, "company_md")
+        return self.add_language_headers(
+            response,
+            organization,
+            response_language,
+            "company_md",
+            content_language=feed_language is not None,
+        )
 
 
 class PublicCompanyLocalizedJsonView(PublicCompanyJsonView):

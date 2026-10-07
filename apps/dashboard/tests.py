@@ -423,6 +423,26 @@ class DashboardPlanLimitTests(TestCase):
         self.assertContains(response, "Add another company page")
         self.assertNotContains(response, "+ Add company page")
 
+    def test_verified_published_company_shows_active_service_badge(self):
+        self.user.plan_selected_at = timezone.now()
+        self.user.save(update_fields=["plan_selected_at"])
+        BillingSubscription.objects.create(
+            user=self.user,
+            tier=UserPlanTier.BASIC,
+            status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
+        )
+        organization = Organization.objects.create(owner=self.user, name="Verified company")
+        Organization.objects.filter(pk=organization.pk).update(
+            verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED
+        )
+
+        response = self.client.get(reverse("dashboard:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Verified company")
+        self.assertContains(response, "SERVICE ACTIVE")
+
     def test_add_company_button_hidden_when_basic_limit_reached(self):
         Organization.objects.create(
             owner=self.user,

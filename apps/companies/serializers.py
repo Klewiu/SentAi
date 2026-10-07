@@ -143,6 +143,24 @@ class PlanLimitedModelSerializer(serializers.ModelSerializer):
             )
 
         if self.instance is None and getattr(organization, self.related_name).count() >= limit:
+            if self.related_name == "products":
+                language = attrs.get("language", organization.primary_language)
+                count = organization.products.filter(language=language).count()
+                if count < limit:
+                    return attrs
+            if self.related_name == "content_entries" and attrs.get(
+                "entry_type", "update"
+            ) == "faq":
+                language = attrs.get("language", organization.primary_language)
+                count = (
+                    organization.content_entries.exclude(entry_type="faq").count()
+                    + organization.content_entries.filter(
+                        entry_type="faq",
+                        language=language,
+                    ).count()
+                )
+                if count < limit:
+                    return attrs
             raise serializers.ValidationError(
                 {"plan": f"The {subscription.tier} plan allows up to {limit} {self.resource_label}."}
             )
@@ -183,24 +201,41 @@ class ProductSerializer(PlanLimitedModelSerializer):
         allowed_languages = {
             item["code"] for item in profile_language_choices(self.context["organization"])
         }
+        language = attrs.get("language", self.instance.language if self.instance else self.context["organization"].primary_language)
+        if language not in allowed_languages:
+            raise serializers.ValidationError({"language": "Choose a language enabled for this company profile."})
+        attrs["language"] = language
         if "names_by_language" in attrs:
             attrs["names_by_language"] = clean_text_map(
-                attrs["names_by_language"], "names_by_language", 255, allowed_languages
+                attrs["names_by_language"], "names_by_language", 255, {language}
             )
         if "descriptions_by_language" in attrs:
             attrs["descriptions_by_language"] = clean_text_map(
                 attrs["descriptions_by_language"],
                 "descriptions_by_language",
                 280,
-                allowed_languages,
+                {language},
             )
         descriptions = dict(self.instance.descriptions_by_language or {}) if self.instance else {}
-        descriptions.update(attrs.get("descriptions_by_language", {}))
+        if "descriptions_by_language" in attrs:
+            descriptions = attrs["descriptions_by_language"]
         for code in ("en", "pl"):
             field = f"short_description_{code}"
-            if field in attrs:
+            if code != language and attrs.get(field):
+                raise serializers.ValidationError({field: "A product may only contain a description in its own language."})
+            if code == language and field in attrs:
                 descriptions[code] = attrs[field]
-        attrs["descriptions_by_language"] = descriptions
+        attrs["descriptions_by_language"] = {
+            language: descriptions[language]
+        } if descriptions.get(language) else {}
+        attrs["names_by_language"] = (
+            {language: attrs["names_by_language"][language]}
+            if attrs.get("names_by_language", {}).get(language)
+            else {}
+        )
+        for code in ("en", "pl"):
+            if code != language:
+                attrs[f"short_description_{code}"] = ""
         return attrs
 
     class Meta:
@@ -209,6 +244,7 @@ class ProductSerializer(PlanLimitedModelSerializer):
             "id",
             "public_id",
             "organization",
+            "language",
             "name",
             "names_by_language",
             "descriptions_by_language",
@@ -234,22 +270,51 @@ class ContentEntrySerializer(PlanLimitedModelSerializer):
         allowed_languages = {
             item["code"] for item in profile_language_choices(self.context["organization"])
         }
+        entry_type = attrs.get("entry_type", self.instance.entry_type if self.instance else "update")
+        language = attrs.get(
+            "language",
+            self.instance.language if self.instance else self.context["organization"].primary_language,
+        )
+        if entry_type == "faq":
+            if language not in allowed_languages:
+                raise serializers.ValidationError(
+                    {"language": "Choose a language enabled for this company profile."}
+                )
+            attrs["language"] = language
+        map_languages = {language} if entry_type == "faq" else allowed_languages
         for field_name, maximum in (("questions_by_language", 255), ("answers_by_language", 2000)):
             if field_name not in attrs:
                 continue
             attrs[field_name] = clean_text_map(
-                attrs[field_name], field_name, maximum, allowed_languages
+                attrs[field_name], field_name, maximum, map_languages
             )
 
-        if attrs.get("entry_type", getattr(self.instance, "entry_type", None)) == "faq" and (
-            "questions_by_language" in attrs or "answers_by_language" in attrs
-        ):
-            questions = attrs.get("questions_by_language", getattr(self.instance, "questions_by_language", {}))
-            answers = attrs.get("answers_by_language", getattr(self.instance, "answers_by_language", {}))
-            if set(questions) != set(answers):
+        if entry_type == "faq":
+            questions = attrs.get(
+                "questions_by_language",
+                self.instance.questions_by_language if self.instance else {},
+            )
+            answers = attrs.get(
+                "answers_by_language",
+                self.instance.answers_by_language if self.instance else {},
+            )
+            question = questions.get(language) or attrs.get(
+                "title",
+                self.instance.title if self.instance else "",
+            )
+            answer = answers.get(language) or attrs.get(
+                f"summary_{language}",
+                getattr(self.instance, f"summary_{language}", "") if self.instance else "",
+            )
+            if not question or not answer:
                 raise serializers.ValidationError(
-                    {"translations": "Each FAQ translation must include both a question and an answer."}
+                    {"translations": "Each language-specific FAQ must include both a question and an answer."}
                 )
+            attrs["title"] = question
+            attrs["questions_by_language"] = {language: question}
+            attrs["answers_by_language"] = {language: answer}
+            for code in ("en", "pl"):
+                attrs[f"summary_{code}"] = answer[:280] if code == language else ""
         return attrs
 
     class Meta:
@@ -259,6 +324,7 @@ class ContentEntrySerializer(PlanLimitedModelSerializer):
             "public_id",
             "organization",
             "entry_type",
+            "language",
             "title",
             "questions_by_language",
             "answers_by_language",

@@ -1,6 +1,6 @@
 <!-- Step flow (dashboard interactive) -->
 <section class="space-y-6">
-    <span class="inline-flex items-center gap-1.5 rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">
+    <span class="inline-flex items-center gap-1.5 rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-xs font-medium uppercase tracking-widest text-[#5ca197]">
         <span class="h-1.5 w-1.5 rounded-full bg-[#5ca197]"></span>
         {% if request.LANGUAGE_CODE == 'pl' %}Twoje kroki do widoczności AI{% else %}Your steps to AI visibility{% endif %}
     </span>
@@ -109,9 +109,9 @@
             </h3>
             <p class="font-sans text-sm leading-relaxed text-[#353535]/60">
                 {% if request.LANGUAGE_CODE == 'pl' %}
-                    {% if verified_organization_count > 0 %}Modele AI mogą analizować, cytować i rekomendować Twoją firmę.{% else %}Po publikacji danych AI będzie widziało Twoją firmę.{% endif %}
+                    {% if verified_organization_count > 0 %}Dane i endpointy hostowane przez Xoaila mogą ułatwić modelom AI analizowanie, cytowanie i rekomendowanie informacji o Twojej firmie.{% else %}Po publikacji danych AI będzie widziało Twoją firmę. Xoaila hostuje opublikowane dane i endpointy.{% endif %}
                 {% else %}
-                    {% if verified_organization_count > 0 %}AI models can analyze, cite and recommend your company.{% else %}After data publication, AI will see your company.{% endif %}
+                    {% if verified_organization_count > 0 %}Data and endpoints hosted by Xoaila can help AI models analyze, cite, and recommend information about your company.{% else %}After data publication, AI will see your company. Xoaila hosts the published data and endpoints.{% endif %}
                 {% endif %}
             </p>
         </div>

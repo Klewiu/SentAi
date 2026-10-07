@@ -132,9 +132,14 @@
             {% endif %}
         </div>
 
-        <aside class="grid content-start gap-4">
+        <aside class="order-first grid content-start gap-4 lg:order-none">
             <section class="rounded-xl border-2 border-[#5ca197] bg-[#edf6f3] p-5 shadow-sm">
-                <p class="font-mono text-[10px] font-semibold uppercase tracking-widest text-[#387f77]">AI-ready</p>
+                <p class="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-widest text-[#387f77]">
+                    <svg aria-hidden="true" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 20 20" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m5 10 3.5 3.5L15 7" />
+                    </svg>
+                    {{ profile_copy.service_status }}
+                </p>
                 <h2 class="mt-1 font-display text-xl font-semibold text-[#284b63]">{{ profile_copy.formats }}</h2>
                 <p class="mt-2 text-sm leading-6 text-[#365951]">{{ profile_copy.formats_intro }}</p>
                 <ul class="mt-4 grid gap-2 sm:grid-cols-2">

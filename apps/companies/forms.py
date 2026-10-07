@@ -336,7 +336,11 @@ class OrganizationForm(forms.ModelForm):
                 except (ValueError, TypeError):
                     section["product_rows"] = []
             elif not self.is_bound:
-                section["product_rows"] = [product.translation_for_editor(code) for product in existing_products]
+                section["product_rows"] = [
+                    product.translation_for_editor(code)
+                    for product in existing_products
+                    if product.language == code
+                ]
             if self.is_bound and f"faq_rows_{code}" in self.data:
                 try:
                     rows = json.loads(self.data[f"faq_rows_{code}"])
@@ -344,7 +348,11 @@ class OrganizationForm(forms.ModelForm):
                 except (ValueError, TypeError):
                     section["faq_rows"] = []
             elif not self.is_bound:
-                section["faq_rows"] = [entry.translation_for_editor(code) for entry in existing_faqs]
+                section["faq_rows"] = [
+                    entry.translation_for_editor(code)
+                    for entry in existing_faqs
+                    if entry.language == code
+                ]
 
     def _submitted_languages(self):
         if "languages" in self.data:
@@ -502,20 +510,40 @@ class OrganizationForm(forms.ModelForm):
         
         products = self._parse_products_by_language(content_languages)
         faqs = self._parse_faqs_by_language(content_languages)
-        primary_faqs = faqs.get(primary_language, [])
         existing_non_faqs = (
             self.instance.content_entries.exclude(entry_type=EntryType.FAQ).count()
             if self.instance and self.instance.pk else 0
         )
+        faq_count = max((len(items) for items in faqs.values()), default=0)
         counts = {
             "products": max((len(items) for items in products.values()), default=0),
             "tags": sum(len(self._parse_tag_chunks(self.data.get(f"tags_{code}", ""))) for code in content_languages),
             "social_profiles": len(self._parse_social_profiles_text(cleaned_data.get("social_profiles_text", ""))),
-            "content_entries": existing_non_faqs + len(primary_faqs),
+            "content_entries": existing_non_faqs + faq_count,
         }
         for resource, count in counts.items():
             limit = self.plan_features.get(resource, 0)
             existing_count = getattr(self.instance, resource).count() if self.instance and self.instance.pk and hasattr(self.instance, resource) else 0
+            if resource == "products" and self.instance and self.instance.pk:
+                existing_count = max(
+                    (
+                        self.instance.products.filter(language=code).count()
+                        for code in content_languages
+                    ),
+                    default=0,
+                )
+            if resource == "content_entries" and self.instance and self.instance.pk:
+                existing_faq_count = max(
+                    (
+                        self.instance.content_entries.filter(
+                            entry_type=EntryType.FAQ,
+                            language=code,
+                        ).count()
+                        for code in content_languages
+                    ),
+                    default=0,
+                )
+                existing_count = existing_non_faqs + existing_faq_count
             if count > max(limit, existing_count):
                 raise forms.ValidationError(f"Your plan allows up to {self.plan_features.get(resource, 0)} {resource.replace('_', ' ')}.")
         for code in content_languages:
@@ -666,7 +694,7 @@ class OrganizationForm(forms.ModelForm):
         else:
             # Comma-separated: split by comma, each item is just a name
             lines = [item.strip() for item in raw_value.replace('\n', ',').split(',') if item.strip()]
-            return [{"name": name[:255], "description": "", "url": ""} for name in lines]
+            return [{"id": "", "name": name[:255], "description": "", "url": ""} for name in lines]
 
         parsed: list[dict[str, str]] = []
         for line in lines:
@@ -683,7 +711,7 @@ class OrganizationForm(forms.ModelForm):
                     invalid_message_pl=f"Niepoprawny link produktu: {url_raw}",
                     invalid_message_en=f"Invalid product URL: {url_raw}",
                 )
-            parsed.append({"name": name, "description": description, "url": normalized_url})
+            parsed.append({"id": "", "name": name, "description": description, "url": normalized_url})
         return parsed
 
     def _parse_products_by_language(self, selected_languages: list[str]) -> dict[str, list[dict[str, str]]]:
@@ -699,12 +727,19 @@ class OrganizationForm(forms.ModelForm):
                     for row in rows:
                         if not isinstance(row, dict) or any(not isinstance(row.get(key, ""), str) for key in ("name", "description", "url")):
                             raise ValueError()
+                        row_id = row.get("id")
+                        if row_id is not None and not isinstance(row_id, (str, int)):
+                            raise ValueError()
                         name, description, url = (row.get(key, "").strip() for key in ("name", "description", "url"))
                         if (not name and language_code == self.data.get("primary_language")) or len(name) > 255 or len(description) > 280:
                             raise ValueError()
                         if url:
                             url = self._normalize_optional_url(url, invalid_message_pl="Niepoprawny adres produktu.", invalid_message_en="Enter a valid product website.")
-                        parsed.append({"name": name, "description": description, "url": url})
+                        if not name and not description and not url:
+                            continue
+                        if not name:
+                            raise ValueError()
+                        parsed.append({"id": str(row_id) if row_id else "", "name": name, "description": description, "url": url})
                     payload[language_code] = parsed
                     continue
                 except (ValueError, TypeError):
@@ -715,42 +750,44 @@ class OrganizationForm(forms.ModelForm):
 
     def _save_products(self, instance, selected_languages):
         payload = self._parse_products_by_language(selected_languages)
-        existing = list(instance.products.order_by("pk"))
-        retained = set()
-        primary = payload.get(instance.primary_language, [])
-        for index, item in enumerate(primary):
-            available = [product for product in existing if product.pk not in retained]
-            product = next((product for product in available if (item["url"] and product.product_url == item["url"]) or product.name == item["name"]), None)
-            if product is None:
-                # The text editor has no IDs; preserve the existing row for a rename.
-                product = next((product for product in available if product.name not in {row["name"] for row in primary[index+1:]}), None)
-            product = product or Product(organization=instance)
-            product.name = item["name"]
-            product.product_url = item["url"]
-            product.is_featured = index == 0
-            names = dict(product.names_by_language or {})
-            translations = dict(product.descriptions_by_language or {})
-            for code, rows in payload.items():
-                translated = next((row for row in rows if item["url"] and row["url"] == item["url"]), rows[index] if index < len(rows) else None)
-                if translated is not None:
-                    names[code] = translated["name"]
-                    translations[code] = translated["description"]
-                    if code in {"en", "pl"}:
-                        setattr(product, f"short_description_{code}", translated["description"][:280])
-            product.names_by_language = names
-            product.descriptions_by_language = translations
-            product.save()
-            retained.add(product.pk)
-        instance.products.exclude(pk__in=retained).delete()
-        # Product rows are authoritative; retain the old JSON column only for migration.
+        for language, rows in payload.items():
+            existing = list(instance.products.filter(language=language).order_by("pk"))
+            existing_by_id = {str(product.pk): product for product in existing}
+            retained = set()
+            for index, item in enumerate(rows):
+                product = existing_by_id.get(item["id"]) if item["id"] else None
+                if item["id"] and product is None:
+                    raise forms.ValidationError("A product ID does not belong to this language.")
+                if product and product.pk in retained:
+                    raise forms.ValidationError("A product may appear only once per language.")
+                if product is None and not item["id"] and index < len(existing):
+                    product = existing[index] if existing[index].pk not in retained else None
+                product = product or Product(organization=instance, language=language)
+                product.language = language
+                product.name = item["name"]
+                product.product_url = item["url"]
+                product.is_featured = index == 0
+                product.names_by_language = {}
+                product.descriptions_by_language = {language: item["description"]} if item["description"] else {}
+                product.short_description_en = item["description"][:280] if language == "en" else ""
+                product.short_description_pl = item["description"][:280] if language == "pl" else ""
+                product.save()
+                retained.add(product.pk)
+            instance.products.filter(language=language).exclude(pk__in=retained).delete()
 
     def _parse_faqs_by_language(self, selected_languages: list[str]) -> dict[str, list[dict]]:
         payload: dict[str, list[dict]] = {}
         plan_limit = self.plan_features.get("content_entries", 0)
-        existing_count = self.instance.content_entries.count() if self.instance and self.instance.pk else 0
-        maximum = max(plan_limit, existing_count)
         for language_code in selected_languages:
             raw = self.data.get(f"faq_rows_{language_code}", "[]")
+            existing_count = (
+                self.instance.content_entries.filter(
+                    entry_type=EntryType.FAQ,
+                    language=language_code,
+                ).count()
+                if self.instance and self.instance.pk else 0
+            )
+            maximum = max(plan_limit, existing_count)
             try:
                 rows = json.loads(raw)
                 if not isinstance(rows, list) or len(rows) > maximum:
@@ -773,6 +810,8 @@ class OrganizationForm(forms.ModelForm):
                             if self.ui_language == "pl" else "Each FAQ entry must include both a question and an answer."
                         )
                     if language_code == self.data.get("primary_language") and not question:
+                        raise ValueError()
+                    if entry_id is not None and not str(entry_id).isdigit():
                         raise ValueError()
                     if url:
                         url = self._normalize_optional_url(
@@ -797,42 +836,41 @@ class OrganizationForm(forms.ModelForm):
 
     def _save_faq_entries(self, instance: Organization, selected_languages: list[str]) -> None:
         payload = self._parse_faqs_by_language(selected_languages)
-        primary_rows = payload.get(instance.primary_language, [])
-        existing = list(instance.content_entries.filter(entry_type=EntryType.FAQ).order_by("-is_featured", "pk"))
-        existing_by_id = {entry.pk: entry for entry in existing}
-        retained = set()
-        for index, primary_row in enumerate(primary_rows):
-            entry = existing_by_id.get(primary_row["id"])
-            if entry is None and index < len(existing) and existing[index].pk not in retained:
-                entry = existing[index]
-            entry = entry or ContentEntry(organization=instance, entry_type=EntryType.FAQ)
-            questions = dict(entry.questions_by_language or {})
-            answers = dict(entry.answers_by_language or {})
-            source_url = primary_row["url"]
-            for code in selected_languages:
-                translated_rows = payload.get(code, [])
-                translated = next(
-                    (row for row in translated_rows if row["id"] and row["id"] == primary_row["id"]),
-                    translated_rows[index] if index < len(translated_rows) else None,
+        for language, rows in payload.items():
+            existing = list(
+                instance.content_entries.filter(
+                    entry_type=EntryType.FAQ,
+                    language=language,
+                ).order_by("-is_featured", "pk")
+            )
+            existing_by_id = {entry.pk: entry for entry in existing}
+            retained = set()
+            for index, item in enumerate(rows):
+                entry = existing_by_id.get(item["id"]) if item["id"] else None
+                if item["id"] and entry is None:
+                    raise forms.ValidationError("An FAQ ID does not belong to this language.")
+                if entry and entry.pk in retained:
+                    raise forms.ValidationError("An FAQ may appear only once per language.")
+                entry = entry or ContentEntry(
+                    organization=instance,
+                    entry_type=EntryType.FAQ,
+                    language=language,
                 )
-                if translated and translated["question"] and translated["answer"]:
-                    questions[code] = translated["question"]
-                    answers[code] = translated["answer"]
-                    source_url = source_url or translated["url"]
-                else:
-                    questions.pop(code, None)
-                    answers.pop(code, None)
-            entry.entry_type = EntryType.FAQ
-            entry.title = primary_row["question"]
-            entry.questions_by_language = questions
-            entry.answers_by_language = answers
-            entry.content_url = source_url
-            entry.is_featured = index == 0
-            entry.summary_en = answers.get("en", "")[:280]
-            entry.summary_pl = answers.get("pl", "")[:280]
-            entry.save()
-            retained.add(entry.pk)
-        instance.content_entries.filter(entry_type=EntryType.FAQ).exclude(pk__in=retained).delete()
+                entry.entry_type = EntryType.FAQ
+                entry.language = language
+                entry.title = item["question"]
+                entry.questions_by_language = {language: item["question"]}
+                entry.answers_by_language = {language: item["answer"]}
+                entry.content_url = item["url"]
+                entry.is_featured = index == 0
+                entry.summary_en = item["answer"][:280] if language == "en" else ""
+                entry.summary_pl = item["answer"][:280] if language == "pl" else ""
+                entry.save()
+                retained.add(entry.pk)
+            instance.content_entries.filter(
+                entry_type=EntryType.FAQ,
+                language=language,
+            ).exclude(pk__in=retained).delete()
 
     def _parse_social_profiles_text(self, raw_value: str) -> dict[str, str]:
         candidates = [chunk.strip() for chunk in re.split(r"[\n,;]+", raw_value) if chunk.strip()]
@@ -944,7 +982,13 @@ class OrganizationForm(forms.ModelForm):
 
         if self.instance and self.instance.pk:
             for code in selected_languages:
-                values[code] = "\n".join(f"{row['name']} | {row['description']} | {row['url']}" for row in (product.translation_for_editor(code) for product in self.instance.products.all()))
+                values[code] = "\n".join(
+                    f"{row['name']} | {row['description']} | {row['url']}"
+                    for row in (
+                        product.translation_for_editor(code)
+                        for product in self.instance.products.filter(language=code)
+                    )
+                )
         return values
 
     def _build_initial_descriptions(self, selected_languages: list[str]) -> dict:

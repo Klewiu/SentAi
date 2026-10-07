@@ -204,6 +204,7 @@ class Tag(models.Model):
 
 class Product(models.Model):
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    language = models.CharField(max_length=2, blank=True, default="")
     names_by_language = models.JSONField(default=dict, blank=True)
     descriptions_by_language = models.JSONField(default=dict, blank=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="products")
@@ -222,39 +223,50 @@ class Product(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    def save(self, *args, **kwargs):
+        if not self.language and self.organization_id:
+            self.language = self.organization.primary_language
+        super().save(*args, **kwargs)
+
     def translation_for_editor(self, code):
-        names = self.names_by_language or {}
-        name = names.get(code, self.name if code == self.organization.primary_language and not names else "")
+        if self.language != code:
+            return {"id": self.pk, "name": "", "description": "", "url": ""}
         descriptions = self.descriptions_by_language or {}
         description = descriptions.get(code, getattr(self, f"short_description_{code}", ""))
-        return {"name": name, "description": description, "url": self.product_url}
+        return {
+            "id": self.pk,
+            "name": self.name,
+            "description": description,
+            "url": self.product_url,
+        }
 
     def localized_name(self, code):
-        return (self.names_by_language or {}).get(code) or self.name
+        return self.name if self.language == code else ""
 
     def translation_in(self, language_code: str) -> dict | None:
-        """Return content authored in this language, without cross-language fallback."""
-        language = (language_code or self.organization.primary_language or "en")[:2]
-        names = self.names_by_language or {}
-        descriptions = self.descriptions_by_language or {}
-        name = (names.get(language) or "").strip()
-        description = (descriptions.get(language) or "").strip()
-        if not description and hasattr(self, f"short_description_{language}"):
-            description = (getattr(self, f"short_description_{language}", "") or "").strip()
-        if not name and language == self.organization.primary_language:
-            name = (self.name or "").strip()
-        if not name:
+        """Return this product only for its own language."""
+        if self.language != language_code:
             return None
-        return {"name": name, "description": description, "url": self.product_url}
+        descriptions = self.descriptions_by_language or {}
+        return {
+            "name": self.name.strip(),
+            "description": (
+                descriptions.get(language_code)
+                or getattr(self, f"short_description_{language_code}", "")
+                or ""
+            ).strip(),
+            "url": self.product_url,
+        }
 
     def localized_summary(self, language_code: str | None = None) -> str:
         language = (language_code or self.organization.primary_language or "en")[:2]
-        if self.descriptions_by_language.get(language):
-            return self.descriptions_by_language[language]
-        fallback = "pl" if language == "en" else "en"
-        primary_value = getattr(self, f"short_description_{language}", "")
-        fallback_value = getattr(self, f"short_description_{fallback}", "")
-        return primary_value or fallback_value or ""
+        if self.language != language:
+            return ""
+        return (
+            (self.descriptions_by_language or {}).get(language)
+            or getattr(self, f"short_description_{language}", "")
+            or ""
+        )
 
 
 class EntryType(models.TextChoices):
@@ -272,6 +284,7 @@ class ContentEntry(models.Model):
         related_name="content_entries",
     )
     entry_type = models.CharField(max_length=32, choices=EntryType.choices, default=EntryType.UPDATE)
+    language = models.CharField(max_length=2, blank=True, default="")
     title = models.CharField(max_length=255)
     questions_by_language = models.JSONField(default=dict, blank=True)
     answers_by_language = models.JSONField(default=dict, blank=True)
@@ -287,17 +300,30 @@ class ContentEntry(models.Model):
     def __str__(self) -> str:
         return self.title
 
+    def save(self, *args, **kwargs):
+        if self.entry_type == EntryType.FAQ and not self.language and self.organization_id:
+            self.language = self.organization.primary_language
+        super().save(*args, **kwargs)
+
     def localized_summary(self, language_code: str | None = None) -> str:
         return self.localized_answer(language_code)
 
     def localized_question(self, language_code: str | None = None) -> str:
         language = (language_code or self.organization.primary_language or "en")[:2]
         questions = self.questions_by_language or {}
+        if self.entry_type == EntryType.FAQ:
+            if language != self.language:
+                return ""
+            return questions.get(language) or self.title
         return questions.get(language) or questions.get(self.organization.primary_language) or self.title
 
     def localized_answer(self, language_code: str | None = None) -> str:
         language = (language_code or self.organization.primary_language or "en")[:2]
         answers = self.answers_by_language or {}
+        if self.entry_type == EntryType.FAQ:
+            if language != self.language:
+                return ""
+            return answers.get(language) or getattr(self, f"summary_{language}", "")
         if answers.get(language):
             return answers[language]
         if answers.get(self.organization.primary_language):
@@ -308,6 +334,8 @@ class ContentEntry(models.Model):
         return primary_value or fallback_value or ""
 
     def translation_for_editor(self, language_code: str) -> dict:
+        if self.entry_type == EntryType.FAQ and self.language != language_code:
+            return {"id": self.pk, "question": "", "answer": "", "url": ""}
         return {
             "id": self.pk,
             "question": (self.questions_by_language or {}).get(language_code, ""),
@@ -318,9 +346,13 @@ class ContentEntry(models.Model):
     def translation_in(self, language_code: str) -> dict | None:
         """Return content authored in this language, without cross-language fallback."""
         language = (language_code or self.organization.primary_language or "en")[:2]
+        if self.entry_type == EntryType.FAQ and self.language != language:
+            return None
         question = ((self.questions_by_language or {}).get(language) or "").strip()
         answer = ((self.answers_by_language or {}).get(language) or "").strip()
-        if language == self.organization.primary_language:
+        if language == self.organization.primary_language or (
+            self.entry_type == EntryType.FAQ and language == self.language
+        ):
             question = question or (self.title or "").strip()
             if not answer and hasattr(self, f"summary_{language}"):
                 answer = (getattr(self, f"summary_{language}", "") or "").strip()
