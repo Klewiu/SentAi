@@ -6,6 +6,28 @@ import json
 import uuid
 
 
+POLISH_SLUG_TRANSLATION = str.maketrans({
+    "Ą": "A",
+    "Ć": "C",
+    "Ę": "E",
+    "Ł": "L",
+    "Ń": "N",
+    "Ó": "O",
+    "Ś": "S",
+    "Ź": "Z",
+    "Ż": "Z",
+    "ą": "a",
+    "ć": "c",
+    "ę": "e",
+    "ł": "l",
+    "ń": "n",
+    "ó": "o",
+    "ś": "s",
+    "ź": "z",
+    "ż": "z",
+})
+
+
 class OrganizationType(models.TextChoices):
     MANUFACTURING = "manufacturing", "Manufacturing"
     SERVICES = "services", "Services"
@@ -98,7 +120,7 @@ class Organization(models.Model):
         super().save(*args, **kwargs)
 
     def build_unique_slug(self) -> str:
-        base_slug = slugify(self.name) or "company"
+        base_slug = slugify(self.name.translate(POLISH_SLUG_TRANSLATION)) or "company"
         slug = base_slug
         counter = 2
         while Organization.objects.exclude(pk=self.pk).filter(slug=slug).exists():
@@ -203,11 +225,20 @@ class Tag(models.Model):
 
 
 class Product(models.Model):
+    class ProductType(models.TextChoices):
+        PRODUCT = "product", "Product"
+        SERVICE = "service", "Service"
+
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     language = models.CharField(max_length=2, blank=True, default="")
     names_by_language = models.JSONField(default=dict, blank=True)
     descriptions_by_language = models.JSONField(default=dict, blank=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="products")
+    product_type = models.CharField(
+        max_length=16,
+        choices=ProductType.choices,
+        default=ProductType.PRODUCT,
+    )
     name = models.CharField(max_length=255)
     short_description_en = models.CharField(max_length=280, blank=True)
     short_description_pl = models.CharField(max_length=280, blank=True)
@@ -235,6 +266,7 @@ class Product(models.Model):
         description = descriptions.get(code, getattr(self, f"short_description_{code}", ""))
         return {
             "id": self.pk,
+            "product_type": self.product_type,
             "name": self.name,
             "description": description,
             "url": self.product_url,

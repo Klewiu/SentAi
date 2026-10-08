@@ -416,7 +416,11 @@ class PublicCompanyDetailPageView(TemplateView):
         context["jsonld_payload"] = ""
         if organization.supports_advanced_formats:
             jsonld = build_jsonld_feed(organization, self.request, language_code=content_language)
-            jsonld["description"] = description
+            organization_node = next(
+                node for node in jsonld["@graph"]
+                if node.get("@type") == "Organization"
+            )
+            organization_node["description"] = description
             context["jsonld_payload"] = json.dumps(
                 jsonld,
                 ensure_ascii=False,

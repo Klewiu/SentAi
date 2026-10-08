@@ -63,6 +63,12 @@ class PublicLanguageTests(TestCase):
     def test_polish_page_uses_only_polish_company_content(self):
         response = self.page("pl", "pl")
         self.assertEqual(response.context["description"], "Polski opis firmy")
+        embedded_graph = json.loads(response.context["jsonld_payload"])["@graph"]
+        embedded_organization = next(
+            node for node in embedded_graph
+            if node["@type"] == "Organization"
+        )
+        self.assertEqual(embedded_organization["description"], "Polski opis firmy")
         self.assertContains(response, "Informacje o firmie")
         self.assertContains(response, "Polski produkt")
         self.assertContains(response, "USŁUGA DZIAŁA")
@@ -74,8 +80,12 @@ class PublicLanguageTests(TestCase):
             response.content.decode(),
             re.S,
         ).group(1))
-        self.assertEqual(payload["description"], "Polski opis firmy")
-        self.assertEqual(payload["inLanguage"], "pl")
+        organization_node = next(
+            node for node in payload["@graph"]
+            if node["@type"] == "Organization"
+        )
+        self.assertEqual(organization_node["description"], "Polski opis firmy")
+        self.assertEqual(organization_node["inLanguage"], "pl")
 
     def test_english_page_uses_english(self):
         response = self.page("en")
@@ -214,12 +224,32 @@ class PublicLanguageTests(TestCase):
                 self.assertIn("Polski produkt", localized.content.decode())
                 self.assertNotIn("English product", localized.content.decode())
                 self.assertNotIn("English answer", localized.content.decode())
+                if route_name == "public-company-language-jsonld":
+                    graph = json.loads(localized.content)["@graph"]
+                    faq_page = next(node for node in graph if node["@type"] == "FAQPage")
+                    self.assertEqual(faq_page["inLanguage"], ["pl"])
+                    self.assertEqual(
+                        [question["name"] for question in faq_page["mainEntity"]],
+                        ["Polskie pytanie?"],
+                    )
+                    self.assertEqual(
+                        faq_page["mainEntity"][0]["acceptedAnswer"]["text"],
+                        "Polska odpowiedź.",
+                    )
 
     def test_master_jsonld_markdown_and_llms_include_all_faq_languages(self):
         self.product.product_url = "https://example.com/en/product"
         self.product.save(update_fields=["product_url"])
         self.polish_product.product_url = "https://example.com/pl/produkt"
-        self.polish_product.save(update_fields=["product_url"])
+        self.polish_product.product_type = Product.ProductType.SERVICE
+        self.polish_product.save(update_fields=["product_url", "product_type"])
+        self.org.country = "Polska"
+        self.org.descriptions_by_language = {
+            "en": {"short": "English company summary", "long": "English company description"},
+            "pl": {"short": "Polski opis firmy", "long": "Pełny opis firmy"},
+        }
+        self.org.ai_summary = "AI overview."
+        self.org.save(update_fields=["country", "descriptions_by_language", "ai_summary"])
         SocialProfile.objects.create(
             organization=self.org,
             network="facebook",
@@ -246,16 +276,55 @@ class PublicLanguageTests(TestCase):
             questions_by_language={"pl": "Polskie pytanie główne?"},
             answers_by_language={"pl": "Polska odpowiedź główna."},
         )
+        ContentEntry.objects.create(
+            organization=self.org,
+            entry_type="guide",
+            language="en",
+            title="Choosing a language",
+            summary_en="A guide to choosing a language.",
+            content_url="https://example.com/language-guide",
+        )
 
         jsonld_response = self.client.get(
             reverse("companies_api:public-company-jsonld", args=[self.org.slug])
         )
         self.assertEqual(jsonld_response.status_code, 200)
         jsonld = json.loads(jsonld_response.content)
-        master_faqs = [
-            item for item in jsonld["subjectOf"]
-            if item["@type"] == "Question"
-        ]
+        graph = jsonld["@graph"]
+        organization_schema = next(node for node in graph if node["@type"] == "Organization")
+        faq_page = next(node for node in graph if node["@type"] == "FAQPage")
+        master_faqs = faq_page["mainEntity"]
+        self.assertEqual(
+            organization_schema["address"]["addressCountry"],
+            "PL",
+        )
+        self.assertEqual(organization_schema["areaServed"], "PL")
+        self.assertIsInstance(organization_schema["keywords"], list)
+        self.assertIn("Languages", organization_schema["keywords"])
+        self.org.country = "Poland"
+        poland_schema = next(
+            node for node in build_jsonld_feed(self.org)["@graph"]
+            if node["@type"] == "Organization"
+        )
+        self.assertEqual(poland_schema["address"]["addressCountry"], "PL")
+        self.assertEqual(poland_schema["areaServed"], "PL")
+        self.org.country = "DE"
+        german_schema = next(
+            node for node in build_jsonld_feed(self.org)["@graph"]
+            if node["@type"] == "Organization"
+        )
+        self.assertEqual(german_schema["address"]["addressCountry"], "DE")
+        self.assertEqual(german_schema["areaServed"], "DE")
+        self.assertEqual(
+            {"@id": faq_page["@id"]},
+            organization_schema["subjectOf"][-1],
+        )
+        self.assertTrue(all(
+            item.get("@type") != "Question"
+            for item in organization_schema["subjectOf"]
+        ))
+        self.assertEqual(faq_page["about"], {"@id": organization_schema["@id"]})
+        self.assertEqual(faq_page["inLanguage"], ["en", "pl"])
         self.assertEqual(
             {item["inLanguage"] for item in master_faqs},
             {"en", "pl"},
@@ -282,8 +351,26 @@ class PublicLanguageTests(TestCase):
                 for item in master_faqs
             },
         )
-        offers = jsonld["hasOfferCatalog"]["itemListElement"]
-        self.assertEqual({offer["inLanguage"] for offer in offers}, {"en", "pl"})
+        offers = organization_schema["hasOfferCatalog"]["itemListElement"]
+        self.assertEqual(
+            {offer["itemOffered"]["inLanguage"] for offer in offers},
+            {"en", "pl"},
+        )
+        offers_by_language = {
+            offer["itemOffered"]["inLanguage"]: offer
+            for offer in offers
+        }
+        self.assertEqual(offers_by_language["en"]["itemOffered"]["@type"], "Product")
+        self.assertEqual(offers_by_language["en"]["url"], "https://example.com/en/product")
+        self.assertEqual(offers_by_language["pl"]["itemOffered"]["@type"], "Service")
+        self.assertEqual(
+            offers_by_language["pl"]["itemOffered"]["provider"],
+            {"@id": organization_schema["@id"]},
+        )
+        self.assertEqual(
+            offers_by_language["pl"]["itemOffered"]["description"],
+            "Polski opis usługi",
+        )
 
         for route_name in ("public-company-md", "public-company-llms"):
             with self.subTest(route=route_name):
@@ -299,8 +386,33 @@ class PublicLanguageTests(TestCase):
                     "Polska odpowiedź główna.",
                 ):
                     self.assertIn(text, body)
-                self.assertIn("[en] English master question?", body)
-                self.assertIn("[pl] Polskie pytanie główne?", body)
+                if route_name == "public-company-md":
+                    self.assertIn("> English company summary", body)
+                    self.assertIn("> AI overview.", body)
+                    self.assertIn("## About\n\nEnglish company description", body)
+                    self.assertIn("## Frequently Asked Questions (FAQ)", body)
+                    self.assertIn("### [en] English master question?", body)
+                    self.assertIn("**Answer:** English master answer.", body)
+                    self.assertIn("### [pl] Polskie pytanie główne?", body)
+                    self.assertIn("**Answer:** Polska odpowiedź główna.", body)
+                    self.assertNotIn("_FAQ_", body)
+                    self.assertIn("## Content & updates", body)
+                    self.assertIn("### [en] Choosing a language", body)
+                    self.assertIn(
+                        "- **Website:** [https://example.com/en/product](https://example.com/en/product)",
+                        body,
+                    )
+                    self.assertIn(
+                        "- **Website:** [https://example.com/pl/produkt](https://example.com/pl/produkt)",
+                        body,
+                    )
+                    self.assertNotIn("[More info]", body)
+                    self.assertIn("## Multilingual Descriptions", body)
+                    self.assertIn("### English (en)", body)
+                    self.assertIn("### Polish (pl)", body)
+                else:
+                    self.assertIn("[en] English master question?", body)
+                    self.assertIn("[pl] Polskie pytanie główne?", body)
                 if route_name == "public-company-llms":
                     self.assertRegex(body, r"- \[Company JSON\]\(.+company\.json\):")
                     self.assertRegex(body, r"- \[Company JSON-LD\]\(.+company\.jsonld\):")
@@ -347,9 +459,14 @@ class PublicLanguageTests(TestCase):
         )
 
         payload = build_jsonld_feed(self.org, language_code="de")
-        offers = payload["hasOfferCatalog"]["itemListElement"]
-        self.assertEqual(offers[0]["name"], "Deutsches Produkt")
-        self.assertNotIn("description", offers[0])
+        organization_schema = next(
+            node for node in payload["@graph"]
+            if node["@type"] == "Organization"
+        )
+        offers = organization_schema["hasOfferCatalog"]["itemListElement"]
+        self.assertEqual(offers[0]["itemOffered"]["name"], "Deutsches Produkt")
+        self.assertEqual(offers[0]["itemOffered"]["@type"], "Product")
+        self.assertNotIn("description", offers[0]["itemOffered"])
 
     def test_master_json_exposes_translations_stable_ids_and_profile_urls(self):
         response = self.client.get(reverse("companies_api:public-company-json", args=[self.org.slug]))

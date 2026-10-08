@@ -138,11 +138,13 @@ class PlanExperienceTests(TestCase):
             content_languages='["en", "pl"]',
             product_rows_en=json.dumps([{
                 "id": self.product.pk,
+                "product_type": "service",
                 "name": "Garden design",
                 "description": "English service",
                 "url": "https://example.com/en/garden",
             }]),
             product_rows_pl=json.dumps([{
+                "product_type": "product",
                 "name": "Projekt ogrodu",
                 "description": "Polska usluga",
                 "url": "https://example.com/pl/ogrod",
@@ -155,12 +157,41 @@ class PlanExperienceTests(TestCase):
         polish_product = self.org.products.get(language="pl")
         self.assertEqual(self.product.name, "Garden design")
         self.assertEqual(self.product.language, "en")
+        self.assertEqual(self.product.product_type, Product.ProductType.SERVICE)
         self.assertEqual(self.product.product_url, "https://example.com/en/garden")
         self.assertEqual(polish_product.name, "Projekt ogrodu")
+        self.assertEqual(polish_product.product_type, Product.ProductType.PRODUCT)
         self.assertEqual(polish_product.product_url, "https://example.com/pl/ogrod")
         self.assertNotEqual(self.product.pk, polish_product.pk)
         self.assertEqual(polish_product.translation_for_editor("pl")["description"], "Polska usluga")
         self.assertEqual(self.product.price_from, 120)
+
+    def test_product_type_defaults_to_product_and_rejects_unknown_form_values(self):
+        valid_form = OrganizationForm(
+            instance=self.org,
+            organization=self.org,
+            data=self.payload(product_rows_en=json.dumps([{
+                "name": "Garden tool",
+                "description": "",
+                "url": "",
+            }])),
+        )
+        self.assertTrue(valid_form.is_valid(), valid_form.errors)
+        valid_form.save()
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.product_type, Product.ProductType.PRODUCT)
+
+        invalid_form = OrganizationForm(
+            instance=self.org,
+            organization=self.org,
+            data=self.payload(product_rows_en=json.dumps([{
+                "name": "Garden tool",
+                "description": "",
+                "url": "",
+                "product_type": "bundle",
+            }])),
+        )
+        self.assertFalse(invalid_form.is_valid())
 
     def test_customer_form_saves_independent_faqs_per_language(self):
         english = [

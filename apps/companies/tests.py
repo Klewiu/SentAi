@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.test import TestCase
@@ -49,6 +51,27 @@ class CompanyApiTests(TestCase):
         organization = self.create_organization()
         self.assertEqual(organization.get_subscription().tier, PlanTier.BASIC)
 
+    def test_polish_company_name_is_transliterated_in_generated_feed_slugs(self):
+        organization = self.create_organization(
+            name="Łódź Żółć Spółka z ograniczoną odpowiedzialnością",
+            slug="",
+        )
+        expected_slug = "lodz-zolc-spolka-z-ograniczona-odpowiedzialnoscia"
+
+        json_response = self.api_client.get(
+            f"/api/public/{organization.slug}/company.json"
+        )
+        jsonld_response = self.api_client.get(
+            f"/api/public/{organization.slug}/company.jsonld"
+        )
+
+        self.assertEqual(organization.slug, expected_slug)
+        self.assertEqual(json_response.status_code, 200)
+        self.assertEqual(json_response.json()["company"]["slug"], expected_slug)
+        self.assertEqual(jsonld_response.status_code, 200)
+        jsonld = jsonld_response.json()
+        self.assertIn(f"/companies/{expected_slug}/", jsonld["@graph"][0]["mainEntityOfPage"])
+
     def test_basic_public_feed_is_available(self):
         organization = self.create_organization()
 
@@ -80,10 +103,12 @@ class CompanyApiTests(TestCase):
             country="Poland",
             primary_language="pl",
             content_languages=["pl", "en"],
+            verified_at=timezone.now(),
+            last_reviewed_at=timezone.now(),
         )
         SocialProfile.objects.create(organization=organization, network="linkedin", url="https://linkedin.com/company/acme")
         Tag.objects.create(organization=organization, name="ai search", language="en")
-        Product.objects.create(
+        product = Product.objects.create(
             organization=organization,
             name="Visibility Audit",
             short_description_en="Audit for AI discoverability.",
@@ -92,7 +117,7 @@ class CompanyApiTests(TestCase):
             currency="PLN",
             is_featured=True,
         )
-        ContentEntry.objects.create(
+        entry = ContentEntry.objects.create(
             organization=organization,
             entry_type="guide",
             title="How we improve AI visibility",
@@ -111,6 +136,26 @@ class CompanyApiTests(TestCase):
         self.assertEqual(payload["discovery"]["tags"][0]["name"], "ai search")
         self.assertEqual(payload["discovery"]["products"][0]["name"], "Visibility Audit")
         self.assertEqual(payload["discovery"]["content_entries"][0]["title"], "How we improve AI visibility")
+        self.assertEqual(payload["company"]["contact"]["address"]["country_code"], "PL")
+        date_values = [
+            payload["timestamps"]["created_at"],
+            payload["timestamps"]["updated_at"],
+            payload["provenance"]["verified_at"],
+            payload["provenance"]["last_reviewed_at"],
+            next(
+                item for item in payload["discovery"]["products"]
+                if item["id"] == str(product.public_id)
+            )["created_at"],
+            next(
+                item for item in payload["discovery"]["content_entries"]
+                if item["id"] == str(entry.public_id)
+            )["published_at"],
+        ]
+        for date_value in date_values:
+            with self.subTest(date_value=date_value):
+                self.assertTrue(date_value.endswith("Z"))
+                parsed = datetime.fromisoformat(date_value.replace("Z", "+00:00"))
+                self.assertEqual(parsed.utcoffset().total_seconds(), 0)
 
     def test_basic_feed_includes_provenance_and_verification_fields(self):
         organization = self.create_organization(
@@ -247,6 +292,7 @@ class CompanyApiTests(TestCase):
             f"/api/organizations/{organization.id}/products/",
             {
                 "language": "en",
+                "product_type": "service",
                 "name": "Service",
                 "names_by_language": {"en": "Service"},
                 "descriptions_by_language": {"en": "English details"},
@@ -257,6 +303,7 @@ class CompanyApiTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         self.assertTrue(response.json()["public_id"])
         self.assertEqual(response.json()["language"], "en")
+        self.assertEqual(response.json()["product_type"], Product.ProductType.SERVICE)
         self.assertEqual(response.json()["product_url"], "https://example.com/en/service")
         polish_response = self.api_client.post(
             f"/api/organizations/{organization.id}/products/",
@@ -270,6 +317,7 @@ class CompanyApiTests(TestCase):
             format="json",
         )
         self.assertEqual(polish_response.status_code, 201, polish_response.content)
+        self.assertEqual(polish_response.json()["product_type"], Product.ProductType.PRODUCT)
         self.assertNotEqual(response.json()["id"], polish_response.json()["id"])
         self.assertEqual(polish_response.json()["product_url"], "https://example.com/pl/usluga")
 

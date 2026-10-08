@@ -694,7 +694,16 @@ class OrganizationForm(forms.ModelForm):
         else:
             # Comma-separated: split by comma, each item is just a name
             lines = [item.strip() for item in raw_value.replace('\n', ',').split(',') if item.strip()]
-            return [{"id": "", "name": name[:255], "description": "", "url": ""} for name in lines]
+            return [
+                {
+                    "id": "",
+                    "name": name[:255],
+                    "description": "",
+                    "url": "",
+                    "product_type": Product.ProductType.PRODUCT,
+                }
+                for name in lines
+            ]
 
         parsed: list[dict[str, str]] = []
         for line in lines:
@@ -711,7 +720,13 @@ class OrganizationForm(forms.ModelForm):
                     invalid_message_pl=f"Niepoprawny link produktu: {url_raw}",
                     invalid_message_en=f"Invalid product URL: {url_raw}",
                 )
-            parsed.append({"id": "", "name": name, "description": description, "url": normalized_url})
+            parsed.append({
+                "id": "",
+                "name": name,
+                "description": description,
+                "url": normalized_url,
+                "product_type": Product.ProductType.PRODUCT,
+            })
         return parsed
 
     def _parse_products_by_language(self, selected_languages: list[str]) -> dict[str, list[dict[str, str]]]:
@@ -725,12 +740,18 @@ class OrganizationForm(forms.ModelForm):
                         raise ValueError()
                     parsed = []
                     for row in rows:
-                        if not isinstance(row, dict) or any(not isinstance(row.get(key, ""), str) for key in ("name", "description", "url")):
+                        if not isinstance(row, dict) or any(
+                            not isinstance(row.get(key, ""), str)
+                            for key in ("name", "description", "url", "product_type")
+                        ):
                             raise ValueError()
                         row_id = row.get("id")
                         if row_id is not None and not isinstance(row_id, (str, int)):
                             raise ValueError()
                         name, description, url = (row.get(key, "").strip() for key in ("name", "description", "url"))
+                        product_type = row.get("product_type", Product.ProductType.PRODUCT)
+                        if product_type not in Product.ProductType.values:
+                            raise ValueError()
                         if (not name and language_code == self.data.get("primary_language")) or len(name) > 255 or len(description) > 280:
                             raise ValueError()
                         if url:
@@ -739,7 +760,13 @@ class OrganizationForm(forms.ModelForm):
                             continue
                         if not name:
                             raise ValueError()
-                        parsed.append({"id": str(row_id) if row_id else "", "name": name, "description": description, "url": url})
+                        parsed.append({
+                            "id": str(row_id) if row_id else "",
+                            "name": name,
+                            "description": description,
+                            "url": url,
+                            "product_type": product_type,
+                        })
                     payload[language_code] = parsed
                     continue
                 except (ValueError, TypeError):
@@ -764,6 +791,7 @@ class OrganizationForm(forms.ModelForm):
                     product = existing[index] if existing[index].pk not in retained else None
                 product = product or Product(organization=instance, language=language)
                 product.language = language
+                product.product_type = item["product_type"]
                 product.name = item["name"]
                 product.product_url = item["url"]
                 product.is_featured = index == 0

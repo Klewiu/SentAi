@@ -1,6 +1,11 @@
+from datetime import timezone as datetime_timezone
+
 from django.conf import settings
 from django.db.models import Q
 from django.urls import reverse
+from django.utils.translation import get_language_info
+
+from .models import Product
 
 
 SUPPORTED_DESCRIPTION_LANGUAGES = tuple(
@@ -12,6 +17,10 @@ def absolute_url(route: str, request=None) -> str:
     if request is not None:
         return request.build_absolute_uri(route)
     return f"{settings.SITE_BASE_URL}{route}"
+
+
+def _iso_utc_datetime(value) -> str:
+    return value.astimezone(datetime_timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def compact(value):
@@ -197,6 +206,7 @@ def _products_payload(organization) -> list[dict]:
             payload.append(compact({
                 "id": str(product.public_id),
                 "language": code,
+                "product_type": product.product_type,
                 "name": product.name,
                 "names_by_language": {code: product.name},
                 "descriptions": {code: translation["description"]},
@@ -205,7 +215,7 @@ def _products_payload(organization) -> list[dict]:
                 "price_from": str(product.price_from) if product.price_from is not None else None,
                 "currency": product.currency if product.price_from is not None else None,
                 "is_featured": product.is_featured,
-                "created_at": product.created_at.isoformat(),
+                "created_at": _iso_utc_datetime(product.created_at),
             }))
     return payload
 
@@ -245,7 +255,7 @@ def _content_entries_payload(organization) -> list[dict]:
                 "summaries": summaries,
                 "translations": translations,
                 "content_url": entry.content_url,
-                "published_at": entry.published_at.isoformat(),
+                "published_at": _iso_utc_datetime(entry.published_at),
                 "is_featured": entry.is_featured,
             }))
     return payload
@@ -288,6 +298,21 @@ def _company_keywords(organization, language_code: str | None = None) -> list[st
     return _ordered_unique([value.strip() for value in values if value and value.strip()])
 
 
+def _iso_country_code(country: str) -> str:
+    normalized = country.strip()
+    country_aliases = {
+        "pl": "PL",
+        "poland": "PL",
+        "polen": "PL",
+        "polonia": "PL",
+        "polska": "PL",
+    }
+    return country_aliases.get(
+        normalized.casefold(),
+        normalized.upper() if len(normalized) == 2 else normalized,
+    )
+
+
 def build_basic_feed(organization, request=None) -> dict:
     subscription = organization.get_subscription()
     descriptions = _description_payload(organization)
@@ -310,6 +335,7 @@ def build_basic_feed(organization, request=None) -> dict:
                         "city": organization.city,
                         "postal_code": organization.postal_code,
                         "country": organization.country,
+                        "country_code": _iso_country_code(organization.country),
                     },
                 },
                 "languages": {
@@ -335,8 +361,8 @@ def build_basic_feed(organization, request=None) -> dict:
                 "source_type": organization.source_type,
                 "source_url": organization.source_url,
                 "verification_status": organization.verification_status,
-                "verified_at": organization.verified_at.isoformat() if organization.verified_at else None,
-                "last_reviewed_at": organization.last_reviewed_at.isoformat() if organization.last_reviewed_at else None,
+                "verified_at": _iso_utc_datetime(organization.verified_at) if organization.verified_at else None,
+                "last_reviewed_at": _iso_utc_datetime(organization.last_reviewed_at) if organization.last_reviewed_at else None,
             },
             "ai_access": {
                 "subscription_tier": subscription.tier,
@@ -357,8 +383,8 @@ def build_basic_feed(organization, request=None) -> dict:
                 },
             },
             "timestamps": {
-                "created_at": organization.created_at.isoformat(),
-                "updated_at": organization.updated_at.isoformat(),
+                "created_at": _iso_utc_datetime(organization.created_at),
+                "updated_at": _iso_utc_datetime(organization.updated_at),
             },
         }
     )
@@ -413,87 +439,128 @@ def build_jsonld_feed(organization, request=None, language_code=None) -> dict:
     )
     description_map = _description_payload(organization)
     keywords = _company_keywords(organization, selected_language)
+    content_entries = _content_entries_by_language(organization, languages)
+    faq_entries = [
+        (entry, language)
+        for entry, language in content_entries
+        if entry.entry_type == "faq"
+    ]
+    non_faq_entries = [
+        (entry, language)
+        for entry, language in content_entries
+        if entry.entry_type != "faq"
+    ]
     available_languages = list(description_map.keys()) or _ordered_unique(
         list(organization.content_languages or []) + [organization.primary_language]
     )
     canonical_page = public_profile_url(organization, selected_language, request)
+    organization_id = f"urn:uuid:{organization.public_id}"
+    faq_page_id = f"{canonical_page}#faq"
+    organization_node = {
+        "@type": "Organization",
+        "@id": organization_id,
+        "name": organization.name,
+        "identifier": str(organization.public_id),
+        "url": organization.website_url,
+        "email": organization.contact_email,
+        "telephone": organization.phone_number,
+        "description": organization.localized_text("long_description", selected_language)
+        or organization.localized_text("short_description", selected_language),
+        "keywords": keywords,
+        "sameAs": [profile.url for profile in public_resources(organization, "social_profiles")],
+        "inLanguage": selected_language,
+        "availableLanguage": available_languages,
+        "knowsAbout": [tag["name"] for tag in _tags_payload(
+            organization,
+            selected_language if language_code else None,
+        )],
+        "contactPoint": [
+            compact(
+                {
+                    "@type": "ContactPoint",
+                    "email": organization.contact_email,
+                    "telephone": organization.phone_number,
+                    "availableLanguage": available_languages,
+                    "contactType": "customer support",
+                }
+            )
+        ],
+        "address": {
+            "@type": "PostalAddress",
+            "streetAddress": organization.address_line,
+            "addressLocality": organization.city,
+            "postalCode": organization.postal_code,
+            "addressCountry": _iso_country_code(organization.country),
+        },
+        "areaServed": _iso_country_code(organization.country),
+        "hasOfferCatalog": {
+            "@type": "OfferCatalog",
+            "name": f"{organization.name} products",
+            "itemListElement": [
+                compact(
+                    {
+                        "@type": "Offer",
+                        "url": product.product_url,
+                        "itemOffered": compact({
+                            "@type": (
+                                "Service"
+                                if product.product_type == Product.ProductType.SERVICE
+                                else "Product"
+                            ),
+                            "name": translation["name"],
+                            "description": translation["description"],
+                            "provider": {"@id": organization_id}
+                            if product.product_type == Product.ProductType.SERVICE else None,
+                            "inLanguage": language,
+                        }),
+                        "priceCurrency": product.currency if product.price_from else None,
+                        "price": str(product.price_from) if product.price_from is not None else None,
+                    }
+                )
+                for product, language, translation in _products_by_language(
+                    organization,
+                    languages,
+                )
+            ],
+        },
+        "subjectOf": [
+            compact({
+                "@type": "CreativeWork",
+                "@id": f"urn:uuid:{entry.public_id}",
+                "name": entry.localized_question(language),
+                "url": entry.content_url,
+                "description": entry.localized_summary(language),
+                "datePublished": entry.published_at.date().isoformat(),
+                "inLanguage": language,
+            })
+            for entry, language in non_faq_entries
+        ] + ([{"@id": faq_page_id}] if faq_entries else []),
+        "mainEntityOfPage": canonical_page,
+    }
+    faq_page = compact({
+        "@type": "FAQPage",
+        "@id": faq_page_id,
+        "url": faq_page_id,
+        "about": {"@id": organization_id},
+        "inLanguage": _ordered_unique([language for _, language in faq_entries]),
+        "mainEntity": [
+            compact({
+                "@type": "Question",
+                "@id": f"urn:uuid:{entry.public_id}",
+                "name": entry.localized_question(language),
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": entry.localized_answer(language),
+                },
+                "inLanguage": language,
+            })
+            for entry, language in faq_entries
+        ],
+    })
     return compact(
         {
             "@context": "https://schema.org",
-            "@type": "Organization",
-            "@id": f"urn:uuid:{organization.public_id}",
-            "name": organization.name,
-            "identifier": str(organization.public_id),
-            "url": organization.website_url,
-            "email": organization.contact_email,
-            "telephone": organization.phone_number,
-            "description": organization.localized_text("long_description", selected_language)
-            or organization.localized_text("short_description", selected_language),
-            "keywords": ", ".join(keywords),
-            "sameAs": [profile.url for profile in public_resources(organization, "social_profiles")],
-            "inLanguage": selected_language,
-            "availableLanguage": available_languages,
-            "knowsAbout": [tag["name"] for tag in _tags_payload(
-                organization,
-                selected_language if language_code else None,
-            )],
-            "contactPoint": [
-                compact(
-                    {
-                        "@type": "ContactPoint",
-                        "email": organization.contact_email,
-                        "telephone": organization.phone_number,
-                        "availableLanguage": available_languages,
-                        "contactType": "customer support",
-                    }
-                )
-            ],
-            "address": {
-                "@type": "PostalAddress",
-                "streetAddress": organization.address_line,
-                "addressLocality": organization.city,
-                "postalCode": organization.postal_code,
-                "addressCountry": organization.country,
-            },
-            "areaServed": organization.country,
-            "hasOfferCatalog": {
-                "@type": "OfferCatalog",
-                "name": f"{organization.name} products",
-                "itemListElement": [
-                    compact(
-                        {
-                            "@type": "Offer",
-                            "name": translation["name"],
-                            "description": translation["description"],
-                            "inLanguage": language,
-                            "url": product.product_url,
-                            "priceCurrency": product.currency if product.price_from else None,
-                            "price": str(product.price_from) if product.price_from is not None else None,
-                        }
-                    )
-                    for product, language, translation in _products_by_language(
-                        organization,
-                        languages,
-                    )
-                ],
-            },
-            "subjectOf": [
-                compact({
-                    "@type": "Question" if entry.entry_type == "faq" else "CreativeWork",
-                    "@id": f"urn:uuid:{entry.public_id}",
-                    "name": entry.localized_question(language),
-                    "url": entry.content_url,
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": entry.localized_answer(language),
-                    } if entry.entry_type == "faq" else None,
-                    "description": entry.localized_summary(language) if entry.entry_type != "faq" else None,
-                    "datePublished": entry.published_at.date().isoformat(),
-                    "inLanguage": language,
-                })
-                for entry, language in _content_entries_by_language(organization, languages)
-            ],
-            "mainEntityOfPage": canonical_page,
+            "@graph": [organization_node] + ([faq_page] if faq_entries else []),
         }
     )
 
@@ -610,15 +677,19 @@ def build_markdown_feed(organization, request=None, language_code: str | None = 
 
     lines = [f"# {organization.name}", ""]
 
-    if organization.ai_summary and not language_code:
+    selected_description = descriptions.get(selected_language, {})
+    short_description = selected_description.get("short", "")
+    long_description = selected_description.get("long", "")
+    introduction = short_description or long_description
+    if not introduction and not language_code:
+        introduction = organization.ai_summary
+    if introduction:
+        lines += [f"> {introduction}", ""]
+    if organization.ai_summary and not language_code and organization.ai_summary != introduction:
         lines += [f"> {organization.ai_summary}", ""]
 
-    description = (
-        organization.localized_text("long_description", selected_language)
-        or organization.localized_text("short_description", selected_language)
-    )
-    if description:
-        lines += ["## About", "", description, ""]
+    if long_description and long_description != introduction:
+        lines += ["## About", "", long_description, ""]
 
     lines += ["## Company information", ""]
     lines.append(f"- **Type:** {organization.get_company_type_display()}")
@@ -665,22 +736,31 @@ def build_markdown_feed(organization, request=None, language_code: str | None = 
             lines.append(f"### {language_label}{name}")
             if desc:
                 lines.append(desc)
-            details = []
             if price:
-                details.append(f"From {price} {currency}".strip())
+                lines.append(f"- **Price:** From {price} {currency}".strip())
             if url:
-                details.append(f"[More info]({url})")
-            if details:
-                lines.append(" · ".join(details))
+                lines.append(f"- **Website:** [{url}]({url})")
             lines.append("")
 
     entries = _content_entries_by_language(organization, languages)
-    if entries:
+    faq_entries = [(entry, language) for entry, language in entries if entry.entry_type == "faq"]
+    if faq_entries:
+        lines += ["## Frequently Asked Questions (FAQ)", ""]
+        for entry, language in faq_entries:
+            language_label = f"[{language}] " if not language_code else ""
+            lines.append(f"### {language_label}{entry.localized_question(language)}")
+            answer = entry.localized_answer(language)
+            if answer:
+                lines.append(f"**Answer:** {answer}")
+            lines.append("")
+
+    update_entries = [(entry, language) for entry, language in entries if entry.entry_type != "faq"]
+    if update_entries:
         lines += ["## Content & updates", ""]
-        for entry, language in entries:
+        for entry, language in update_entries:
             summary = entry.localized_summary(language)
             language_label = f"[{language}] " if not language_code else ""
-            lines.append(f"### {language_label}{entry.localized_question(language)} _{entry.get_entry_type_display()}_")
+            lines.append(f"### {language_label}{entry.localized_question(language)}")
             if summary:
                 lines.append(summary)
             if entry.content_url:
@@ -694,9 +774,10 @@ def build_markdown_feed(organization, request=None, language_code: str | None = 
         lines.append("")
 
     if len(descriptions) > 1 and not language_code:
-        lines += ["## Descriptions by language", ""]
+        lines += ["## Multilingual Descriptions", ""]
         for lang, values in descriptions.items():
-            lines.append(f"### {lang.upper()}")
+            language_label = get_language_info(lang)["name"]
+            lines.append(f"### {language_label} ({lang})")
             if values.get("short"):
                 lines.append(f"**Short:** {values['short']}")
             if values.get("long"):

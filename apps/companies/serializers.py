@@ -245,6 +245,7 @@ class ProductSerializer(PlanLimitedModelSerializer):
             "public_id",
             "organization",
             "language",
+            "product_type",
             "name",
             "names_by_language",
             "descriptions_by_language",

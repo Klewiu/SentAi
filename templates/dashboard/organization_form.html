@@ -44,11 +44,6 @@
             <a href="#profile-review">3 · {% if request.LANGUAGE_CODE == 'pl' %}Sprawdź i zapisz{% else %}Review & save{% endif %}</a>
         </nav>
     </header>
-    <aside class="rounded-xl border border-teal-200 bg-teal-50 p-5 text-sm text-slate-700">
-        <strong>{% if form.plan_features.products %}Pro{% elif form.plan_features.tags %}Plus{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Basic{% else %}Basic{% endif %}{% endif %}</strong>
-        <p class="mt-1">{% if request.LANGUAGE_CODE == 'pl' %}Języki: {{ form.allowed_languages_count }}. Wszystkie plany obejmują JSON, JSON-LD, Markdown i llms.txt po weryfikacji i publikacji profilu.{% else %}{{ form.allowed_languages_count }} content language{{ form.allowed_languages_count|pluralize }}. Every plan includes JSON, JSON-LD, Markdown and llms.txt once your profile is verified and published.{% endif %}</p>
-        <p class="mt-2 text-xs">{% if request.LANGUAGE_CODE == 'pl' %}Publikacja ułatwia dostęp do danych; nie gwarantuje indeksacji ani cytowania przez AI. Edycja profilu nie usuwa aktywnej weryfikacji ani opłaconego planu.{% else %}Publication makes your information accessible; it does not guarantee indexing or AI citations. Editing your profile does not remove an active verification or paid plan.{% endif %}</p>
-    </aside>
     <form method="post" id="organization-form" data-language-limit="{{ form.allowed_languages_count }}" class="space-y-6">
         {% csrf_token %}
         {{ form.ai_summary.as_hidden }}
@@ -104,7 +99,7 @@
                 </div>{% endif %}
                 {% if form.plan_features.products %}<div data-product-editor="{{ language.code }}"><label for="products-{{ language.code }}" class="block text-sm font-medium">{% if request.LANGUAGE_CODE == 'pl' %}Produkty i usługi{% else %}Products and services{% endif %}</label>
                     {% with data_id='product-data-'|add:language.code %}{{ language.product_rows|json_script:data_id }}{% endwith %}
-                    <p class="my-1 text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Limit {{ form.plan_features.products }} produktów w każdym języku. Produkty w różnych językach są niezależne — nazwa, opis i adres strony mogą się różnić. Dodanie lub usunięcie produktu dotyczy tylko tego języka.{% else %}Up to {{ form.plan_features.products }} products per language. Products in different languages are independent; names, descriptions and website URLs can differ. Adding or removing a product affects only that language.{% endif %}</p>
+                    <p class="my-1 text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Limit {{ form.plan_features.products }} produktów i usług w każdym języku. Wpisy w różnych językach są niezależne — typ, nazwa, opis i adres strony mogą się różnić. Dodanie lub usunięcie wpisu dotyczy tylko tego języka.{% else %}Up to {{ form.plan_features.products }} products and services per language. Entries in different languages are independent; their type, name, description and website URL can differ. Adding or removing an entry affects only that language.{% endif %}</p>
                     <textarea id="products-{{ language.code }}" name="products_{{ language.code }}" rows="4" data-product-source>{{ language.products }}</textarea>
                     <p data-product-fallback class="text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Jeden produkt w wierszu: nazwa | opis | adres strony.{% else %}One product per line: name | description | website URL.{% endif %}</p>
                 </div>{% endif %}
@@ -238,7 +233,7 @@
         function sync() {
             const values = [...rows.children].map(row => ({
                 id: row.dataset.productId || null,
-                ...Object.fromEntries([...row.querySelectorAll('input')].map(input => [input.dataset.key, input.value])),
+                ...Object.fromEntries([...row.querySelectorAll('[data-key]')].map(field => [field.dataset.key, field.value])),
             }));
             serialized.value = JSON.stringify(values);
             source.value = values.map(row => `${row.name} | ${row.description} | ${row.url}`).join('\n');
@@ -251,7 +246,25 @@
             const legend = document.createElement('legend');
             legend.textContent = polish ? 'Produkt lub usługa' : 'Product or service';
             row.append(legend);
-            const labels = polish ? ['Nazwa', 'Krótki opis (opcjonalnie)', 'Strona produktu (opcjonalnie)'] : ['Name', 'Short description (optional)', 'Product website (optional)'];
+            const typeLabel = document.createElement('label');
+            typeLabel.className = 'block text-sm text-slate-700';
+            typeLabel.append(document.createTextNode(polish ? 'Typ' : 'Type'));
+            const typeSelect = document.createElement('select');
+            typeSelect.dataset.key = 'product_type';
+            [
+                ['product', polish ? 'Produkt' : 'Product'],
+                ['service', polish ? 'Usługa' : 'Service'],
+            ].forEach(([value, label]) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = label;
+                typeSelect.append(option);
+            });
+            typeSelect.value = value.product_type || 'product';
+            typeSelect.addEventListener('change', sync);
+            typeLabel.append(typeSelect);
+            row.append(typeLabel);
+            const labels = polish ? ['Nazwa', 'Krótki opis (opcjonalnie)', 'Strona produktu lub usługi (opcjonalnie)'] : ['Name', 'Short description (optional)', 'Product or service website (optional)'];
             ['name', 'description', 'url'].forEach((key, index) => {
                 const label = document.createElement('label');
                 label.className = 'block text-sm text-slate-700';
@@ -269,7 +282,7 @@
             });
             const remove = document.createElement('button');
             remove.type = 'button'; remove.className = 'text-sm text-rose-700 underline';
-            remove.textContent = polish ? 'Usuń produkt' : 'Remove product';
+            remove.textContent = polish ? 'Usuń produkt lub usługę' : 'Remove product or service';
             remove.addEventListener('click', () => {
                 row.remove();
                 sync();
