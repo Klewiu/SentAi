@@ -6,7 +6,7 @@
     <h1 class="mt-2 font-display text-3xl font-bold text-[#284b63]">
         {% if request.LANGUAGE_CODE == 'pl' %}Potwierd&#378; zam&#243;wienie planu rocznego{% else %}Confirm annual plan order{% endif %}
     </h1>
-    <div class="mt-6 space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-5 text-sm leading-6 text-amber-950">
+    <div class="mt-6 space-y-3 rounded-lg border border-[#5ca197]/40 bg-[#5ca197]/10 p-5 text-sm leading-6 text-[#284b63]">
         {% if request.LANGUAGE_CODE == 'pl' %}
             <p>Plan {{ manual_plan_name }} zostanie aktywowany natychmiast na 12 miesi&#281;cy w cenie <strong>{{ manual_pro_price_label }}</strong>.</p>
             <p>Przelew musi zosta&#263; zaksi&#281;gowany w ci&#261;gu 12 dni. W przeciwnym razie dost&#281;p do publikacji zostanie wstrzymany.</p>
@@ -27,7 +27,12 @@
     </div>
     <div class="mt-6 flex flex-wrap justify-end gap-2">
         <a class="inline-flex min-h-10 items-center rounded border border-[#d9d9d9] px-4 py-2 font-mono text-xs" href="{% url 'dashboard:plan-update' %}">{% if request.LANGUAGE_CODE == 'pl' %}Anuluj{% else %}Cancel{% endif %}</a>
-        <form method="post">{% csrf_token %}<button class="min-h-10 rounded bg-[#284b63] px-5 py-2 text-sm font-semibold text-white" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Potwierdzam zam&#243;wienie{% else %}Confirm order{% endif %}</button></form>
+        <form method="post">
+            {% csrf_token %}
+            <button class="min-h-10 rounded bg-[#284b63] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#1e3a4f]" type="submit">
+                {% if request.LANGUAGE_CODE == 'pl' %}Potwierdzam zam&#243;wienie i obowi&#261;zek zap&#322;aty{% else %}Confirm order and payment obligation{% endif %}
+            </button>
+        </form>
     </div>
 </section>
 {% endblock %}

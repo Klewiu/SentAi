@@ -61,7 +61,7 @@
             </div>
         </div>
 
-        <div class="mt-6 rounded-xl border {% if manual_plan_order.status == 'paid' %}border-emerald-300 bg-emerald-50 text-emerald-950{% else %}border-amber-300 bg-amber-50 text-amber-950{% endif %} p-5">
+        <div class="mt-6 rounded-xl border {% if manual_plan_order.status == 'paid' %}border-emerald-300 bg-emerald-50 text-emerald-950{% else %}border-[#5ca197]/40 bg-[#5ca197]/10 text-[#284b63]{% endif %} p-5">
             <p class="font-mono text-[10px] uppercase tracking-widest">
                 {% if manual_plan_order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}P&#321;ATNO&#346;&#262; POTWIERDZONA{% else %}PAYMENT CONFIRMED{% endif %}
                 {% elif manual_plan_order.is_overdue %}{% if request.LANGUAGE_CODE == 'pl' %}P&#321;ATNO&#346;&#262; PO TERMINIE{% else %}PAYMENT OVERDUE{% endif %}
@@ -86,7 +86,7 @@
         </div>
     {% elif billing_subscription %}
         {% if billing_subscription.status == 'past_due' %}
-            <div class="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5 text-amber-950" role="alert">
+            <div class="mt-6 rounded-xl border border-[#5ca197]/40 bg-[#5ca197]/10 p-5 text-[#284b63]" role="alert">
                 <h2 class="font-display text-xl font-semibold">
                     {% if request.LANGUAGE_CODE == 'pl' %}P&#322;atno&#347;&#263; za odnowienie nie powiod&#322;a si&#281;{% else %}Your renewal payment failed{% endif %}
                 </h2>
@@ -98,7 +98,7 @@
                         {% if request.LANGUAGE_CODE == 'pl' %}Zaktualizuj metod&#281; p&#322;atno&#347;ci{% else %}Update payment method{% endif %}
                     </a>
                     {% if failed_payment.hosted_invoice_url %}
-                        <a class="inline-flex min-h-10 items-center justify-center rounded border border-amber-400 bg-white px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100" href="{{ failed_payment.hosted_invoice_url }}">
+                        <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#5ca197]/40 bg-white px-4 py-2 text-sm font-semibold text-[#284b63] hover:bg-[#5ca197]/20" href="{{ failed_payment.hosted_invoice_url }}">
                             {% if request.LANGUAGE_CODE == 'pl' %}Op&#322;a&#263; zaleg&#322;&#261; faktur&#281;{% else %}Pay outstanding invoice{% endif %}
                         </a>
                     {% endif %}

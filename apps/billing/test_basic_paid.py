@@ -60,7 +60,12 @@ class PaidBasicTests(TestCase):
         session["manual_plan_tier"] = "BASIC"
         session.save()
         response = self.client.get(reverse("dashboard:manual-plan-confirm"))
-        self.assertContains(response, "Pro Manual")
+        self.assertRedirects(response, reverse("dashboard:plan-update"))
+        selection = self.client.post(
+            reverse("dashboard:plan-update"),
+            {"plan_tier": "PRO_MANUAL", "subscription_terms_accepted": "on"},
+        )
+        self.assertRedirects(selection, reverse("dashboard:manual-plan-confirm"))
         self.client.post(reverse("dashboard:manual-plan-confirm"))
         self.assertEqual(ManualPlanOrder.objects.get(user=self.user).tier, "PRO")
 

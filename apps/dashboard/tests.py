@@ -25,6 +25,7 @@ from apps.sales.models import ProspectActivity, ProspectClient, SellerSettlement
 User = get_user_model()
 
 
+@override_settings(ADMIN_MFA_REQUIRED=False)
 class BillingInvoiceTrackingTests(TestCase):
     def setUp(self):
         self.media_directory = TemporaryDirectory()
@@ -396,6 +397,21 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("dashboard:organization-create"))
 
+    def test_inactive_plan_notice_does_not_show_hard_coded_price(self):
+        with override("pl"):
+            polish = self.client.get(reverse("dashboard:home"))
+        self.assertContains(polish, "Publikacja profili wymaga aktywnego płatnego planu")
+        self.assertContains(polish, "Wybierz wśród 3 dostępnych planów")
+        self.assertContains(polish, "Rozliczaj się poprzez cykliczną subskrypcję lub zapłać przelewem za rok")
+        self.assertNotContains(polish, "100 PLN")
+        self.assertNotContains(polish, "25 EUR")
+
+        with override("en"):
+            english = self.client.get(reverse("dashboard:home"))
+        self.assertContains(english, "Choose from 3 available plans")
+        self.assertNotContains(english, "100 PLN")
+        self.assertNotContains(english, "25 EUR")
+
     def test_empty_dashboard_shows_one_large_add_company_button(self):
         self.user.plan_selected_at = timezone.now()
         self.user.save(update_fields=["plan_selected_at"])
@@ -590,6 +606,44 @@ class DashboardPlanLimitTests(TestCase):
         self.assertContains(portal, "Temporary access until")
         self.assertContains(portal, "Awaiting payment")
         self.assertContains(portal, order.payment_reference)
+
+    def test_manual_plan_terms_then_billing_then_order_confirmation(self):
+        selection = self.client.post(
+            reverse("dashboard:plan-update"),
+            {
+                "plan_tier": "PRO_MANUAL",
+                "billing_currency": "pln",
+                "subscription_terms_accepted": "on",
+            },
+        )
+        billing_url = (
+            f"{reverse('dashboard:billing-profile')}"
+            f"?next={reverse('dashboard:plan-purchase-continue')}"
+        )
+        self.assertRedirects(selection, billing_url)
+        self.assertFalse(ManualPlanOrder.objects.filter(user=self.user).exists())
+
+        saved = self.client.post(
+            billing_url,
+            {
+                "company_name": "Client Company",
+                "tax_id": "PL5260250274",
+                "street": "Test Street 1",
+                "postal_code": "00-001",
+                "city": "Warsaw",
+                "country": "PL",
+                "invoice_email": self.user.email,
+                "next": reverse("dashboard:plan-purchase-continue"),
+            },
+        )
+        self.assertEqual(saved.status_code, 302)
+        self.assertEqual(saved.url, reverse("dashboard:plan-purchase-continue"))
+
+        continuation = self.client.get(reverse("dashboard:plan-purchase-continue"))
+        self.assertRedirects(continuation, reverse("dashboard:manual-plan-confirm"))
+        confirmation = self.client.get(reverse("dashboard:manual-plan-confirm"))
+        self.assertContains(confirmation, "Confirm order and payment obligation")
+        self.assertFalse(ManualPlanOrder.objects.filter(user=self.user).exists())
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
     @patch("apps.dashboard.views.stripe.checkout.Session.create")
@@ -1071,8 +1125,70 @@ class DashboardPlanLimitTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("dashboard:billing-profile"))
+        self.assertEqual(
+            response.url,
+            f"{reverse('dashboard:billing-profile')}?next={reverse('dashboard:plan-purchase-continue')}",
+        )
         mock_checkout_create.assert_not_called()
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
+    @patch("apps.dashboard.views.stripe.checkout.Session.create")
+    def test_billing_details_continue_the_accepted_plan_to_stripe(self, mock_checkout_create):
+        BillingPlanPrice.objects.create(
+            tier=UserPlanTier.PLUS,
+            stripe_price_id="price_plus_pln",
+            amount=4900,
+            currency="pln",
+            active_for_new_customers=True,
+        )
+        mock_checkout_create.return_value = SimpleNamespace(
+            id="cs_pending_plus",
+            url="https://checkout.stripe.test/pending-plus",
+        )
+
+        selection = self.client.post(
+            reverse("dashboard:plan-update"),
+            {
+                "plan_tier": UserPlanTier.PLUS,
+                "billing_currency": "pln",
+                "subscription_terms_accepted": "on",
+            },
+        )
+        billing_url = (
+            f"{reverse('dashboard:billing-profile')}"
+            f"?next={reverse('dashboard:plan-purchase-continue')}"
+        )
+        self.assertRedirects(selection, billing_url)
+
+        saved = self.client.post(
+            billing_url,
+            {
+                "company_name": "Client Company",
+                "tax_id": "PL5260250274",
+                "street": "Test Street 1",
+                "postal_code": "00-001",
+                "city": "Warsaw",
+                "country": "PL",
+                "invoice_email": self.user.email,
+                "next": reverse("dashboard:plan-purchase-continue"),
+            },
+        )
+        self.assertRedirects(saved, reverse("dashboard:plan-purchase-continue"))
+
+        continuation = self.client.get(reverse("dashboard:plan-purchase-continue"))
+        self.assertContains(continuation, 'name="plan_tier" value="PLUS"')
+        self.assertContains(continuation, 'name="subscription_terms_accepted" value="on"')
+
+        checkout = self.client.post(
+            reverse("dashboard:plan-update"),
+            {
+                "plan_tier": UserPlanTier.PLUS,
+                "billing_currency": "pln",
+                "subscription_terms_accepted": "on",
+            },
+        )
+        self.assertEqual(checkout.url, "https://checkout.stripe.test/pending-plus")
+        mock_checkout_create.assert_called_once()
 
     def test_billing_profile_requires_vat_id_and_hides_person_choice(self):
         response = self.client.get(reverse("dashboard:billing-profile"))
@@ -2151,14 +2267,55 @@ class SellerManagementTests(TestCase):
         self.assertEqual(detail_response.status_code, 200)
         self.assertContains(list_response, "PRO")
         self.assertTrue(
-            "No active access" in list_response.content.decode()
-            or "Brak aktywnego dost" in list_response.content.decode()
+            "Payment required" in list_response.content.decode()
+            or "Brak p&#322;atno&#347;ci" in list_response.content.decode()
         )
         self.assertContains(detail_response, "PRO")
         self.assertTrue(
-            "No active access" in detail_response.content.decode()
-            or "Brak aktywnego dost" in detail_response.content.decode()
+            "Payment required" in detail_response.content.decode()
+            or "Brak p&#322;atno&#347;ci" in detail_response.content.decode()
         )
+
+    @override_settings(ADMIN_MFA_REQUIRED=False)
+    def test_admin_distinguishes_pro_manual_from_stripe_pro(self):
+        now = timezone.now()
+        self.client_user.plan_tier = UserPlanTier.PRO
+        self.client_user.save(update_fields=["plan_tier"])
+        ManualPlanOrder.objects.create(
+            user=self.client_user,
+            tier=UserPlanTier.PRO,
+            amount=48000,
+            currency="pln",
+            status=ManualPlanOrderStatus.AWAITING_PAYMENT,
+            payment_reference="PRO-MANUAL-DISPLAY",
+            payment_due_at=now + timedelta(days=12),
+            access_until=now + timedelta(days=365),
+        )
+        stripe_client = User.objects.create_user(
+            username="stripe-pro-client",
+            email="stripe-pro-client@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+            plan_tier=UserPlanTier.PRO,
+        )
+        BillingSubscription.objects.create(
+            user=stripe_client,
+            tier=UserPlanTier.PRO,
+            stripe_subscription_id="sub_pro_display",
+            status="active",
+            current_period_start=now,
+            current_period_end=now + timedelta(days=365),
+        )
+        self.client.force_login(self.admin)
+
+        listing = self.client.get(reverse("dashboard:client-list"))
+        manual_detail = self.client.get(reverse("dashboard:client-detail", args=[self.client_user.pk]))
+        stripe_detail = self.client.get(reverse("dashboard:client-detail", args=[stripe_client.pk]))
+
+        self.assertContains(listing, "PRO MANUAL")
+        self.assertContains(manual_detail, "PRO MANUAL")
+        self.assertContains(stripe_detail, ">PRO<")
+        self.assertNotContains(stripe_detail, "PRO MANUAL")
 
     def test_admin_client_list_shows_last_invoice_date(self):
         client_user = User.objects.create_user(

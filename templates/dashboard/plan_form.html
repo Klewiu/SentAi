@@ -250,7 +250,7 @@
         {% endif %}
 
         {% if manual_plan_order %}
-            <div class="mt-6 rounded-xl border {% if manual_plan_order.status == 'paid' %}border-emerald-300 bg-emerald-50 text-emerald-950{% else %}border-amber-300 bg-amber-50 text-amber-950{% endif %} p-5">
+            <div class="mt-6 rounded-xl border {% if manual_plan_order.status == 'paid' %}border-emerald-300 bg-emerald-50 text-emerald-950{% else %}border-[#5ca197]/40 bg-[#5ca197]/10 text-[#284b63]{% endif %} p-5">
                 <p class="font-mono text-[10px] uppercase tracking-widest">
                     PRO MANUAL /
                     {% if manual_plan_order.status == 'paid' %}
@@ -263,11 +263,11 @@
                 </p>
                 <h2 class="mt-2 font-display text-xl font-semibold">{% if request.LANGUAGE_CODE == 'pl' %}{% if manual_plan_order.status == 'paid' %}P&#322;atno&#347;&#263; potwierdzona{% else %}Dane do przelewu{% endif %}{% else %}{% if manual_plan_order.status == 'paid' %}Payment confirmed{% else %}Bank transfer details{% endif %}{% endif %}</h2>
                 <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                    <div><dt class="text-amber-800/60">Odbiorca</dt><dd class="font-semibold">{{ manual_payment_recipient }}</dd></div>
-                    <div><dt class="text-amber-800/60">Bank</dt><dd class="font-semibold">{{ manual_payment_bank }}</dd></div>
-                    <div><dt class="text-amber-800/60">IBAN</dt><dd class="font-mono font-semibold">{{ manual_payment_iban }}</dd></div>
-                    <div><dt class="text-amber-800/60">Kwota</dt><dd class="font-semibold">{{ manual_pro_price_label }}</dd></div>
-                    <div class="sm:col-span-2"><dt class="text-amber-800/60">Tytuł przelewu</dt><dd class="break-all font-mono font-semibold">{{ manual_plan_order.payment_reference }}</dd></div>
+                    <div><dt class="text-[#284b63]/60">Odbiorca</dt><dd class="font-semibold">{{ manual_payment_recipient }}</dd></div>
+                    <div><dt class="text-[#284b63]/60">Bank</dt><dd class="font-semibold">{{ manual_payment_bank }}</dd></div>
+                    <div><dt class="text-[#284b63]/60">IBAN</dt><dd class="font-mono font-semibold">{{ manual_payment_iban }}</dd></div>
+                    <div><dt class="text-[#284b63]/60">Kwota</dt><dd class="font-semibold">{{ manual_pro_price_label }}</dd></div>
+                    <div class="sm:col-span-2"><dt class="text-[#284b63]/60">Tytuł przelewu</dt><dd class="break-all font-mono font-semibold">{{ manual_plan_order.payment_reference }}</dd></div>
                     <div><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Termin p&#322;atno&#347;ci{% else %}Payment due{% endif %}</dt><dd class="font-semibold">{{ manual_plan_order.payment_due_at|date:'Y-m-d H:i' }}</dd></div>
                     <div><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Plan aktywny do{% else %}Plan active until{% endif %}</dt><dd class="font-semibold">{{ manual_plan_order.access_until|date:'Y-m-d H:i' }}</dd></div>
                 </dl>
@@ -318,6 +318,45 @@
             </div>
         </div>
 
+        <div id="manual-terms-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#353535]/60 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="manual-terms-title">
+            <div class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl border border-[#d9d9d9] bg-white p-6 shadow-xl">
+                <p class="font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Warunki p&#322;atno&#347;ci manualnej{% else %}Manual payment terms{% endif %}
+                </p>
+                <h2 id="manual-terms-title" class="mt-2 font-display text-2xl font-semibold tracking-tight text-[#284b63]">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Plan Pro Manual{% else %}Pro Manual plan{% endif %}
+                </h2>
+                <div class="mt-4 space-y-3 rounded-lg border border-[#5ca197]/40 bg-[#5ca197]/10 p-4 text-sm leading-6 text-[#284b63]">
+                    {% if request.LANGUAGE_CODE == 'pl' %}
+                        <p>Plan jest p&#322;atny z g&#243;ry za 12 miesi&#281;cy przelewem bankowym. Po potwierdzeniu zam&#243;wienia dost&#281;p uruchamia si&#281; od razu.</p>
+                        <p>Przelew musi zosta&#263; zaksi&#281;gowany w ci&#261;gu 12 dni od aktywacji. Roczny okres biegnie od dnia aktywacji, a p&#243;&#378;niejsza wp&#322;ata nie przesuwa daty jego zako&#324;czenia.</p>
+                        <p>Brak potwierdzonej p&#322;atno&#347;ci w terminie wstrzymuje publikacj&#281; profili. Dane pozostaj&#261; zapisane. Plan nie odnawia si&#281; automatycznie.</p>
+                    {% else %}
+                        <p>The plan is paid in advance for 12 months by bank transfer. Access starts immediately after the order is confirmed.</p>
+                        <p>The transfer must be received within 12 days of activation. The annual period starts on the activation date, and a later payment does not move its end date.</p>
+                        <p>If payment is not confirmed by the deadline, profile publication is suspended. Saved data remains available. The plan does not renew automatically.</p>
+                    {% endif %}
+                </div>
+                <label class="mt-4 flex items-start gap-3 rounded border border-[#d9d9d9] bg-white p-3">
+                    <input id="manual-terms-checkbox" class="mt-1 h-4 w-4 rounded border-[#d9d9d9] text-[#5ca197] focus:ring-[#5ca197]" type="checkbox" name="subscription_terms_accepted" value="on">
+                    <span class="text-sm leading-6 text-[#353535]/75">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Akceptuj&#281; warunki Pro Manual, termin p&#322;atno&#347;ci i rozpocz&#281;cie rocznego okresu w dniu aktywacji.{% else %}I accept the Pro Manual terms, payment deadline, and the annual period starting on the activation date.{% endif %}
+                    </span>
+                </label>
+                <p id="manual-terms-warning" class="mt-3 hidden font-mono text-xs font-semibold text-[#397b72]">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Zaznacz akceptacj&#281;, aby kontynuowa&#263;.{% else %}Accept the terms to continue.{% endif %}
+                </p>
+                <div class="mt-6 flex flex-wrap justify-end gap-2">
+                    <button id="manual-terms-cancel" type="button" class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Anuluj{% else %}Cancel{% endif %}
+                    </button>
+                    <button id="manual-terms-accept" type="button" class="inline-flex min-h-10 items-center justify-center rounded bg-[#284b63] px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]">
+                        {% if request.LANGUAGE_CODE == 'pl' %}Akceptuj&#281; i kontynuuj&#281;{% else %}Accept and continue{% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div id="subscription-terms-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#353535]/60 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="subscription-terms-title">
             <div class="w-full max-w-lg rounded-xl border border-[#d9d9d9] bg-white p-6 shadow-xl">
                 <p class="font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">
@@ -347,7 +386,7 @@
                     </span>
                 </label>
 
-                <p id="subscription-terms-warning" class="mt-3 hidden font-mono text-xs font-semibold text-rose-500">
+                <p id="subscription-terms-warning" class="mt-3 hidden font-mono text-xs font-semibold text-[#397b72]">
                     {% if request.LANGUAGE_CODE == 'pl' %}Zaznacz akceptacj&#281;, aby kontynuowa&#263;.{% else %}Accept the terms to continue.{% endif %}
                 </p>
 
@@ -372,6 +411,11 @@
         const warning = document.getElementById("subscription-terms-warning");
         const cancelButton = document.getElementById("subscription-terms-cancel");
         const acceptButton = document.getElementById("subscription-terms-accept");
+        const manualModal = document.getElementById("manual-terms-modal");
+        const manualCheckbox = document.getElementById("manual-terms-checkbox");
+        const manualWarning = document.getElementById("manual-terms-warning");
+        const manualCancel = document.getElementById("manual-terms-cancel");
+        const manualAccept = document.getElementById("manual-terms-accept");
         const planChangeModal = document.getElementById("plus-pro-change-modal");
         const planChangeCancel = document.getElementById("plus-pro-change-cancel");
         const planChangeAccept = document.getElementById("plus-pro-change-accept");
@@ -417,6 +461,13 @@
             if (paidTiers.has(selectedTier()) && !checkbox.checked) {
                 event.preventDefault();
                 openModal();
+                return;
+            }
+            if (selectedTier() === "PRO_MANUAL" && manualCheckbox && !manualCheckbox.checked) {
+                event.preventDefault();
+                manualWarning.classList.add("hidden");
+                manualModal.classList.remove("hidden");
+                manualModal.classList.add("flex");
             }
         });
 
@@ -438,9 +489,27 @@
         modal.addEventListener("click", (event) => {
             if (event.target === modal) closeModal();
         });
+        if (manualCancel) {
+            manualCancel.addEventListener("click", () => {
+                manualModal.classList.add("hidden");
+                manualModal.classList.remove("flex");
+            });
+        }
+        if (manualModal) {
+            manualModal.addEventListener("click", (event) => {
+                if (event.target === manualModal) {
+                    manualModal.classList.add("hidden");
+                    manualModal.classList.remove("flex");
+                }
+            });
+        }
         document.addEventListener("keydown", (event) => {
             if (event.key === "Escape" && !modal.classList.contains("hidden")) closeModal();
             if (event.key === "Escape" && planChangeModal && !planChangeModal.classList.contains("hidden")) closePlanChangeModal();
+            if (event.key === "Escape" && manualModal && !manualModal.classList.contains("hidden")) {
+                manualModal.classList.add("hidden");
+                manualModal.classList.remove("flex");
+            }
         });
 
         acceptButton.addEventListener("click", () => {
@@ -451,6 +520,22 @@
             closeModal();
             form.requestSubmit();
         });
+        if (manualCheckbox) {
+            manualCheckbox.addEventListener("change", () => {
+                if (manualCheckbox.checked) manualWarning.classList.add("hidden");
+            });
+        }
+        if (manualAccept) {
+            manualAccept.addEventListener("click", () => {
+                if (!manualCheckbox.checked) {
+                    manualWarning.classList.remove("hidden");
+                    return;
+                }
+                manualModal.classList.add("hidden");
+                manualModal.classList.remove("flex");
+                form.requestSubmit();
+            });
+        }
     })();
 </script>
 {% endblock %}

@@ -23,11 +23,6 @@
             </a>
         </div>
 
-        {% if google_signin_enabled %}<section class="rounded-lg border border-slate-200 p-4">
-            <h2 class="font-semibold">{% if request.LANGUAGE_CODE == 'pl' %}Logowanie przez Google{% else %}Google sign-in{% endif %}</h2>
-            {% if request.user.google_identity %}<p>{% if request.LANGUAGE_CODE == 'pl' %}Google jest połączone z Twoim kontem.{% else %}Google is linked to your account.{% endif %}</p>
-            {% else %}<p class="text-sm text-slate-600">{% if request.LANGUAGE_CODE == 'pl' %}Połącz konto Google z tym samym adresem e-mail.{% else %}Link the Google account with the same email address.{% endif %}</p>{% include 'registration/google_button.html' %}{% endif %}
-        </section>{% endif %}
         {% if profile_completion_required %}
         <section class="rounded-lg border border-[#5ca197]/40 bg-[#5ca197]/10 p-4 text-sm text-[#284b63]">
             <strong>{% if request.LANGUAGE_CODE == 'pl' %}Dokończ rejestrację{% else %}Finish registration{% endif %}</strong>

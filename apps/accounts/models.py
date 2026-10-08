@@ -96,4 +96,8 @@ class AuthRateWindow(models.Model):
 class GoogleIdentity(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="google_identity")
     subject = models.CharField(max_length=255, unique=True)
+    is_primary = models.BooleanField(
+        default=True,
+        help_text="Google was selected as this account's sign-in method during registration.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)

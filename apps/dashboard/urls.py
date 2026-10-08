@@ -28,6 +28,7 @@ from .views import (
     OrganizationCreateView,
     OrganizationDeleteView,
     OrganizationUpdateView,
+    PendingPlanPurchaseView,
     PlanUpdateView,
     ProspectActivityAddView,
     ProspectCreateView,
@@ -59,6 +60,7 @@ app_name = "dashboard"
 urlpatterns = [
     path("", DashboardHomeView.as_view(), name="home"),
     path("plan/", PlanUpdateView.as_view(), name="plan-update"),
+    path("plan/continue/", PendingPlanPurchaseView.as_view(), name="plan-purchase-continue"),
     path("plan/billing-profile/", BillingProfileView.as_view(), name="billing-profile"),
     path("plan/manual/confirm/", ManualPlanConfirmView.as_view(), name="manual-plan-confirm"),
     path("plan/invoices/", CustomerInvoiceListView.as_view(), name="customer-invoices"),

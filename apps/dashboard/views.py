@@ -502,10 +502,14 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
             if existing_subscription and existing_subscription.stripe_subscription_id and existing_subscription.blocks_new_purchase:
                 messages.warning(self.request, "Nie można zamówić planu Manual przy aktywnej subskrypcji Stripe.")
                 return redirect("dashboard:billing-portal")
+            self.request.session["pending_plan_purchase"] = {
+                "tier": selected_tier,
+                "currency": selected_currency,
+            }
             billing_profile = getattr(user, "billing_profile", None)
             if not billing_profile or not billing_profile.is_complete():
                 messages.warning(self.request, "Uzupełnij dane do faktury przed zamówieniem planu.")
-                target = reverse("dashboard:manual-plan-confirm")
+                target = reverse("dashboard:plan-purchase-continue")
                 return redirect(f"{reverse('dashboard:billing-profile')}?next={target}")
             return redirect("dashboard:manual-plan-confirm")
 
@@ -518,6 +522,19 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
             return super().form_valid(form)
 
         if selected_tier in self.paid_tiers:
+            self.request.session["pending_plan_purchase"] = {
+                "tier": selected_tier,
+                "currency": selected_currency,
+            }
+            billing_profile = getattr(user, "billing_profile", None)
+            if not billing_profile or not billing_profile.is_complete():
+                if self.request.LANGUAGE_CODE == "pl":
+                    messages.warning(self.request, "Uzupełnij dane do faktury przed płatnością.")
+                else:
+                    messages.warning(self.request, "Complete billing details before payment.")
+                target = reverse("dashboard:plan-purchase-continue")
+                return redirect(f"{reverse('dashboard:billing-profile')}?next={target}")
+
             existing_subscription = getattr(user, "billing_subscription", None)
             if (
                 existing_subscription
@@ -551,6 +568,7 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
                     if not checkout_url:
                         messages.error(self.request, "Stripe returned an invalid response.")
                         return redirect("dashboard:plan-update")
+                    self.request.session.pop("pending_plan_purchase", None)
                     return redirect(checkout_url, permanent=False)
 
                 if self.request.LANGUAGE_CODE == "pl":
@@ -558,14 +576,6 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
                 else:
                     messages.info(self.request, "You already have an active subscription. Manage plan changes from the subscription page.")
                 return redirect("dashboard:billing-portal")
-
-            billing_profile = getattr(user, "billing_profile", None)
-            if not billing_profile or not billing_profile.is_complete():
-                if self.request.LANGUAGE_CODE == "pl":
-                    messages.warning(self.request, "Uzupelnij dane do faktury przed platnoscia.")
-                else:
-                    messages.warning(self.request, "Complete billing details before payment.")
-                return redirect("dashboard:billing-profile")
 
             if not settings.STRIPE_SECRET_KEY:
                 if self.request.LANGUAGE_CODE == "pl":
@@ -606,6 +616,7 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
                     messages.error(self.request, "Stripe returned an invalid response.")
                 return redirect("dashboard:plan-update")
 
+            self.request.session.pop("pending_plan_purchase", None)
             return redirect(checkout_url, permanent=False)
 
         if self.request.LANGUAGE_CODE == "pl":
@@ -801,6 +812,30 @@ class BillingSubscriptionReactivateView(LoginRequiredMixin, View):
         return redirect("dashboard:billing-portal")
 
 
+class PendingPlanPurchaseView(LoginRequiredMixin, TemplateView):
+    template_name = "dashboard/pending_plan_purchase.html"
+
+    def get(self, request, *args, **kwargs):
+        pending = request.session.get("pending_plan_purchase") or {}
+        selected_tier = pending.get("tier")
+        if selected_tier not in [*UserPlanTier.values, UserPlanUpdateForm.PRO_MANUAL]:
+            return redirect("dashboard:plan-update")
+
+        billing_profile = getattr(request.user, "billing_profile", None)
+        if not billing_profile or not billing_profile.is_complete():
+            target = reverse("dashboard:plan-purchase-continue")
+            return redirect(f"{reverse('dashboard:billing-profile')}?next={target}")
+
+        if selected_tier == UserPlanUpdateForm.PRO_MANUAL:
+            return redirect("dashboard:manual-plan-confirm")
+
+        context = self.get_context_data(
+            selected_tier=selected_tier,
+            selected_currency=billing_profile.billing_currency(),
+        )
+        return self.render_to_response(context)
+
+
 class BillingProfileView(LoginRequiredMixin, UpdateView):
     model = BillingProfile
     form_class = BillingProfileForm
@@ -854,6 +889,13 @@ class ManualPlanConfirmView(LoginRequiredMixin, TemplateView):
             return self.handle_no_permission()
         if request.user.is_superuser:
             return redirect("dashboard:home")
+        pending = request.session.get("pending_plan_purchase") or {}
+        if pending.get("tier") != UserPlanUpdateForm.PRO_MANUAL:
+            if request.LANGUAGE_CODE == "pl":
+                messages.warning(request, "Najpierw wybierz plan Pro Manual i zaakceptuj warunki płatności.")
+            else:
+                messages.warning(request, "Choose Pro Manual and accept its payment terms first.")
+            return redirect("dashboard:plan-update")
         billing_profile = getattr(request.user, "billing_profile", None)
         if not billing_profile or not billing_profile.is_complete():
             target = reverse("dashboard:manual-plan-confirm")
@@ -898,6 +940,7 @@ class ManualPlanConfirmView(LoginRequiredMixin, TemplateView):
             messages.success(request, "Plan Pro Manual został aktywowany. Wykonaj przelew w ciągu 12 dni.")
         else:
             messages.success(request, "The Pro Manual plan has been activated. Make the bank transfer within 12 days.")
+        request.session.pop("pending_plan_purchase", None)
         return redirect("dashboard:billing-portal")
 
 
@@ -1481,6 +1524,9 @@ class ClientListView(AdminRequiredMixin, TemplateView):
             owner=models.OuterRef("pk"),
             verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED,
         )
+        latest_manual_order_subquery = ManualPlanOrder.objects.filter(
+            user=models.OuterRef("pk"),
+        ).order_by("-created_at").values("created_at")[:1]
         qs = (
             User.objects.filter(is_superuser=False, account_type=AccountType.CLIENT)
             .annotate(linked_prospect_id=models.Subquery(linked_prospect_subquery))
@@ -1497,6 +1543,20 @@ class ClientListView(AdminRequiredMixin, TemplateView):
             .annotate(last_reviewed_at=models.Max("organizations__last_reviewed_at"))
             .annotate(last_invoice_sent_at=models.Max("billing_invoices__sent_at"))
             .annotate(last_invoice_issued_at=models.Max("billing_invoices__issued_at"))
+            .annotate(latest_manual_order_at=models.Subquery(latest_manual_order_subquery))
+            .annotate(uses_manual_plan=models.Case(
+                models.When(
+                    latest_manual_order_at__isnull=False,
+                    billing_subscription__current_period_start__isnull=True,
+                    then=models.Value(True),
+                ),
+                models.When(
+                    latest_manual_order_at__gt=models.F("billing_subscription__current_period_start"),
+                    then=models.Value(True),
+                ),
+                default=models.Value(False),
+                output_field=models.BooleanField(),
+            ))
             .prefetch_related("organizations")
         )
         if q:
@@ -1717,12 +1777,26 @@ class ClientDetailView(AdminRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         client = get_object_or_404(
-            User.objects.select_related("seller_settlement__seller", "attributed_prospect__seller"),
+            User.objects.select_related(
+                "seller_settlement__seller",
+                "attributed_prospect__seller",
+                "billing_subscription",
+            ),
             pk=self.kwargs["pk"],
             is_superuser=False,
             account_type=AccountType.CLIENT,
         )
         organizations = list(client.organizations.all().order_by("name"))
+        latest_manual_order = client.manual_plan_orders.order_by("-created_at").first()
+        billing_subscription = getattr(client, "billing_subscription", None)
+        subscription_period_start = getattr(billing_subscription, "current_period_start", None)
+        client.uses_manual_plan = bool(
+            latest_manual_order
+            and (
+                subscription_period_start is None
+                or latest_manual_order.created_at > subscription_period_start
+            )
+        )
         settlement = getattr(client, "seller_settlement", None)
         attributed_prospect = getattr(client, "attributed_prospect", None)
         seller = None

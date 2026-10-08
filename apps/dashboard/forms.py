@@ -137,7 +137,7 @@ class UserPlanUpdateForm(forms.Form):
         selected_tier = cleaned_data.get("plan_tier")
         terms_accepted = cleaned_data.get("subscription_terms_accepted")
 
-        if selected_tier in UserPlanTier.values and not terms_accepted:
+        if selected_tier in [*UserPlanTier.values, self.PRO_MANUAL] and not terms_accepted:
             self.add_error(
                 "subscription_terms_accepted",
                 "You must accept the subscription terms before continuing to payment.",

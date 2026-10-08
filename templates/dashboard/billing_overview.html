@@ -66,7 +66,10 @@
             <tbody class="divide-y divide-[#d9d9d9]">
                 {% for order in manual_plan_orders %}
                     <tr class="{% if order.is_overdue %}bg-rose-50{% endif %}">
-                        <td class="break-all px-3 py-3 pr-5 leading-5 text-[#353535]">{{ order.user.email }}</td>
+                        <td class="px-3 py-3 pr-5 leading-5 text-[#353535]">
+                            <div class="break-words font-semibold">{% firstof order.user.company_name order.user.get_full_name order.user.username "-" %}</div>
+                            <div class="mt-1 break-all text-[10px] text-[#353535]/55">{{ order.user.email }}</div>
+                        </td>
                         <td class="px-3 py-3 pl-4 leading-5 text-[#353535]/75">{{ order.get_tier_display }} Manual</td>
                         <td class="px-3 py-3">{{ order.formatted_amount }}</td>
                         <td class="px-3 py-3">{% if order.status == 'awaiting_payment' %}{% if request.LANGUAGE_CODE == 'pl' %}oczekuje{% else %}awaiting payment{% endif %}{% elif order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}op&#322;acony{% else %}paid{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}wy&#322;&#261;czony{% else %}disabled{% endif %}{% endif %}{% if order.is_overdue %} / overdue{% endif %}</td>
@@ -88,7 +91,7 @@
                                 {% if order.latest_manual_invoice.sent %}
                                     <span class="inline-flex rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2.5 py-1 text-[#397b72]">{% if request.LANGUAGE_CODE == 'pl' %}Wys&#322;ana{% else %}Sent{% endif %}{% if order.latest_manual_invoice.sent_at %} / {{ order.latest_manual_invoice.sent_at|date:"Y-m-d" }}{% endif %}</span>
                                 {% else %}
-                                    <span class="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-amber-700">{% if request.LANGUAGE_CODE == 'pl' %}Wystawiona{% else %}Issued{% endif %}</span>
+                                    <span class="inline-flex rounded-full border border-[#5ca197]/40 bg-[#5ca197]/10 px-2.5 py-1 text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Wystawiona{% else %}Issued{% endif %}</span>
                                 {% endif %}
                             {% elif order.status == 'paid' %}
                                 <span class="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2.5 py-1 text-rose-600">{% if request.LANGUAGE_CODE == 'pl' %}Brak faktury{% else %}No invoice{% endif %}</span>
@@ -205,7 +208,7 @@
                                 {% if sub.latest_manual_invoice.sent %}
                                     <span class="inline-flex rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2.5 py-1 text-[#397b72]">{% if request.LANGUAGE_CODE == 'pl' %}Wys&#322;ana{% else %}Sent{% endif %}{% if sub.latest_manual_invoice.sent_at %} / {{ sub.latest_manual_invoice.sent_at|date:"Y-m-d" }}{% endif %}</span>
                                 {% else %}
-                                    <span class="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-amber-700">{% if request.LANGUAGE_CODE == 'pl' %}Wystawiona{% else %}Issued{% endif %}</span>
+                                    <span class="inline-flex rounded-full border border-[#5ca197]/40 bg-[#5ca197]/10 px-2.5 py-1 text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Wystawiona{% else %}Issued{% endif %}</span>
                                 {% endif %}
                             {% elif sub.has_successful_payment %}
                                 <span class="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2.5 py-1 text-rose-600">{% if request.LANGUAGE_CODE == 'pl' %}Brak faktury{% else %}No invoice{% endif %}</span>
