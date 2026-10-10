@@ -427,20 +427,20 @@
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         <!-- Section header -->
-        <div class="mx-auto max-w-3xl text-center mb-14">
+        <div class="mx-auto max-w-7xl text-center mb-14">
             <div class="inline-flex items-center gap-2 rounded-full border border-[#5ca197]/20 bg-[#5ca197]/8 px-3 py-1 mb-5">
                 <span class="font-mono text-[11px] font-medium uppercase tracking-widest text-[#5ca197]">
                     {% if request.LANGUAGE_CODE == 'pl' %}Jak to działa{% else %}How it works{% endif %}
                 </span>
             </div>
-            <h2 class="font-display text-3xl font-bold tracking-tight text-[#284b63] sm:text-4xl">
+            <h2 class="font-display text-3xl font-bold tracking-tight text-[#284b63] sm:text-4xl lg:whitespace-nowrap">
                 {% if request.LANGUAGE_CODE == 'pl' %}
                     Publikuj dane firmy w języku zrozumiałym dla AI.
                 {% else %}
                     Publish company data in the language AI understands.
                 {% endif %}
             </h2>
-            <p class="mt-5 text-base text-[#353535]/65 leading-relaxed max-w-2xl mx-auto">
+            <p class="mx-auto mt-5 max-w-4xl text-base leading-relaxed text-[#353535]/65 lg:max-w-none lg:whitespace-nowrap">
                 {% if request.LANGUAGE_CODE == 'pl' %}
                     Twórz ustrukturyzowane profile firmy, które modele AI mogą analizować, cytować i rekomendować.
                 {% else %}
@@ -458,7 +458,9 @@
             <div class="rounded-xl border border-[#d9d9d9] bg-white p-6 hover:border-[#5ca197]/40 hover:shadow-sm transition">
                 <div class="mb-4 h-10 w-10 rounded-lg bg-[#284b63]/8 flex items-center justify-center">
                     <svg class="h-5 w-5 text-[#284b63]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5-3.9 19.5m-2.1-19.5-3.9 19.5"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 2v3m-8 6H2v5h2m16-5h2v5h-2M7 5h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Zm1 11h8"/>
+                        <circle cx="9" cy="11" r="1" fill="currentColor" stroke="none"/>
+                        <circle cx="15" cy="11" r="1" fill="currentColor" stroke="none"/>
                     </svg>
                 </div>
                 <p class="font-sans text-sm font-medium text-[#353535] leading-relaxed">
@@ -546,7 +548,7 @@
                 </h2>
                 <p class="mt-6 text-base text-[#353535]/70 leading-relaxed">
                     {% if request.LANGUAGE_CODE == 'pl' %}
-                        Coraz więcej użytkowników pyta ChatGPT, Claude i Perplexity zamiast wpisywać frazy w wyszukiwarce. Modele AI wybierają firmy, które potrafią zrozumieć.
+                        Coraz więcej użytkowników szuka informacji w ChatGPT, Claude, Gemini i innych modelach AI, zamiast wpisywać frazy w wyszukiwarce. Modele AI wybierają firmy, które potrafią zrozumieć.
                     {% else %}
                         More and more users ask ChatGPT, Claude and Perplexity instead of typing phrases into a search engine. AI models choose companies they can understand.
                     {% endif %}
@@ -580,7 +582,7 @@
                         </span>
                     </div>
                     <p class="font-sans text-sm text-[#353535]/50">
-                        {% if request.LANGUAGE_CODE == 'pl' %}Użytkownik wpisuje frazę → Google → lista linków → użytkownik klika i szuka{% else %}User types phrase → Google → list of links → user clicks and searches{% endif %}
+                        {% if request.LANGUAGE_CODE == 'pl' %}Użytkownik wpisuje frazę → Google → lista linków → użytkownik klika i szuka.{% else %}User types phrase → Google → list of links → user clicks and searches.{% endif %}
                     </p>
                 </div>
 
@@ -598,7 +600,7 @@
                         </span>
                     </div>
                     <p class="font-sans text-sm text-[#353535]/70">
-                        {% if request.LANGUAGE_CODE == 'pl' %}Użytkownik pyta AI → model analizuje dane firm → cytuje i rekomenduje firmy, które rozumie{% else %}User asks AI → model analyzes company data → cites and recommends companies it understands{% endif %}
+                        {% if request.LANGUAGE_CODE == 'pl' %}Użytkownik pyta AI → model analizuje dane firm → cytuje i rekomenduje firmy, do których jest w stanie szybko dotrzeć i które rozumie.{% else %}User asks AI → model analyzes company data → cites and recommends companies it can quickly access and understand.{% endif %}
                     </p>
                     <div class="mt-3 flex flex-wrap gap-1.5">
                         <span class="rounded-full bg-[#5ca197]/10 px-2 py-0.5 font-mono text-[10px] text-[#5ca197]">ChatGPT</span>
@@ -677,9 +679,10 @@
                 </div>
                 <div class="mt-4 mb-6 pb-6 border-b border-[#d9d9d9]">
                     <span class="font-display text-4xl font-bold text-[#353535]">
-                        {% if basic_price %}{{ basic_price }}{% else %}-{% endif %}
+                        {% if basic_price_net %}{{ basic_price_net }}{% else %}-{% endif %}
                     </span>
-                    <span class="font-sans text-base text-[#353535]/50">/{% if request.LANGUAGE_CODE == 'pl' %}rok{% else %}year{% endif %}</span>
+                    <span class="font-sans text-sm text-[#353535]/50">{% if request.LANGUAGE_CODE == 'pl' %}netto{% else %}net{% endif %} / {% if request.LANGUAGE_CODE == 'pl' %}rok{% else %}year{% endif %}</span>
+                    {% if basic_price %}<p class="mt-1 font-sans text-xs text-[#353535]/45">{{ basic_price }} {% if request.LANGUAGE_CODE == 'pl' %}brutto (z VAT){% else %}gross (VAT included){% endif %}</p>{% endif %}
                 </div>
                 <p class="mb-6 font-sans text-sm text-[#353535]/60">
                     {% if request.LANGUAGE_CODE == 'pl' %}
@@ -714,8 +717,9 @@
                     {% if request.LANGUAGE_CODE == 'pl' %}Rozszerzony kontekst AI{% else %}Extended AI Context{% endif %}
                 </div>
                 <div class="mt-4 mb-6 pb-6 border-b border-[#d9d9d9]">
-                    <span class="font-display text-4xl font-bold text-[#353535]">{% if plus_price %}{{ plus_price }}{% else %}-{% endif %}</span>
-                    <span class="font-sans text-base text-[#353535]/50">/{% if request.LANGUAGE_CODE == 'pl' %}rok{% else %}year{% endif %}</span>
+                    <span class="font-display text-4xl font-bold text-[#353535]">{% if plus_price_net %}{{ plus_price_net }}{% else %}-{% endif %}</span>
+                    <span class="font-sans text-sm text-[#353535]/50">{% if request.LANGUAGE_CODE == 'pl' %}netto{% else %}net{% endif %} / {% if request.LANGUAGE_CODE == 'pl' %}rok{% else %}year{% endif %}</span>
+                    {% if plus_price %}<p class="mt-1 font-sans text-xs text-[#353535]/45">{{ plus_price }} {% if request.LANGUAGE_CODE == 'pl' %}brutto (z VAT){% else %}gross (VAT included){% endif %}</p>{% endif %}
                 </div>
                 <p class="mb-6 font-sans text-sm text-[#353535]/60">
                     {% if request.LANGUAGE_CODE == 'pl' %}
@@ -760,8 +764,9 @@
                     {% if request.LANGUAGE_CODE == 'pl' %}Pełna publikacja AI-native{% else %}Full AI-Native Publication{% endif %}
                 </div>
                 <div class="mt-4 mb-6 pb-6 border-b border-white/20">
-                    <span class="font-display text-4xl font-bold text-white">{% if pro_price %}{{ pro_price }}{% else %}-{% endif %}</span>
-                    <span class="font-sans text-base text-white/60">/{% if request.LANGUAGE_CODE == 'pl' %}rok{% else %}year{% endif %}</span>
+                    <span class="font-display text-4xl font-bold text-white">{% if pro_price_net %}{{ pro_price_net }}{% else %}-{% endif %}</span>
+                    <span class="font-sans text-sm text-white/60">{% if request.LANGUAGE_CODE == 'pl' %}netto{% else %}net{% endif %} / {% if request.LANGUAGE_CODE == 'pl' %}rok{% else %}year{% endif %}</span>
+                    {% if pro_price %}<p class="mt-1 font-sans text-xs text-white/50">{{ pro_price }} {% if request.LANGUAGE_CODE == 'pl' %}brutto (z VAT){% else %}gross (VAT included){% endif %}</p>{% endif %}
                 </div>
                 <p class="mb-6 font-sans text-sm text-white/70">
                     {% if request.LANGUAGE_CODE == 'pl' %}
@@ -863,6 +868,13 @@
         <div class="mt-8 border-t border-[#d9d9d9] pt-6">
             <p class="font-mono text-[11px] text-[#353535]/30">
                 &copy; {% now "Y" %} xoaila. {% if request.LANGUAGE_CODE == 'pl' %}Wszelkie prawa zastrzeżone.{% else %}All rights reserved.{% endif %}
+            </p>
+            <p class="mt-3 max-w-4xl font-sans text-[10px] leading-relaxed text-[#353535]/35">
+                {% if request.LANGUAGE_CODE == 'pl' %}
+                    ChatGPT, Claude, Gemini, Google i Perplexity są znakami towarowymi należącymi do ich odpowiednich właścicieli. Xoaila nie jest powiązana, sponsorowana ani zatwierdzona przez ich właścicieli.
+                {% else %}
+                    ChatGPT, Claude, Gemini, Google and Perplexity are trademarks of their respective owners. Xoaila is not affiliated with, sponsored by, or endorsed by their owners.
+                {% endif %}
             </p>
         </div>
     </div>

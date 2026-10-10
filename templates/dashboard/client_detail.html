@@ -32,9 +32,30 @@
                     {% if request.LANGUAGE_CODE == 'pl' %}Konto zamkni&#281;te{% else %}Account closed{% endif %}
                 </p>
                 <p class="mt-1 text-sm text-slate-600">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Klient nie ma dost&#281;pu do aplikacji. Dane profilu zosta&#322;y usuni&#281;te; zachowano dokumenty finansowe.{% else %}The customer cannot access the application. Profile data was removed; financial records were retained.{% endif %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}Klient nie ma dostępu do aplikacji, a jego strony nie są publikowane. Dane i dokumenty finansowe pozostają w archiwum administratora.{% else %}The customer cannot access the application and their pages are not published. Data and financial documents remain in the administrator archive.{% endif %}
                 </p>
+                {% if client.closed_email %}<p class="mt-2 font-mono text-xs text-slate-500">{% if request.LANGUAGE_CODE == 'pl' %}Poprzedni e-mail{% else %}Previous email{% endif %}: {{ client.closed_email }}</p>{% endif %}
                 <p class="mt-1 font-mono text-xs text-slate-500">{{ client.closed_at|date:"Y-m-d H:i" }}</p>
+            </div>
+            <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div><p class="font-mono text-[10px] font-semibold uppercase tracking-widest">{% if request.LANGUAGE_CODE == 'pl' %}Trwałe usunięcie archiwum{% else %}Permanent archive deletion{% endif %}</p><p class="mt-1 max-w-3xl text-xs leading-5">{% if request.LANGUAGE_CODE == 'pl' %}Ta operacja usunie z bazy konto, firmy, faktury, płatności, dokumenty i pozostałe powiązane informacje. Nie można jej cofnąć.{% else %}This removes the account, companies, invoices, payments, documents, and all other linked information from the database. It cannot be undone.{% endif %}</p></div>
+                    <button id="open-client-purge-modal" type="button" class="inline-flex min-h-8 shrink-0 items-center justify-center rounded border border-rose-300 bg-white px-3 py-1.5 font-mono text-[11px] font-semibold text-rose-600">{% if request.LANGUAGE_CODE == 'pl' %}Usuń trwale{% else %}Delete permanently{% endif %}</button>
+                </div>
+            </div>
+
+            <div id="client-purge-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#353535]/70 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="client-purge-title">
+                <div class="w-full max-w-xl rounded-xl border border-rose-200 bg-white p-6 shadow-xl">
+                    <p class="font-mono text-[10px] uppercase tracking-widest text-rose-600">{% if request.LANGUAGE_CODE == 'pl' %}Operacja nieodwracalna{% else %}Irreversible operation{% endif %}</p>
+                    <h2 id="client-purge-title" class="mt-2 font-display text-2xl font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Trwale usunąć całe archiwum klienta?{% else %}Permanently delete this customer archive?{% endif %}</h2>
+                    <p class="mt-3 text-sm leading-6 text-[#353535]/70">{% if request.LANGUAGE_CODE == 'pl' %}Znikną wszystkie dane klienta i firm, historia planów, płatności, faktury oraz ich pliki PDF. Tej operacji nie można cofnąć.{% else %}All customer and company data, plan history, payments, invoices, and PDF files will be erased. This cannot be undone.{% endif %}</p>
+                    <form class="mt-5" method="post" action="{% url 'dashboard:client-purge' client.pk %}">{% csrf_token %}
+                        <label class="flex items-start gap-3 text-sm leading-6 text-[#353535]/75"><input id="client-purge-ack" type="checkbox" name="purge_acknowledged" value="on" required style="margin-top:.25rem;width:1.15rem;height:1.15rem;accent-color:#5ca197"><span>{% if request.LANGUAGE_CODE == 'pl' %}Rozumiem, że usunięcie jest trwałe i obejmuje również dane finansowe oraz dokumenty. Potwierdzam, że sprawdzono wymagany prawem okres ich przechowywania.{% else %}I understand that deletion is permanent and includes financial data and documents. I confirm that the legally required retention period has been checked.{% endif %}</span></label>
+                        <label class="mt-4 block text-sm text-[#353535]/70"><span>{% if request.LANGUAGE_CODE == 'pl' %}Aby potwierdzić, wpisz dokładnie{% else %}To confirm, enter exactly{% endif %}: <strong class="font-mono text-rose-700">{{ purge_confirmation }}</strong></span><input id="client-purge-confirmation" class="mt-2" type="text" name="confirmation" autocomplete="off" required></label>
+                        <div class="mt-4 rounded border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3"><div class="flex items-center justify-between"><span class="font-mono text-xs text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}Przycisk aktywny za{% else %}Button unlocks in{% endif %}</span><span class="font-mono text-lg font-semibold text-[#284b63]"><span id="client-purge-countdown">10</span>s</span></div></div>
+                        <div class="mt-6 flex justify-end gap-2"><button id="close-client-purge-modal" type="button" class="min-h-10 rounded border border-[#d9d9d9] px-4 py-2 font-mono text-xs">{% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}</button><button id="confirm-client-purge" type="submit" disabled class="min-h-10 rounded bg-rose-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35">{% if request.LANGUAGE_CODE == 'pl' %}Usuń wszystkie dane trwale{% else %}Permanently delete all data{% endif %}</button></div>
+                    </form>
+                </div>
             </div>
         {% endif %}
 
@@ -52,21 +73,26 @@
                 </p>
                 <p>
                     {% if client.plan_tier == 'PRO' %}
-                        <span class="inline-flex items-center rounded-full border border-[#284b63]/30 bg-[#284b63]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#284b63]">PRO</span>
+                        <span class="inline-flex items-center whitespace-nowrap rounded-full border border-[#284b63]/30 bg-[#284b63]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#284b63]">{{ client.plan_tier }}{% if client.uses_manual_plan %} MANUAL{% endif %}</span>
                     {% elif client.plan_tier == 'PLUS' %}
                         <span class="inline-flex items-center rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">PLUS</span>
                     {% else %}
                         <span class="inline-flex items-center rounded-full border border-[#d9d9d9] bg-[#f5f5f5] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/60">BASIC</span>
                     {% endif %}
                 </p>
-                <p class="mt-1">
+            </div>
+            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 space-y-0.5">
+                <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Status planu{% else %}Plan status{% endif %}
+                </p>
+                <p>
                     {% if client.plan_access_status == 'ACTIVE' %}
                         <span class="inline-flex items-center rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-widest text-[#5ca197]">
                             {% if request.LANGUAGE_CODE == 'pl' %}Plan aktywny{% else %}Plan active{% endif %}
                         </span>
                     {% else %}
-                        <span class="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-widest text-amber-700">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Brak aktywnego dost&#281;pu{% else %}No active access{% endif %}
+                        <span class="inline-flex items-center rounded-full border border-[#5ca197]/40 bg-[#5ca197]/10 px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-widest text-[#284b63]">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Brak p&#322;atno&#347;ci{% else %}Payment required{% endif %}
                         </span>
                     {% endif %}
                 </p>
@@ -237,7 +263,7 @@
                                 {% else %}
                                     <button
                                         type="button"
-                                        class="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-50 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-amber-600 transition hover:border-amber-400 hover:bg-amber-100"
+                                        class="inline-flex items-center rounded-full border border-[#5ca197]/35 bg-[#5ca197]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#284b63] transition hover:border-[#397b72] hover:bg-[#5ca197]/20"
                                         data-page-verify-trigger
                                         data-action="verify"
                                         data-verify-url="{% url 'dashboard:organization-verify' item.organization.pk %}"
@@ -405,4 +431,17 @@
     });
 })();
 </script>
+{% if client.closed_at %}
+<script>
+(() => {
+    const open = document.getElementById("open-client-purge-modal"), modal = document.getElementById("client-purge-modal"), close = document.getElementById("close-client-purge-modal"), submit = document.getElementById("confirm-client-purge"), acknowledgement = document.getElementById("client-purge-ack"), confirmation = document.getElementById("client-purge-confirmation"), countdown = document.getElementById("client-purge-countdown"), expected = "{{ purge_confirmation|escapejs }}";
+    if (!open || !modal || !close || !submit || !acknowledgement || !confirmation || !countdown) return;
+    let timer = null, elapsed = false;
+    const update = () => { submit.disabled = !(elapsed && acknowledgement.checked && confirmation.value.trim() === expected); };
+    const hide = () => { modal.classList.add("hidden"); modal.classList.remove("flex"); document.body.classList.remove("overflow-hidden"); clearInterval(timer); };
+    open.addEventListener("click", () => { let remaining = 10; elapsed = false; acknowledgement.checked = false; confirmation.value = ""; countdown.textContent = remaining; update(); modal.classList.remove("hidden"); modal.classList.add("flex"); document.body.classList.add("overflow-hidden"); clearInterval(timer); timer = setInterval(() => { remaining -= 1; countdown.textContent = Math.max(remaining, 0); if (remaining <= 0) { clearInterval(timer); elapsed = true; update(); } }, 1000); });
+    acknowledgement.addEventListener("change", update); confirmation.addEventListener("input", update); close.addEventListener("click", hide); modal.addEventListener("click", event => { if (event.target === modal) hide(); });
+})();
+</script>
+{% endif %}
 {% endblock %}

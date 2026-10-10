@@ -36,6 +36,8 @@ def validate_remote_price(price):
         raise ValueError("Stripe did not return a valid Price object.")
     if currency not in BillingCurrency.values:
         raise ValueError("Cena musi być w PLN lub EUR. / Price currency must be PLN or EUR.")
+    if not settings.INTERNATIONAL_BILLING_ENABLED and currency != BillingCurrency.PLN:
+        raise ValueError("EUR billing is currently disabled. Add a PLN price.")
     if not isinstance(amount, int) or amount <= 0:
         raise ValueError("Cena Stripe musi mieć stałą dodatnią kwotę. / Stripe price must have a positive fixed amount.")
     if object_get(recurring, "interval") != "year" or object_get(recurring, "interval_count", 1) != 1:

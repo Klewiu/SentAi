@@ -1,290 +1,69 @@
 {% extends 'base.html' %}
-
 {% block content %}
+<style>
+.termination-checkbox{position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none}.termination-checkbox-mark{display:inline-flex;width:1.25rem;height:1.25rem;flex:0 0 1.25rem;align-items:center;justify-content:center;border:1px solid #9ca3af;border-radius:.25rem;background:#fff}.termination-checkbox-mark::after{content:"";width:.65rem;height:.35rem;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) scale(0);transition:transform 120ms ease}.termination-checkbox:checked+.termination-checkbox-mark{border-color:#5ca197;background:#5ca197}.termination-checkbox:checked+.termination-checkbox-mark::after{transform:rotate(-45deg) scale(1)}.termination-checkbox:focus-visible+.termination-checkbox-mark{box-shadow:0 0 0 3px rgba(92,161,151,.22)}
+</style>
 <section class="rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
     <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-            <span class="inline-flex items-center gap-1.5 rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">
-                {% if request.LANGUAGE_CODE == 'pl' %}Subskrypcja{% else %}Subscription{% endif %}
-            </span>
-            <h1 class="mt-3 font-display text-3xl font-bold tracking-tight text-[#284b63]">
-                {% if request.LANGUAGE_CODE == 'pl' %}Zarz&#261;dzaj subskrypcj&#261;{% else %}Manage subscription{% endif %}
-            </h1>
-            <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">
-                {% if request.LANGUAGE_CODE == 'pl' %}
-                    Tutaj mo&#380;esz ulepszy&#263; plan lub wy&#322;&#261;czy&#263; jego automatyczne odnowienie. Po anulowaniu odnowienia op&#322;acony plan pozostaje aktywny do ko&#324;ca bie&#380;&#261;cego okresu rozliczeniowego.
-                {% else %}
-                    Here you can upgrade your plan or turn off automatic renewal. After renewal is canceled, your paid plan remains active until the end of the current billing period.
-                {% endif %}
-            </p>
-            {% if stripe_sync_error %}
-                <p class="mt-2 font-mono text-[11px] text-rose-500">
-                    {% if request.LANGUAGE_CODE == 'pl' %}
-                        Nie uda&#322;o si&#281; od&#347;wie&#380;y&#263; danych ze Stripe. Pokazujemy ostatnio zapisane dane.
-                    {% else %}
-                        Could not refresh data from Stripe. Showing the last saved subscription data.
-                    {% endif %}
-                </p>
-            {% endif %}
+            <span class="inline-flex rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">Plan</span>
+            <h1 class="mt-3 font-display text-3xl font-bold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Zarządzaj planem{% else %}Manage plan{% endif %}</h1>
+            <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">{% if request.LANGUAGE_CODE == 'pl' %}Plan możesz zmienić po zakończeniu bieżącego okresu albo natychmiast po usunięciu obecnego planu.{% else %}You can change your plan after the current period ends or immediately after removing the current plan.{% endif %}</p>
+            {% if stripe_sync_error %}<p class="mt-2 font-mono text-[11px] text-rose-500">{% if request.LANGUAGE_CODE == 'pl' %}Nie udało się odświeżyć danych ze Stripe. Pokazujemy ostatnio zapisane dane.{% else %}Could not refresh data from Stripe. Showing the last saved subscription data.{% endif %}</p>{% endif %}
         </div>
-        <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:home' %}">
-            {% if request.LANGUAGE_CODE == 'pl' %}Wr&#243;&#263;{% else %}Back{% endif %}
-        </a>
+        <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] px-4 py-2 font-mono text-xs text-[#353535]/70" href="{% url 'dashboard:home' %}">{% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}</a>
     </div>
 
     {% if manual_plan_order %}
         <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4">
-                <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Aktualny plan{% else %}Current plan{% endif %}</p>
-                <p class="mt-2 font-display text-2xl font-semibold text-[#284b63]">PRO MANUAL</p>
-            </div>
-            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4">
-                <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Status p&#322;atno&#347;ci{% else %}Payment status{% endif %}</p>
-                <p class="mt-2 font-mono text-sm text-[#353535]/70">
-                    {% if manual_plan_order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}Op&#322;acono{% else %}Paid{% endif %}
-                    {% elif manual_plan_order.is_overdue %}{% if request.LANGUAGE_CODE == 'pl' %}Po terminie{% else %}Overdue{% endif %}
-                    {% else %}{% if request.LANGUAGE_CODE == 'pl' %}Oczekuje na p&#322;atno&#347;&#263;{% else %}Awaiting payment{% endif %}{% endif %}
-                </p>
-            </div>
-            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4">
-                <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Data aktywacji{% else %}Activated on{% endif %}</p>
-                <p class="mt-2 font-mono text-sm text-[#353535]/70">{{ manual_plan_order.created_at|date:"Y-m-d H:i" }}</p>
-            </div>
-            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4">
-                <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
-                    {% if manual_plan_order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}Plan aktywny do{% else %}Plan active until{% endif %}
-                    {% else %}{% if request.LANGUAGE_CODE == 'pl' %}Dost&#281;p tymczasowy do{% else %}Temporary access until{% endif %}{% endif %}
-                </p>
-                <p class="mt-2 font-mono text-sm text-[#353535]/70">
-                    {% if manual_plan_order.status == 'paid' %}{{ manual_plan_order.access_until|date:"Y-m-d H:i" }}{% else %}{{ manual_plan_order.payment_due_at|date:"Y-m-d H:i" }}{% endif %}
-                </p>
-            </div>
+            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4"><p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Aktualny plan{% else %}Current plan{% endif %}</p><p class="mt-2 font-display text-2xl font-semibold text-[#284b63]">{{ manual_plan_order.get_tier_display|upper }} MANUAL</p></div>
+            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4"><p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Status płatności{% else %}Payment status{% endif %}</p><p class="mt-2 font-mono text-sm text-[#353535]/70">{% if manual_plan_order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}Opłacono{% else %}Paid{% endif %}{% elif manual_plan_order.is_overdue %}{% if request.LANGUAGE_CODE == 'pl' %}Po terminie{% else %}Overdue{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Oczekuje na płatność{% else %}Awaiting payment{% endif %}{% endif %}</p></div>
+            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4"><p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Data aktywacji{% else %}Activated on{% endif %}</p><p class="mt-2 font-mono text-sm text-[#353535]/70">{{ manual_plan_order.created_at|date:"Y-m-d H:i" }}</p></div>
+            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4"><p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if manual_plan_order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}Plan aktywny do{% else %}Plan active until{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Dostęp tymczasowy do{% else %}Temporary access until{% endif %}{% endif %}</p><p class="mt-2 font-mono text-sm text-[#353535]/70">{% if manual_plan_order.status == 'paid' %}{{ manual_plan_order.access_until|date:"Y-m-d H:i" }}{% else %}{{ manual_plan_order.payment_due_at|date:"Y-m-d H:i" }}{% endif %}</p></div>
         </div>
-
-        <div class="mt-6 rounded-xl border {% if manual_plan_order.status == 'paid' %}border-emerald-300 bg-emerald-50 text-emerald-950{% else %}border-amber-300 bg-amber-50 text-amber-950{% endif %} p-5">
-            <p class="font-mono text-[10px] uppercase tracking-widest">
-                {% if manual_plan_order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}P&#321;ATNO&#346;&#262; POTWIERDZONA{% else %}PAYMENT CONFIRMED{% endif %}
-                {% elif manual_plan_order.is_overdue %}{% if request.LANGUAGE_CODE == 'pl' %}P&#321;ATNO&#346;&#262; PO TERMINIE{% else %}PAYMENT OVERDUE{% endif %}
-                {% else %}{% if request.LANGUAGE_CODE == 'pl' %}DANE DO PRZELEWU{% else %}BANK TRANSFER DETAILS{% endif %}{% endif %}
-            </p>
-            <p class="mt-2 text-sm leading-6">
-                {% if manual_plan_order.status == 'paid' %}
-                    {% if request.LANGUAGE_CODE == 'pl' %}Op&#322;ata zosta&#322;a potwierdzona. Roczny okres planu jest liczony od daty aktywacji, a nie od daty wp&#322;ywu p&#322;atno&#347;ci.{% else %}Payment has been confirmed. The annual plan period is counted from activation, not from the payment date.{% endif %}
-                {% else %}
-                    {% if request.LANGUAGE_CODE == 'pl' %}Dost&#281;p jest aktywny przez 12 dni od aktywacji. Aby zachowa&#263; publikacj&#281; do ko&#324;ca rocznego okresu, op&#322;a&#263; zam&#243;wienie w podanym terminie.{% else %}Access is active for 12 days from activation. Pay by the due date to keep publication active for the rest of the annual period.{% endif %}
-                {% endif %}
-            </p>
-            <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                <div><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Odbiorca{% else %}Recipient{% endif %}</dt><dd class="font-semibold">{{ manual_payment_recipient }}</dd></div>
-                <div><dt class="opacity-60">Bank</dt><dd class="font-semibold">{{ manual_payment_bank }}</dd></div>
-                <div><dt class="opacity-60">IBAN</dt><dd class="font-mono font-semibold">{{ manual_payment_iban }}</dd></div>
-                <div><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Kwota{% else %}Amount{% endif %}</dt><dd class="font-semibold">{{ manual_amount_label }}</dd></div>
-                <div class="sm:col-span-2"><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Tytu&#322; przelewu{% else %}Transfer reference{% endif %}</dt><dd class="break-all font-mono font-semibold">{{ manual_plan_order.payment_reference }}</dd></div>
-                <div><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Termin p&#322;atno&#347;ci{% else %}Payment due{% endif %}</dt><dd class="font-semibold">{{ manual_plan_order.payment_due_at|date:"Y-m-d H:i" }}</dd></div>
-                {% if manual_plan_order.paid_at %}<div><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Op&#322;acono{% else %}Paid on{% endif %}</dt><dd class="font-semibold">{{ manual_plan_order.paid_at|date:"Y-m-d H:i" }}</dd></div>{% endif %}
-            </dl>
+        <div class="mt-6 rounded-xl border {% if manual_plan_order.status == 'paid' %}border-emerald-300 bg-emerald-50 text-emerald-950{% else %}border-[#5ca197]/40 bg-[#CFEAE4] text-[#284b63]{% endif %} p-5">
+            <p class="font-mono text-[10px] uppercase tracking-widest">{% if manual_plan_order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}PŁATNOŚĆ POTWIERDZONA{% else %}PAYMENT CONFIRMED{% endif %}{% elif manual_plan_order.is_overdue %}{% if request.LANGUAGE_CODE == 'pl' %}PŁATNOŚĆ PO TERMINIE{% else %}PAYMENT OVERDUE{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}DANE DO PRZELEWU{% else %}BANK TRANSFER DETAILS{% endif %}{% endif %}</p>
+            <p class="mt-2 text-sm leading-6">{% if manual_plan_order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}Opłata została potwierdzona. Roczny okres planu jest liczony od daty aktywacji.{% else %}Payment has been confirmed. The annual period is counted from activation.{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Dostęp jest aktywny przez 12 dni od aktywacji. Opłać zamówienie w podanym terminie.{% else %}Access is active for 12 days from activation. Pay by the due date.{% endif %}{% endif %}</p>
+            <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2"><div><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Odbiorca{% else %}Recipient{% endif %}</dt><dd class="font-semibold">{{ manual_payment_recipient }}</dd></div><div><dt class="opacity-60">Bank</dt><dd class="font-semibold">{{ manual_payment_bank }}</dd></div><div><dt class="opacity-60">IBAN</dt><dd class="font-mono font-semibold">{{ manual_payment_iban }}</dd></div><div><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Kwota{% else %}Amount{% endif %}</dt><dd class="font-semibold">{{ manual_amount_label }}</dd></div><div class="sm:col-span-2"><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Tytuł przelewu{% else %}Transfer reference{% endif %}</dt><dd class="break-all font-mono font-semibold">{{ manual_plan_order.payment_reference }}</dd></div><div><dt class="opacity-60">{% if request.LANGUAGE_CODE == 'pl' %}Termin płatności{% else %}Payment due{% endif %}</dt><dd class="font-semibold">{{ manual_plan_order.payment_due_at|date:"Y-m-d H:i" }}</dd></div></dl>
         </div>
     {% elif billing_subscription %}
-        {% if billing_subscription.status == 'past_due' %}
-            <div class="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5 text-amber-950" role="alert">
-                <h2 class="font-display text-xl font-semibold">
-                    {% if request.LANGUAGE_CODE == 'pl' %}P&#322;atno&#347;&#263; za odnowienie nie powiod&#322;a si&#281;{% else %}Your renewal payment failed{% endif %}
-                </h2>
-                <p class="mt-2 text-sm leading-6">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Dost&#281;p pozostaje tymczasowo aktywny, gdy Stripe ponawia p&#322;atno&#347;&#263;. Zaktualizuj metod&#281; p&#322;atno&#347;ci, aby unikn&#261;&#263; przerwy w publikacji.{% else %}Your access remains temporarily active while Stripe retries the payment. Update your payment method to avoid an interruption in publication.{% endif %}
-                </p>
-                <div class="mt-4 flex flex-wrap gap-3">
-                    <a class="inline-flex min-h-10 items-center justify-center rounded bg-[#284b63] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1e3a4f]" href="{% url 'dashboard:stripe-customer-portal' %}">
-                        {% if request.LANGUAGE_CODE == 'pl' %}Zaktualizuj metod&#281; p&#322;atno&#347;ci{% else %}Update payment method{% endif %}
-                    </a>
-                    {% if failed_payment.hosted_invoice_url %}
-                        <a class="inline-flex min-h-10 items-center justify-center rounded border border-amber-400 bg-white px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100" href="{{ failed_payment.hosted_invoice_url }}">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Op&#322;a&#263; zaleg&#322;&#261; faktur&#281;{% else %}Pay outstanding invoice{% endif %}
-                        </a>
-                    {% endif %}
-                </div>
-            </div>
-        {% endif %}
+        {% if billing_subscription.status == 'past_due' %}<div class="mt-6 rounded-xl border border-[#5ca197]/40 bg-[#CFEAE4] p-5 text-[#284b63]"><h2 class="font-display text-xl font-semibold">{% if request.LANGUAGE_CODE == 'pl' %}Płatność za odnowienie nie powiodła się{% else %}Your renewal payment failed{% endif %}</h2><p class="mt-2 text-sm leading-6">{% if request.LANGUAGE_CODE == 'pl' %}Stripe ponawia płatność. Zaktualizuj metodę płatności, aby uniknąć przerwy w publikacji.{% else %}Stripe is retrying payment. Update your payment method to avoid an interruption in publication.{% endif %}</p><div class="mt-4 flex flex-wrap gap-2"><a class="inline-flex rounded bg-[#284b63] px-4 py-2 text-sm font-semibold text-white" href="{% url 'dashboard:stripe-customer-portal' %}">{% if request.LANGUAGE_CODE == 'pl' %}Zaktualizuj metodę płatności{% else %}Update payment method{% endif %}</a>{% if failed_payment.hosted_invoice_url %}<a class="inline-flex rounded border border-[#5ca197]/50 bg-white px-4 py-2 text-sm font-semibold text-[#284b63]" href="{{ failed_payment.hosted_invoice_url }}">{% if request.LANGUAGE_CODE == 'pl' %}Otwórz płatność Stripe{% else %}Open Stripe payment{% endif %}</a>{% endif %}</div></div>{% endif %}
         <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4">
-                <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Aktualny plan{% else %}Current plan{% endif %}</p>
-                <p class="mt-2 font-display text-2xl font-semibold text-[#284b63]">{{ billing_subscription.tier }}</p>
+            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4"><p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Aktualny plan{% else %}Current plan{% endif %}</p><p class="mt-2 font-display text-2xl font-semibold text-[#284b63]">{{ billing_subscription.tier }}</p></div>
+            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4"><p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">Status</p><p class="mt-2 font-mono text-sm text-[#353535]/70">{% if request.LANGUAGE_CODE == 'pl' %}{% if billing_subscription.status == 'active' %}aktywna{% elif billing_subscription.status == 'trialing' %}okres próbny{% elif billing_subscription.status == 'past_due' %}płatność zaległa{% elif billing_subscription.status == 'canceled' %}anulowana{% elif billing_subscription.status == 'unpaid' %}nieopłacona{% else %}{{ billing_subscription.status }}{% endif %}{% else %}{{ billing_subscription.status }}{% endif %}</p></div>
+            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4"><p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Start okresu{% else %}Period started{% endif %}</p><p class="mt-2 font-mono text-sm text-[#353535]/70">{% if billing_subscription.current_period_start %}{{ billing_subscription.current_period_start|date:"Y-m-d H:i" }}{% elif request.user.paid_plan_started_at %}{{ request.user.paid_plan_started_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</p></div>
+            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4"><p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Następne odnowienie{% else %}Next renewal{% endif %}</p><p class="mt-2 font-mono text-sm text-[#353535]/70">{{ billing_subscription.current_period_end|date:"Y-m-d H:i"|default:"-" }}</p>{% if billing_subscription.current_period_end and billing_subscription.status != 'canceled' %}<p class="mt-1 text-xs leading-5 text-[#353535]/50">{% if request.LANGUAGE_CODE == 'pl' %}Stripe podejmie próbę pobrania kolejnej rocznej opłaty w tym terminie.{% else %}Stripe will attempt the next annual payment at this time.{% endif %}</p>{% endif %}</div>
+        </div>
+    {% else %}<div class="mt-6 rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4 text-sm text-[#353535]/70">{% if request.LANGUAGE_CODE == 'pl' %}Nie masz aktywnego planu.{% else %}You do not have an active plan.{% endif %}</div>{% endif %}
+
+    {% if can_terminate_plan %}
+    <div class="mt-6 rounded-xl border border-[#5ca197]/35 bg-[#CFEAE4] p-5 text-[#284b63]">
+        <h2 class="font-display text-xl font-semibold">{% if request.LANGUAGE_CODE == 'pl' %}Jak zmienić plan?{% else %}How do I change my plan?{% endif %}</h2>
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div class="rounded-lg border border-[#5ca197]/25 bg-white/55 p-4">
+                <h3 class="font-display text-base font-bold">{% if request.LANGUAGE_CODE == 'pl' %}Po zakończeniu okresu{% else %}After the period ends{% endif %}</h3>
+                <p class="mt-2 text-sm leading-6">{% if billing_subscription %}{% if request.LANGUAGE_CODE == 'pl' %}Wyłącz odnowienie subskrypcji Stripe. Plan i publikacja pozostaną aktywne do końca opłaconego okresu. Po jego wygaśnięciu możesz kupić dowolny nowy plan.{% else %}Turn off Stripe subscription renewal. The plan and publication remain active through the paid period. Once it expires, you can purchase any new plan.{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Plan Manual nie odnawia się automatycznie. Po zakończeniu obecnego okresu możesz kupić dowolny nowy plan.{% else %}A Manual plan does not renew automatically. After the current period ends, you can purchase any new plan.{% endif %}{% endif %}</p>
             </div>
-            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4">
-                <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">Status</p>
-                <p class="mt-2 font-mono text-sm text-[#353535]/70">
-                    {% if request.LANGUAGE_CODE == 'pl' %}
-                        {% if billing_subscription.status == 'active' %}aktywna{% elif billing_subscription.status == 'trialing' %}okres pr&#243;bny{% elif billing_subscription.status == 'past_due' %}p&#322;atno&#347;&#263; zaleg&#322;a{% elif billing_subscription.status == 'canceled' %}anulowana{% elif billing_subscription.status == 'unpaid' %}nieop&#322;acona{% elif billing_subscription.status == 'incomplete' %}nieuko&#324;czona{% else %}{{ billing_subscription.status }}{% endif %}
-                        {% if billing_subscription.cancel_at_period_end %} / odnowienie anulowane{% endif %}
-                    {% else %}
-                        {{ billing_subscription.status }}{% if billing_subscription.cancel_at_period_end %} / renewal canceled{% endif %}
-                    {% endif %}
-                </p>
-            </div>
-            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4">
-                <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Start okresu{% else %}Period started{% endif %}</p>
-                <p class="mt-2 font-mono text-sm text-[#353535]/70">
-                    {% if billing_subscription.current_period_start %}{{ billing_subscription.current_period_start|date:"Y-m-d H:i" }}{% elif request.user.paid_plan_started_at %}{{ request.user.paid_plan_started_at|date:"Y-m-d H:i" }}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Oczekuje na Stripe{% else %}Waiting for Stripe{% endif %}{% endif %}
-                </p>
-            </div>
-            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4">
-                <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
-                    {% if billing_subscription.cancel_at_period_end %}
-                        {% if request.LANGUAGE_CODE == 'pl' %}Aktywny do{% else %}Active until{% endif %}
-                    {% else %}
-                        {% if request.LANGUAGE_CODE == 'pl' %}Nast&#281;pne odnowienie{% else %}Next renewal{% endif %}
-                    {% endif %}
-                </p>
-                <p class="mt-2 font-mono text-sm text-[#353535]/70">
-                    {% if billing_subscription.current_period_end %}{{ billing_subscription.current_period_end|date:"Y-m-d H:i" }}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Oczekuje na Stripe{% else %}Waiting for Stripe{% endif %}{% endif %}
-                </p>
-                {% if not billing_subscription.cancel_at_period_end and billing_subscription.current_period_end %}
-                    <p class="mt-1 text-xs leading-5 text-[#353535]/50">
-                        {% if request.LANGUAGE_CODE == 'pl' %}Stripe pobierze kolejn&#261; roczn&#261; op&#322;at&#281; w tym terminie.{% else %}Stripe will charge the next yearly renewal at this time.{% endif %}
-                    </p>
-                {% endif %}
+            <div class="rounded-lg border border-[#5ca197]/25 bg-white/55 p-4">
+                <h3 class="font-display text-base font-bold">{% if request.LANGUAGE_CODE == 'pl' %}Natychmiast{% else %}Immediately{% endif %}</h3>
+                <p class="mt-2 text-sm leading-6">{% if request.LANGUAGE_CODE == 'pl' %}Usuń obecny plan i zatrzymaj publikację. Po usunięciu możesz od razu kupić dowolny nowy plan; niewykorzystany okres nie jest przenoszony do nowego planu.{% else %}Remove the current plan and stop publication. You can then purchase any new plan immediately; unused time is not transferred to the new plan.{% endif %}</p>
             </div>
         </div>
+    </div>
+    {% endif %}
 
-        {% if can_upgrade %}
-        <div class="mt-6 rounded-xl border border-[#d9d9d9] bg-white p-4">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <p class="font-display text-xl font-semibold text-[#284b63]">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Ulepsz plan{% else %}Upgrade plan{% endif %}
-                    </p>
-                    <p class="mt-1 max-w-2xl text-sm leading-6 text-[#353535]/60">
-                        {% if request.LANGUAGE_CODE == 'pl' %}
-                            Dost&#281;pne s&#261; tylko wy&#380;sze plany. Aby zako&#324;czy&#263; subskrypcj&#281;, anuluj jej odnowienie.
-                        {% else %}
-                            Only higher plans are available. To end the subscription, cancel its renewal.
-                        {% endif %}
-                    </p>
-                </div>
-                <a class="inline-flex min-h-10 items-center justify-center rounded bg-[#284b63] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]" href="{% url 'dashboard:plan-update' %}?upgrade=1">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Ulepsz plan{% else %}Upgrade plan{% endif %}
-                </a>
-            </div>
+    {% if can_terminate_plan %}
+        {% if billing_subscription and billing_subscription.status != 'canceled' %}
+        <div class="mt-6 rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-5">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="font-display text-xl font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Odnowienie subskrypcji Stripe{% else %}Stripe subscription renewal{% endif %}</h2>{% if billing_subscription.cancel_at_period_end %}<p class="mt-2 max-w-4xl text-sm leading-6 text-[#353535]/65">{% if request.LANGUAGE_CODE == 'pl' %}Odnowienie jest wyłączone. Plan pozostanie aktywny do {{ billing_subscription.current_period_end|date:"Y-m-d H:i" }}, a następnie wygaśnie i dane przestaną być publikowane. Po zakończeniu okresu możesz wybrać nową subskrypcję lub plan opłacany przelewem.{% else %}Renewal is off. The plan remains active until {{ billing_subscription.current_period_end|date:"Y-m-d H:i" }}, then expires and publication stops. After that you can choose a new subscription or a bank-transfer plan.{% endif %}</p>{% else %}<p class="mt-2 max-w-4xl text-sm leading-6 text-[#353535]/65">{% if request.LANGUAGE_CODE == 'pl' %}Możesz wyłączyć kolejne roczne odnowienie. Obecny plan i publikacja pozostaną aktywne do końca opłaconego okresu: {{ billing_subscription.current_period_end|date:"Y-m-d H:i" }}. Po jego zakończeniu wybierzesz nowy plan albo pozwolisz planowi wygasnąć; wtedy dane przestaną być publikowane.{% else %}You can turn off the next annual renewal. The current plan and publication remain active until {{ billing_subscription.current_period_end|date:"Y-m-d H:i" }}. After that you can choose a new plan or let this one expire, at which point publication stops.{% endif %}</p>{% endif %}</div>{% if billing_subscription.cancel_at_period_end %}<form method="post" action="{% url 'dashboard:billing-subscription-reactivate' %}">{% csrf_token %}<button class="min-h-10 shrink-0 rounded border border-[#5ca197]/50 bg-white px-4 py-2 text-sm font-semibold text-[#397b72]" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Włącz odnowienie ponownie{% else %}Turn renewal back on{% endif %}</button></form>{% else %}<form method="post" action="{% url 'dashboard:billing-subscription-cancel-renewal' %}">{% csrf_token %}<button class="min-h-10 shrink-0 rounded border border-[#d9d9d9] bg-white px-4 py-2 text-sm font-semibold text-[#284b63]" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Wyłącz odnawianie{% else %}Turn off renewal{% endif %}</button></form>{% endif %}</div>
         </div>
         {% endif %}
+        <div class="mt-8 flex flex-col gap-2 border-t border-rose-100 pt-3 text-[11px] leading-5 text-rose-700/75 sm:flex-row sm:items-center sm:justify-between"><p>{% if request.LANGUAGE_CODE == 'pl' %}W każdym momencie możesz natychmiast zakończyć plan i przerwać publikację danych w Xoaila.{% else %}You can immediately end the plan and stop publishing data in Xoaila at any time.{% endif %}</p><button id="open-remove-plan-modal" class="inline-flex min-h-9 shrink-0 items-center justify-center rounded border border-rose-300 bg-white px-4 py-2 font-mono text-[10px] font-semibold text-rose-600 transition hover:bg-rose-50" type="button">{% if request.LANGUAGE_CODE == 'pl' %}Natychmiast usuń plan i publikację{% else %}Immediately remove plan and publication{% endif %}</button></div>
 
-        <div class="mt-4 rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <p class="font-display text-xl font-semibold text-[#284b63]">
-                        {% if billing_subscription.cancel_at_period_end %}
-                            {% if request.LANGUAGE_CODE == 'pl' %}Odnowienie anulowane{% else %}Renewal canceled{% endif %}
-                        {% else %}
-                            {% if request.LANGUAGE_CODE == 'pl' %}Anuluj odnowienie{% else %}Cancel renewal{% endif %}
-                        {% endif %}
-                    </p>
-                    <p class="mt-1 max-w-2xl text-sm leading-6 text-[#353535]/60">
-                        {% if billing_subscription.cancel_at_period_end %}
-                            {% if request.LANGUAGE_CODE == 'pl' %}Subskrypcja nie odnowi si&#281; automatycznie. Dost&#281;p pozostaje aktywny do ko&#324;ca op&#322;aconego okresu.{% else %}The subscription will not renew automatically. Access remains active until the end of the paid period.{% endif %}
-                        {% else %}
-                            {% if request.LANGUAGE_CODE == 'pl' %}Po anulowaniu subskrypcja nie odnowi si&#281; na kolejny rok. Obecny dost&#281;p pozostanie aktywny do ko&#324;ca op&#322;aconego okresu.{% else %}After cancellation, the subscription will not renew for another year. Current access remains active until the end of the paid period.{% endif %}
-                        {% endif %}
-                    </p>
-                </div>
-                {% if billing_subscription.cancel_at_period_end %}
-                    <form method="post" action="{% url 'dashboard:billing-subscription-reactivate' %}">
-                        {% csrf_token %}
-                        <button class="inline-flex min-h-10 items-center justify-center rounded bg-[#5ca197] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#4d8f86]" type="submit">
-                            {% if request.LANGUAGE_CODE == 'pl' %}W&#322;&#261;cz odnowienie{% else %}Reactivate renewal{% endif %}
-                        </button>
-                    </form>
-                {% else %}
-                    <button id="open-cancel-modal" class="inline-flex min-h-10 items-center justify-center rounded border border-rose-300 bg-white px-5 py-2.5 font-mono text-xs font-semibold text-rose-500 transition hover:border-rose-500 hover:bg-rose-50" type="button">
-                        {% if request.LANGUAGE_CODE == 'pl' %}Anuluj odnowienie{% else %}Cancel renewal{% endif %}
-                    </button>
-                {% endif %}
-            </div>
-        </div>
-
-        <div id="cancel-subscription-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#353535]/60 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cancel-subscription-title">
-            <div class="w-full max-w-lg rounded-xl border border-[#d9d9d9] bg-white p-6 shadow-xl">
-                <p class="font-mono text-[10px] uppercase tracking-widest text-rose-500">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Potwierdzenie{% else %}Confirmation{% endif %}
-                </p>
-                <h2 id="cancel-subscription-title" class="mt-2 font-display text-2xl font-semibold tracking-tight text-[#284b63]">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Anulowa&#263; kolejne odnowienie?{% else %}Cancel the next renewal?{% endif %}
-                </h2>
-                <p class="mt-4 text-sm leading-6 text-[#353535]/70">
-                    {% if request.LANGUAGE_CODE == 'pl' %}
-                        Obecny plan {{ billing_subscription.tier }} pozostanie aktywny do {% if billing_subscription.current_period_end %}{{ billing_subscription.current_period_end|date:"Y-m-d" }}{% else %}ko&#324;ca op&#322;aconego okresu{% endif %}. Stripe nie pobierze kolejnej op&#322;aty za nast&#281;pny rok.
-                    {% else %}
-                        Your current {{ billing_subscription.tier }} plan remains valid until {% if billing_subscription.current_period_end %}{{ billing_subscription.current_period_end|date:"Y-m-d" }}{% else %}the end of the paid period{% endif %}. Cancellation takes effect from the next subscription year and Stripe will not charge the next yearly renewal.
-                    {% endif %}
-                </p>
-                <div class="mt-5 rounded border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3">
-                    <div class="flex items-center justify-between gap-3">
-                        <span class="font-mono text-xs text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}Przycisk aktywny za{% else %}Button unlocks in{% endif %}</span>
-                        <span class="font-mono text-lg font-semibold text-[#284b63]"><span id="cancel-countdown">5</span>s</span>
-                    </div>
-                </div>
-                <div class="mt-6 flex flex-wrap justify-end gap-2">
-                    <button id="close-cancel-modal" type="button" class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]">
-                        {% if request.LANGUAGE_CODE == 'pl' %}Wr&#243;&#263;{% else %}Back{% endif %}
-                    </button>
-                    <form method="post" action="{% url 'dashboard:billing-subscription-cancel' %}">
-                        {% csrf_token %}
-                        <button id="confirm-cancel-subscription" disabled class="inline-flex min-h-10 items-center justify-center rounded border border-rose-200 bg-rose-50 px-4 py-2 font-mono text-xs font-medium text-rose-300 transition enabled:border-rose-500 enabled:bg-rose-500 enabled:text-white enabled:hover:bg-rose-600 disabled:cursor-not-allowed" type="submit">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Potwierd&#378; anulowanie{% else %}Confirm cancellation{% endif %}
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    {% else %}
-        <div class="mt-6 rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4">
-            <p class="text-sm text-[#353535]/70">
-                {% if request.LANGUAGE_CODE == 'pl' %}Nie masz jeszcze aktywnej subskrypcji.{% else %}You do not have an active subscription yet.{% endif %}
-            </p>
-        </div>
+        <div id="remove-plan-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#353535]/65 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="remove-plan-title"><div class="w-full max-w-xl rounded-xl border border-[#d9d9d9] bg-white p-6 shadow-xl"><p class="font-mono text-[10px] uppercase tracking-widest text-rose-500">{% if request.LANGUAGE_CODE == 'pl' %}Zatrzymanie publikacji{% else %}Stop publication{% endif %}</p><h2 id="remove-plan-title" class="mt-2 font-display text-2xl font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Usunąć obecny plan?{% else %}Remove the current plan?{% endif %}</h2><div class="mt-4 space-y-3 text-sm leading-6 text-[#353535]/70">{% if manual_plan_order %}<p>{% if request.LANGUAGE_CODE == 'pl' %}Plan {{ manual_plan_order.get_tier_display }} Manual zostanie natychmiast zdezaktywowany, a dane firmy przestaną być publikowane.{% else %}The {{ manual_plan_order.get_tier_display }} Manual plan will be deactivated immediately and company data will no longer be published.{% endif %}</p>{% else %}<p>{% if request.LANGUAGE_CODE == 'pl' %}Subskrypcja {{ billing_subscription.tier }} zostanie natychmiast zakończona w Stripe, a dane firmy przestaną być publikowane.{% else %}The {{ billing_subscription.tier }} subscription will be terminated immediately in Stripe and company data will no longer be published.{% endif %}</p>{% endif %}<div class="rounded-lg border border-rose-300 bg-rose-50 p-4 text-rose-800"><p class="font-display text-sm font-bold uppercase tracking-wide">{% if request.LANGUAGE_CODE == 'pl' %}Uwaga{% else %}Warning{% endif %}</p><p class="mt-1 text-sm font-medium leading-6">{% if request.LANGUAGE_CODE == 'pl' %}Przerwanie planu oznacza trwałe zakończenie aktualnie opłaconego planu i natychmiastowe wyłączenie publikacji. Niewykorzystany okres planu nie podlega zwrotowi ani przeniesieniu na nowy plan.{% else %}Ending the plan permanently terminates the currently paid plan and immediately stops publication. The unused plan period is not refundable and cannot be transferred to a new plan.{% endif %}</p></div><p>{% if request.LANGUAGE_CODE == 'pl' %}Po usunięciu możesz kupić dowolny nowy plan.{% else %}After removal, you can purchase any new plan.{% endif %}</p></div><form class="mt-5" method="post" action="{% url 'dashboard:billing-subscription-cancel' %}">{% csrf_token %}<input type="hidden" name="action" value="remove"><label class="flex cursor-pointer items-start gap-3 text-sm leading-6 text-[#353535]/75"><input id="remove-plan-ack" class="termination-checkbox" type="checkbox" name="termination_acknowledged" value="on" required><span class="termination-checkbox-mark mt-0.5" aria-hidden="true"></span><span>{% if request.LANGUAGE_CODE == 'pl' %}Potwierdzam trwałe zakończenie planu, utratę niewykorzystanego okresu i natychmiastowe zatrzymanie publikacji.{% else %}I confirm permanent plan termination, loss of the unused period, and the immediate suspension of publication.{% endif %}</span></label><div class="mt-5 rounded border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3"><div class="flex items-center justify-between"><span class="font-mono text-xs text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}Przycisk aktywny za{% else %}Button unlocks in{% endif %}</span><span class="font-mono text-lg font-semibold text-[#284b63]"><span id="remove-plan-countdown">5</span>s</span></div></div><div class="mt-6 flex justify-end gap-2"><button id="close-remove-plan-modal" type="button" class="min-h-10 rounded border border-[#d9d9d9] px-4 py-2 font-mono text-xs">{% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}</button><button id="confirm-remove-plan" disabled class="min-h-10 rounded bg-rose-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Usuń plan{% else %}Remove plan{% endif %}</button></div></form></div></div>
     {% endif %}
 </section>
-
 <script>
-    (() => {
-        const openButton = document.getElementById("open-cancel-modal");
-        const modal = document.getElementById("cancel-subscription-modal");
-        const closeButton = document.getElementById("close-cancel-modal");
-        const confirmButton = document.getElementById("confirm-cancel-subscription");
-        const countdown = document.getElementById("cancel-countdown");
-        let timer = null;
-
-        if (!openButton || !modal || !closeButton || !confirmButton || !countdown) return;
-
-        const closeModal = () => {
-            modal.classList.add("hidden");
-            modal.classList.remove("flex");
-            clearInterval(timer);
-        };
-
-        openButton.addEventListener("click", () => {
-            let remaining = 5;
-            countdown.textContent = remaining;
-            confirmButton.disabled = true;
-            modal.classList.remove("hidden");
-            modal.classList.add("flex");
-            clearInterval(timer);
-            timer = setInterval(() => {
-                remaining -= 1;
-                countdown.textContent = Math.max(remaining, 0);
-                if (remaining <= 0) {
-                    clearInterval(timer);
-                    confirmButton.disabled = false;
-                }
-            }, 1000);
-        });
-
-        closeButton.addEventListener("click", closeModal);
-        modal.addEventListener("click", (event) => {
-            if (event.target === modal) closeModal();
-        });
-        document.addEventListener("keydown", (event) => {
-            if (event.key === "Escape" && !modal.classList.contains("hidden")) closeModal();
-        });
-    })();
+(()=>{const setup=(prefix)=>{const o=document.getElementById(`open-${prefix}-modal`),m=document.getElementById(`${prefix}-modal`),c=document.getElementById(`close-${prefix}-modal`),b=document.getElementById(`confirm-${prefix}`),x=document.getElementById(`${prefix}-ack`),n=document.getElementById(`${prefix}-countdown`);let timer=null,done=false;if(!o||!m||!c||!b||!x||!n)return;const update=()=>{b.disabled=!(done&&x.checked)},close=()=>{m.classList.add("hidden");m.classList.remove("flex");document.body.classList.remove("overflow-hidden");clearInterval(timer)};o.addEventListener("click",()=>{let remaining=5;done=false;x.checked=false;n.textContent=remaining;update();m.classList.remove("hidden");m.classList.add("flex");document.body.classList.add("overflow-hidden");clearInterval(timer);timer=setInterval(()=>{remaining-=1;n.textContent=Math.max(remaining,0);if(remaining<=0){clearInterval(timer);done=true;update()}},1000)});x.addEventListener("change",update);c.addEventListener("click",close);m.addEventListener("click",event=>{if(event.target===m)close()});document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!m.classList.contains("hidden"))close()})};setup("remove-plan")})();
 </script>
 {% endblock %}

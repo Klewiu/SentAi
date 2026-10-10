@@ -3,12 +3,68 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from unittest.mock import patch
 
+from apps.accounts.forms import UserRegistrationForm
 from apps.accounts.models import UserPlanTier
 from apps.billing.models import BillingPayment, BillingSubscription
+from apps.companies.models import Organization
 from apps.notifications.models import CustomerNotification, NotificationCategory
 
 
 User = get_user_model()
+
+
+class RegistrationCountryValidationTests(TestCase):
+    def form_data(self, country):
+        return {
+            "username": "polish-company",
+            "company_name": "Polish Company",
+            "country": country,
+            "email": "polish-company@example.com",
+            "password1": "StrongPass123!",
+            "password2": "StrongPass123!",
+        }
+
+    def test_country_is_required(self):
+        form = UserRegistrationForm(data=self.form_data(""), language_code="pl")
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("country", form.errors)
+
+    def test_rejects_non_polish_company_with_localized_message(self):
+        polish_form = UserRegistrationForm(
+            data=self.form_data("Germany"),
+            language_code="pl",
+        )
+        english_form = UserRegistrationForm(
+            data=self.form_data("Germany"),
+            language_code="en",
+        )
+
+        self.assertFalse(polish_form.is_valid())
+        self.assertIn(
+            "Aplikacja jest dostępna jedynie dla firm z Polski.",
+            polish_form.errors["country"],
+        )
+        self.assertFalse(english_form.is_valid())
+        self.assertIn(
+            "The application is available only to companies from Poland.",
+            english_form.errors["country"],
+        )
+
+    def test_accepts_polish_and_english_country_names_case_insensitively(self):
+        polish_form = UserRegistrationForm(
+            data=self.form_data("  POLSKA  "),
+            language_code="pl",
+        )
+        english_form = UserRegistrationForm(
+            data=self.form_data("poland"),
+            language_code="en",
+        )
+
+        self.assertTrue(polish_form.is_valid(), polish_form.errors)
+        self.assertEqual(polish_form.cleaned_data["country"], "Polska")
+        self.assertTrue(english_form.is_valid(), english_form.errors)
+        self.assertEqual(english_form.cleaned_data["country"], "Poland")
 
 
 class RegistrationFlowTests(TestCase):
@@ -82,7 +138,7 @@ class RegistrationFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("accounts:close-account"))
-        self.assertContains(response, "Close account")
+        self.assertContains(response, "Remove account")
 
     def test_close_account_soft_deletes_basic_user(self):
         user = User.objects.create_user(
@@ -100,6 +156,7 @@ class RegistrationFlowTests(TestCase):
         self.assertFalse(user.is_active)
         self.assertIsNotNone(user.closed_at)
         self.assertEqual(user.closed_display_name, "client-delete")
+        self.assertEqual(user.closed_email, "client-delete@example.com")
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
     @patch("apps.accounts.views.stripe.Subscription.delete")
@@ -189,6 +246,7 @@ class RegistrationFlowTests(TestCase):
             title="Open before closure",
             category=NotificationCategory.CUSTOMER,
         )
+        organization = Organization.objects.create(owner=user, name="Archived Company")
         self.client.force_login(user)
 
         response = self.client.post(reverse("accounts:close-account"))
@@ -198,12 +256,14 @@ class RegistrationFlowTests(TestCase):
         self.assertFalse(user.is_active)
         self.assertIsNotNone(user.closed_at)
         self.assertEqual(user.closed_display_name, "Private Company")
+        self.assertEqual(user.closed_email, original_email)
         self.assertNotEqual(user.email, original_email)
         self.assertEqual(user.company_name, "")
         self.assertEqual(user.country, "")
         self.assertFalse(user.has_usable_password())
         self.assertFalse(User.objects.filter(email=original_email).exists())
         self.assertFalse(user.customer_notifications.filter(closed_at__isnull=True).exists())
+        self.assertTrue(Organization.objects.filter(pk=organization.pk, owner=user).exists())
 
         admin = User.objects.create_superuser(
             username="closure-admin",
@@ -213,5 +273,6 @@ class RegistrationFlowTests(TestCase):
         self.client.force_login(admin)
         admin_response = self.client.get(reverse("dashboard:client-list"))
         self.assertContains(admin_response, "Private Company")
+        self.assertContains(admin_response, original_email)
         self.assertContains(admin_response, f"#{user.pk}")
         self.assertContains(admin_response, "Account closed")

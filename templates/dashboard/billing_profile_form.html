@@ -12,13 +12,13 @@
             </h1>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">
                 {% if request.LANGUAGE_CODE == 'pl' %}
-                    Firmy z Polski p&#322;ac&#261; w PLN. Dla pozosta&#322;ych kraj&#243;w stosujemy ceny w EUR.
+                    {% if international_billing_enabled %}Firmy z Polski p&#322;ac&#261; w PLN, a pozosta&#322;e firmy w EUR.{% else %}Obs&#322;ugujemy obecnie firmy zarejestrowane w Polsce. Wszystkie dane s&#261; wymagane, a p&#322;atno&#347;ci realizujemy w PLN.{% endif %}
                 {% else %}
-                    Customers from Poland pay in PLN. Other countries use EUR prices at checkout.
+                    {% if international_billing_enabled %}Polish businesses pay in PLN and other businesses in EUR.{% else %}We currently support businesses registered in Poland. All billing details are required and payments are processed in PLN.{% endif %}
                 {% endif %}
             </p>
         </div>
-        <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:plan-update' %}">
+        <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% if purchase_in_progress %}{% url 'dashboard:plan-payment-method' %}{% else %}{% url 'dashboard:plan-update' %}{% endif %}">
             {% if request.LANGUAGE_CODE == 'pl' %}Wr&#243;&#263;{% else %}Back{% endif %}
         </a>
     </div>
@@ -26,7 +26,18 @@
     <form method="post" class="mt-6 grid gap-4 rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4 md:grid-cols-2">
         {% csrf_token %}
         {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
+        {% if not international_billing_enabled %}
+            <div class="md:col-span-2 rounded-lg border border-[#5ca197]/25 bg-[#CFEAE4] px-4 py-3 text-sm text-[#284b63]">
+                {% if request.LANGUAGE_CODE == 'pl' %}Kraj rozliczenia: <strong>Polska (PL)</strong>{% else %}Billing country: <strong>Poland (PL)</strong>{% endif %}
+            </div>
+        {% endif %}
         {% for field in form %}
+            {% if field.is_hidden %}
+                {{ field }}
+                {% if field.errors %}
+                    <span class="md:col-span-2 font-mono text-xs text-rose-500">{{ field.errors|striptags }}</span>
+                {% endif %}
+            {% else %}
             <label class="{% if field.name == 'company_name' %}md:col-span-2{% endif %}">
                 <span class="mb-1 block font-mono text-[10px] uppercase tracking-widest text-[#353535]/45">{{ field.label }}</span>
                 {{ field }}
@@ -37,6 +48,7 @@
                     <span class="mt-1 block font-mono text-xs text-rose-500">{{ field.errors|striptags }}</span>
                 {% endif %}
             </label>
+            {% endif %}
         {% endfor %}
         {% if form.non_field_errors %}
             <p class="md:col-span-2 font-mono text-xs text-rose-500">{{ form.non_field_errors|striptags }}</p>

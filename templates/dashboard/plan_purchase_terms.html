@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="mx-auto max-w-3xl rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
+    <p class="font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">{% if request.LANGUAGE_CODE == 'pl' %}Warunki płatności{% else %}Payment terms{% endif %}</p>
+    <h1 class="mt-2 font-display text-3xl font-bold text-[#284b63]">{{ selected_plan_name }} · {% if payment_method == 'stripe' %}{% if request.LANGUAGE_CODE == 'pl' %}subskrypcja Stripe{% else %}Stripe subscription{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}przelew bankowy{% else %}bank transfer{% endif %}{% endif %}</h1>
+    <div class="mt-6 space-y-3 rounded-xl border border-[#5ca197]/35 bg-[#CFEAE4] p-5 text-sm leading-6 text-[#284b63]">
+        {% if payment_method == 'stripe' %}
+            {% if request.LANGUAGE_CODE == 'pl' %}
+                <p>Płatność w kwocie <strong>{{ selected_price_label }} brutto z VAT</strong> zostanie zrealizowana w zewnętrznej bramce Stripe.</p>
+                <p>Subskrypcja odnawia się automatycznie co rok. Odnowienie można wyłączyć w dowolnym momencie; opłacony dostęp pozostaje aktywny do końca bieżącego okresu.</p>
+            {% else %}
+                <p>The payment of <strong>{{ selected_price_label }} gross including VAT</strong> will be processed through the external Stripe gateway.</p>
+                <p>The subscription renews automatically every year. You can cancel renewal at any time; paid access remains active until the end of the current period.</p>
+            {% endif %}
+        {% else %}
+            {% if request.LANGUAGE_CODE == 'pl' %}
+                <p>Kwota do przelewu wynosi <strong>{{ selected_price_label }} brutto z VAT</strong>. Jest to jednorazowa płatność za rok, bez automatycznego odnowienia.</p>
+                <p>Plan zostanie aktywowany od dnia potwierdzenia zamówienia. Przelew musi zostać zaksięgowany w ciągu 12 dni. Brak płatności spowoduje wstrzymanie publikacji, a pierwotna data końca rocznego okresu nie ulegnie zmianie.</p>
+            {% else %}
+                <p>The transfer amount is <strong>{{ selected_price_label }} gross including VAT</strong>. This is a one-time annual payment with no automatic renewal.</p>
+                <p>The plan starts when the order is confirmed. The transfer must arrive within 12 days. Missing payment suspends publication and does not change the original annual end date.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+    <div class="mt-5 flex flex-col gap-3 rounded-lg border border-[#d9d9d9] bg-[#f8fafa] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-sm leading-6 text-[#353535]/70">
+            {% if request.LANGUAGE_CODE == 'pl' %}Przed akceptacją otwórz i przeczytaj pełną treść Warunków i Umowy dla wybranego sposobu płatności.{% else %}Before accepting, open and read the full Terms and Agreement for your selected payment method.{% endif %}
+        </p>
+        <button id="open-purchase-terms" class="shrink-0 rounded border border-[#5ca197] bg-white px-4 py-2.5 text-sm font-semibold text-[#397b72] transition hover:bg-[#CFEAE4]" type="button">
+            {% if request.LANGUAGE_CODE == 'pl' %}Przeczytaj Warunki i Umowę{% else %}Read Terms and Agreement{% endif %}
+        </button>
+    </div>
+
+    <form class="mt-6" method="post">
+        {% csrf_token %}
+        <label class="flex items-start gap-3 text-sm leading-6 text-[#353535]/75">
+            {{ form.terms_accepted }}
+            <span id="terms-acceptance-description">
+                {% if request.LANGUAGE_CODE == 'pl' %}
+                    Oświadczam, że przeczytałem(-am) i akceptuję pełne <button class="font-semibold text-[#397b72] underline underline-offset-2" type="button" data-open-purchase-terms>Warunki i Umowę{% if payment_method == 'stripe' %} subskrypcji Stripe{% else %} płatności przelewem{% endif %}</button> oraz obowiązek zapłaty po potwierdzeniu zamówienia.
+                {% else %}
+                    I confirm that I have read and accept the full <button class="font-semibold text-[#397b72] underline underline-offset-2" type="button" data-open-purchase-terms>{% if payment_method == 'stripe' %}Stripe Subscription{% else %}Bank Transfer{% endif %} Terms and Agreement</button> and the payment obligation after confirming the order.
+                {% endif %}
+            </span>
+        </label>
+        {% if form.terms_accepted.errors %}<p class="mt-2 text-sm text-rose-600">{{ form.terms_accepted.errors|striptags }}</p>{% endif %}
+        <div class="mt-6 flex gap-2">
+            <button class="rounded bg-[#284b63] px-5 py-2.5 text-sm font-semibold text-white" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Akceptuję i przechodzę dalej{% else %}Accept and continue{% endif %}</button>
+            <a class="rounded border border-[#d9d9d9] px-5 py-2.5 text-sm" href="{% url 'dashboard:plan-payment-method' %}">{% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}</a>
+        </div>
+    </form>
+</section>
+
+<div id="purchase-terms-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#284b63]/65 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="purchase-terms-title">
+    <div class="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-[#d9d9d9] bg-white shadow-2xl">
+        <div class="flex items-start justify-between gap-5 border-b border-[#d9d9d9] px-5 py-4 sm:px-7">
+            <div>
+                <p class="font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">Terms &amp; Conditions</p>
+                <h2 id="purchase-terms-title" class="mt-1 font-display text-2xl font-bold text-[#284b63]">
+                    {% if request.LANGUAGE_CODE == 'pl' %}
+                        Warunki i Umowa — {% if payment_method == 'stripe' %}subskrypcja Stripe{% else %}płatność przelewem{% endif %}
+                    {% else %}
+                        Terms and Agreement — {% if payment_method == 'stripe' %}Stripe subscription{% else %}bank transfer{% endif %}
+                    {% endif %}
+                </h2>
+                <p class="mt-1 font-mono text-[10px] text-rose-600">{% if request.LANGUAGE_CODE == 'pl' %}WERSJA ROBOCZA — TEKST DO WERYFIKACJI PRAWNEJ{% else %}DRAFT — TEXT REQUIRES LEGAL REVIEW{% endif %}</p>
+            </div>
+            <button class="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-[#d9d9d9] text-xl text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197]" type="button" data-close-purchase-terms aria-label="{% if request.LANGUAGE_CODE == 'pl' %}Zamknij{% else %}Close{% endif %}">×</button>
+        </div>
+
+        <article class="overflow-y-auto px-5 py-5 text-sm leading-6 text-[#353535]/75 sm:px-7">
+            {% if request.LANGUAGE_CODE == 'pl' %}
+                <p class="rounded-lg border border-[#5ca197]/35 bg-[#CFEAE4] p-4 text-[#284b63]">Niniejsza wersja robocza dotyczy planu <strong>{{ selected_plan_name }}</strong> w cenie <strong>{{ selected_price_label }} brutto z VAT</strong>.</p>
+                <div class="mt-5 space-y-5">
+                    <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 1. Strony i przedmiot umowy</h3><p class="mt-1">Umowa zostaje zawarta pomiędzy operatorem platformy Xoaila a firmą wskazaną w danych do faktury. Przedmiotem umowy jest udostępnienie funkcji planu {{ selected_plan_name }} przez okres wskazany w zamówieniu.</p></section>
+                    <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 2. Cena i rozliczenie</h3><p class="mt-1">Cena brutto zamówienia wynosi {{ selected_price_label }} i zawiera należny podatek VAT. Klient zobowiązuje się przekazać prawidłowe dane rozliczeniowe oraz uregulować pełną kwotę zamówienia.</p></section>
+                    {% if payment_method == 'stripe' %}
+                        <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 3. Subskrypcja Stripe</h3><p class="mt-1">Płatność jest obsługiwana przez zewnętrzną bramkę Stripe. Subskrypcja odnawia się automatycznie co 12 miesięcy przy użyciu zapisanej metody płatności, o ile klient wcześniej nie wyłączy odnowienia.</p></section>
+                        <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 4. Rezygnacja z odnowienia</h3><p class="mt-1">Klient może wyłączyć kolejne odnowienie w panelu. Rezygnacja nie skraca opłaconego okresu; dostęp pozostaje aktywny do jego końca.</p></section>
+                    {% else %}
+                        <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 3. Płatność przelewem</h3><p class="mt-1">Płatność ma charakter jednorazowy i nie odnawia się automatycznie. Klient wykonuje przelew na podany rachunek, używając dokładnego tytułu i identyfikatora płatności przypisanego do zamówienia.</p></section>
+                        <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 4. Termin płatności</h3><p class="mt-1">Przelew musi zostać zaksięgowany w ciągu 12 dni od aktywacji zamówienia. Brak płatności może spowodować wstrzymanie publikacji bez przesunięcia pierwotnej daty zakończenia rocznego okresu.</p></section>
+                    {% endif %}
+                    <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 5. Dostęp do usługi</h3><p class="mt-1">Zakres funkcji wynika z wybranego planu. Klient odpowiada za zgodność i legalność publikowanych danych oraz za bezpieczeństwo danych dostępowych do swojego konta.</p></section>
+                    <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 6. Faktury i kontakt</h3><p class="mt-1">Dokumenty rozliczeniowe są wystawiane na dane zapisane przez klienta. Klient powinien niezwłocznie aktualizować dane firmy, NIP, adres i e-mail do faktur.</p></section>
+                    <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 7. Odpowiedzialność i dostępność</h3><p class="mt-1">Operator dokłada należytej staranności w utrzymaniu usługi, może jednak prowadzić prace techniczne i usuwać awarie. Szczegółowe zasady odpowiedzialności zostaną określone w ostatecznej wersji umowy.</p></section>
+                    <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 8. Postanowienia końcowe</h3><p class="mt-1">Do umowy stosuje się prawo polskie. Zaznaczenie pola akceptacji i kontynuowanie zamówienia oznacza zgodę na niniejsze warunki oraz potwierdzenie obowiązku zapłaty.</p></section>
+                </div>
+            {% else %}
+                <p class="rounded-lg border border-[#5ca197]/35 bg-[#CFEAE4] p-4 text-[#284b63]">This draft applies to the <strong>{{ selected_plan_name }}</strong> plan priced at <strong>{{ selected_price_label }} gross including VAT</strong>.</p>
+                <div class="mt-5 space-y-5">
+                    <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 1. Parties and scope</h3><p class="mt-1">This agreement is entered into by the Xoaila platform operator and the company identified in the billing details. It covers access to the {{ selected_plan_name }} plan for the period stated in the order.</p></section>
+                    <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 2. Price and billing</h3><p class="mt-1">The gross order price is {{ selected_price_label }} and includes applicable VAT. The customer must provide correct billing details and pay the full order amount.</p></section>
+                    {% if payment_method == 'stripe' %}
+                        <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 3. Stripe subscription</h3><p class="mt-1">Payment is processed by the external Stripe gateway. The subscription renews automatically every 12 months using the saved payment method unless the customer disables renewal beforehand.</p></section>
+                        <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 4. Canceling renewal</h3><p class="mt-1">The customer may disable the next renewal in the account panel. Cancellation does not shorten the paid period; access remains active until that period ends.</p></section>
+                    {% else %}
+                        <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 3. Bank transfer</h3><p class="mt-1">The payment is one-time and does not renew automatically. The customer transfers the amount to the specified account using the exact payment title and identifier assigned to the order.</p></section>
+                        <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 4. Payment deadline</h3><p class="mt-1">The transfer must arrive within 12 days after order activation. Missing payment may suspend publication without extending the original annual end date.</p></section>
+                    {% endif %}
+                    <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 5. Service access</h3><p class="mt-1">Available functions follow the selected plan. The customer is responsible for the legality and accuracy of published data and for protecting account credentials.</p></section>
+                    <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 6. Invoices and contact</h3><p class="mt-1">Billing documents use the details saved by the customer. The customer should promptly update the company name, VAT ID, address, and invoice email.</p></section>
+                    <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 7. Liability and availability</h3><p class="mt-1">The operator uses reasonable care to maintain the service but may perform maintenance and resolve outages. Detailed liability provisions will appear in the final agreement.</p></section>
+                    <section><h3 class="font-display text-lg font-semibold text-[#284b63]">§ 8. Final provisions</h3><p class="mt-1">Polish law governs the agreement. Selecting the acceptance checkbox and continuing the order confirms acceptance of these terms and the payment obligation.</p></section>
+                </div>
+            {% endif %}
+        </article>
+
+        <div class="flex justify-end border-t border-[#d9d9d9] bg-[#f8fafa] px-5 py-4 sm:px-7">
+            <button class="rounded bg-[#284b63] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1e3a4f]" type="button" data-close-purchase-terms>{% if request.LANGUAGE_CODE == 'pl' %}Zamknij i wróć do akceptacji{% else %}Close and return to acceptance{% endif %}</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(() => {
+    const modal = document.getElementById("purchase-terms-modal");
+    const openButtons = document.querySelectorAll("#open-purchase-terms, [data-open-purchase-terms]");
+    const closeButtons = document.querySelectorAll("[data-close-purchase-terms]");
+    if (!modal) return;
+
+    const openModal = () => {
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+        document.body.classList.add("overflow-hidden");
+        modal.querySelector("[data-close-purchase-terms]")?.focus();
+    };
+    const closeModal = () => {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+        document.body.classList.remove("overflow-hidden");
+        document.getElementById("open-purchase-terms")?.focus();
+    };
+
+    openButtons.forEach((button) => button.addEventListener("click", openModal));
+    closeButtons.forEach((button) => button.addEventListener("click", closeModal));
+    modal.addEventListener("click", (event) => { if (event.target === modal) closeModal(); });
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !modal.classList.contains("hidden")) closeModal(); });
+})();
+</script>
+{% endblock %}

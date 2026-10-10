@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="mx-auto max-w-3xl rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
+    <p class="font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">Stripe</p>
+    <h1 class="mt-2 font-display text-3xl font-bold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Potwierdź zamówienie{% else %}Confirm your order{% endif %}</h1>
+    <div class="mt-6 rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-5 text-sm leading-7">
+        <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Plan{% else %}Plan{% endif %}:</strong> {{ selected_plan_name }}</p>
+        <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Cena netto{% else %}Net price{% endif %}:</strong> {{ selected_net_price_label }}</p>
+        <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Do zapłaty brutto{% else %}Gross amount due{% endif %}:</strong> {{ selected_price_label }}</p>
+        <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Firma{% else %}Company{% endif %}:</strong> {{ billing_profile.company_name }}</p>
+        <p><strong>NIP:</strong> {{ billing_profile.tax_id }}</p>
+    </div>
+    <p class="mt-5 text-sm leading-6 text-[#353535]/65">{% if request.LANGUAGE_CODE == 'pl' %}Po potwierdzeniu przejdziesz do zewnętrznej bramki Stripe, aby bezpiecznie zrealizować płatność i uruchomić odnawialną subskrypcję roczną.{% else %}After confirmation, you will go to the external Stripe gateway to securely pay and start a renewable annual subscription.{% endif %}</p>
+    <div class="mt-6 flex flex-wrap gap-2">
+        <form method="post" action="{% url 'dashboard:plan-update' %}{% if upgrade %}?upgrade=1{% endif %}">
+            {% csrf_token %}
+            <input type="hidden" name="plan_tier" value="{{ selected_tier }}">
+            <input type="hidden" name="billing_currency" value="{{ selected_currency }}">
+            <input type="hidden" name="checkout_confirmed" value="1">
+            <button class="rounded bg-[#284b63] px-5 py-2.5 text-sm font-semibold text-white" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Potwierdź zamówienie i przejdź do Stripe{% else %}Confirm order and continue to Stripe{% endif %}</button>
+        </form>
+        <a class="rounded border border-[#d9d9d9] px-5 py-2.5 text-sm" href="{% url 'dashboard:plan-update' %}">{% if request.LANGUAGE_CODE == 'pl' %}Anuluj{% else %}Cancel{% endif %}</a>
+    </div>
+</section>
+{% endblock %}

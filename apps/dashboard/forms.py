@@ -1,11 +1,13 @@
 import re
 
 from django import forms
+from django.conf import settings
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 
 from apps.accounts.models import AccountType, USER_PLAN_ORGANIZATION_LIMITS, UserPlanTier
 from apps.billing.models import BillingCurrency, BillingCustomerType, BillingInvoice, BillingPayment, BillingProfile
+from apps.billing.validators import is_valid_polish_nip, normalize_vat_id
 
 
 User = get_user_model()
@@ -42,25 +44,6 @@ EU_VAT_COUNTRY_CODES = {
 }
 
 
-def normalize_vat_id(value: str, country: str) -> str:
-    normalized = re.sub(r"[\s.\-_/]", "", value or "").upper()
-    country = (country or "").upper()
-    if country and normalized and not normalized.startswith(country):
-        if len(normalized) >= 2 and normalized[:2].isalpha():
-            return normalized
-        return f"{country}{normalized}"
-    return normalized
-
-
-def is_valid_polish_nip(vat_id: str) -> bool:
-    number = vat_id[2:] if vat_id.startswith("PL") else vat_id
-    if not re.fullmatch(r"\d{10}", number):
-        return False
-    weights = [6, 5, 7, 2, 3, 4, 5, 6, 7]
-    checksum = sum(int(number[index]) * weights[index] for index in range(9)) % 11
-    return checksum != 10 and checksum == int(number[9])
-
-
 class RegisteredClientChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
         company_name = (obj.company_name or "").strip()
@@ -75,15 +58,13 @@ class RegisteredClientChoiceField(forms.ModelChoiceField):
 
 
 class UserPlanUpdateForm(forms.Form):
-    PRO_MANUAL = "PRO_MANUAL"
     PLAN_RANKS = {
         UserPlanTier.BASIC: 0,
         UserPlanTier.PLUS: 1,
         UserPlanTier.PRO: 2,
-        PRO_MANUAL: 2,
     }
     plan_tier = forms.ChoiceField(
-        choices=[*UserPlanTier.choices, (PRO_MANUAL, "Pro Manual")],
+        choices=UserPlanTier.choices,
         widget=forms.RadioSelect(attrs={"class": "plan-tier-radio"}),
     )
     billing_currency = forms.ChoiceField(
@@ -92,8 +73,6 @@ class UserPlanUpdateForm(forms.Form):
         required=False,
         widget=forms.HiddenInput,
     )
-    subscription_terms_accepted = forms.BooleanField(required=False)
-
     def __init__(self, *args, user=None, **kwargs):
         self.user = user
         super().__init__(*args, **kwargs)
@@ -115,8 +94,7 @@ class UserPlanUpdateForm(forms.Form):
             raise forms.ValidationError("Selecting a lower plan is not available.")
 
         current_count = self.user.organizations.count()
-        effective_tier = UserPlanTier.PRO if selected_tier == self.PRO_MANUAL else selected_tier
-        new_limit = USER_PLAN_ORGANIZATION_LIMITS[effective_tier]
+        new_limit = USER_PLAN_ORGANIZATION_LIMITS[selected_tier]
         if current_count > new_limit:
             raise forms.ValidationError(
                 f"You currently have {current_count} company pages. "
@@ -130,20 +108,68 @@ class UserPlanUpdateForm(forms.Form):
         return has_publication_access(self.user)
 
     def clean_billing_currency(self):
+        if not settings.INTERNATIONAL_BILLING_ENABLED:
+            return BillingCurrency.PLN
         return (self.cleaned_data.get("billing_currency") or BillingCurrency.PLN).lower()
 
-    def clean(self):
-        cleaned_data = super().clean()
-        selected_tier = cleaned_data.get("plan_tier")
-        terms_accepted = cleaned_data.get("subscription_terms_accepted")
 
-        if selected_tier in UserPlanTier.values and not terms_accepted:
-            self.add_error(
-                "subscription_terms_accepted",
-                "You must accept the subscription terms before continuing to payment.",
+
+class PurchasePaymentMethodForm(forms.Form):
+    STRIPE = "stripe"
+    MANUAL = "manual"
+    payment_method = forms.ChoiceField(choices=((STRIPE, "Stripe"), (MANUAL, "Bank transfer")))
+
+
+class PurchaseTermsForm(forms.Form):
+    terms_accepted = forms.BooleanField(required=True)
+
+    def __init__(self, *args, language_code="en", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["terms_accepted"].error_messages["required"] = (
+            "Aby kontynuować, przeczytaj i zaakceptuj Warunki i Umowę."
+            if language_code == "pl"
+            else "Read and accept the Terms and Agreement to continue."
+        )
+        self.fields["terms_accepted"].widget.attrs.update(
+            {
+                "class": "mt-1 h-5 w-5 shrink-0 accent-[#284b63]",
+                "aria-describedby": "terms-acceptance-description",
+            }
+        )
+
+
+class PlanTerminationForm(forms.Form):
+    termination_acknowledged = forms.BooleanField(required=True)
+
+    def __init__(self, *args, language_code="en", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["termination_acknowledged"].error_messages["required"] = (
+            "Potwierdź zapoznanie się ze skutkami usunięcia planu."
+            if language_code == "pl"
+            else "Confirm that you understand the consequences of removing the plan."
+        )
+
+class ArchivedClientPurgeForm(forms.Form):
+    purge_acknowledged = forms.BooleanField(required=True)
+    confirmation = forms.CharField(max_length=64)
+
+    def __init__(self, *args, client, language_code="en", **kwargs):
+        self.client = client
+        self.language_code = language_code
+        self.expected_confirmation = (
+            f"USUN #{client.pk}" if language_code == "pl" else f"DELETE #{client.pk}"
+        )
+        super().__init__(*args, **kwargs)
+
+    def clean_confirmation(self):
+        value = (self.cleaned_data.get("confirmation") or "").strip()
+        if value != self.expected_confirmation:
+            raise forms.ValidationError(
+                f"Wpisz dokładnie: {self.expected_confirmation}"
+                if self.language_code == "pl"
+                else f"Enter exactly: {self.expected_confirmation}"
             )
-
-        return cleaned_data
+        return value
 
 
 class SellerCreateForm(forms.Form):
@@ -311,6 +337,10 @@ class BillingProfileForm(forms.ModelForm):
         self.user = user
         self.language = "pl" if language == "pl" else "en"
         super().__init__(*args, **kwargs)
+        if not settings.INTERNATIONAL_BILLING_ENABLED:
+            self.initial["country"] = "PL"
+            self.fields["country"].initial = "PL"
+            self.fields["country"].widget = forms.HiddenInput()
         if self.user and not self.is_bound:
             self.fields["invoice_email"].initial = self.user.email
             if getattr(self.user, "company_name", ""):
@@ -346,21 +376,66 @@ class BillingProfileForm(forms.ModelForm):
             self.fields[field_name].error_messages["required"] = required_message
         self.fields["tax_id"].required = True
         self.fields["company_name"].required = True
+        if not settings.INTERNATIONAL_BILLING_ENABLED:
+            self.fields["country"].label = "Kraj" if self.language == "pl" else "Country"
+            self.fields["tax_id"].label = "NIP" if self.language == "pl" else "Polish VAT ID (NIP)"
+            self.fields["country"].help_text = (
+                "Obsługujemy obecnie wyłącznie firmy z Polski."
+                if self.language == "pl"
+                else "We currently support businesses registered in Poland only."
+            )
+            self.fields["tax_id"].help_text = (
+                "Wpisz polski NIP zaczynający się od PL, np. PL5260250995."
+                if self.language == "pl"
+                else "Enter a Polish VAT ID starting with PL, e.g. PL5260250995."
+            )
 
     def clean_country(self):
-        return self.cleaned_data["country"].strip().upper()
+        country = self.cleaned_data["country"].strip().upper()
+        if not settings.INTERNATIONAL_BILLING_ENABLED and country != "PL":
+            raise forms.ValidationError(
+                "Obsługujemy obecnie wyłącznie firmy z Polski."
+                if self.language == "pl"
+                else "We currently support businesses registered in Poland only."
+            )
+        return country
 
     def clean(self):
         cleaned_data = super().clean()
         company_name = (cleaned_data.get("company_name") or "").strip()
         country = (cleaned_data.get("country") or "").strip().upper()
-        tax_id = normalize_vat_id(cleaned_data.get("tax_id") or "", country)
+        tax_id = normalize_vat_id(
+            cleaned_data.get("tax_id") or "",
+            country,
+            add_country_prefix=settings.INTERNATIONAL_BILLING_ENABLED,
+        )
 
         cleaned_data["customer_type"] = BillingCustomerType.COMPANY
         if not company_name:
             self.add_error("company_name", "Nazwa firmy jest wymagana do wystawienia faktury." if self.language == "pl" else "Company name is required for company billing.")
-        if not tax_id:
+        if not tax_id and not settings.INTERNATIONAL_BILLING_ENABLED:
+            self.add_error(
+                "tax_id",
+                "NIP jest wymagany do wystawienia faktury."
+                if self.language == "pl"
+                else "Polish VAT ID (NIP) is required for billing.",
+            )
+        elif not tax_id:
             self.add_error("tax_id", "NIP lub numer VAT UE jest wymagany do wystawienia faktury." if self.language == "pl" else "VAT ID is required for billing.")
+        elif not settings.INTERNATIONAL_BILLING_ENABLED and not tax_id.startswith("PL"):
+            self.add_error(
+                "tax_id",
+                "NIP musi zaczynać się od PL."
+                if self.language == "pl"
+                else "Polish VAT ID must start with PL.",
+            )
+        elif not settings.INTERNATIONAL_BILLING_ENABLED and not is_valid_polish_nip(tax_id):
+            self.add_error(
+                "tax_id",
+                "Podaj prawidłowy polski NIP: PL i 10 cyfr z poprawną sumą kontrolną, np. PL5260250995."
+                if self.language == "pl"
+                else "Enter a valid Polish VAT ID: PL followed by 10 digits with a valid checksum, e.g. PL5260250995.",
+            )
         elif country and tax_id[:2].isalpha() and tax_id[:2] != country:
             self.add_error("tax_id", "Prefiks numeru VAT musi odpowiadać wybranemu krajowi rozliczenia." if self.language == "pl" else "VAT ID country prefix must match the selected billing country.")
         elif country == "PL" and not is_valid_polish_nip(tax_id):
