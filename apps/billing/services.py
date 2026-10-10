@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone as datetime_timezone
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
+import stripe
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -20,6 +22,19 @@ def format_amount(amount: int, currency: str) -> str:
     return f"{value} {currency.upper()}"
 
 
+def net_amount_from_gross(amount: int, vat_rate_percent: int | None = None) -> int:
+    """Return the net amount in the smallest currency unit for a VAT-inclusive amount."""
+    rate = vat_rate_percent if vat_rate_percent is not None else settings.BILLING_VAT_RATE_PERCENT
+    if rate < 0:
+        raise ValueError("VAT rate cannot be negative.")
+    divisor = Decimal(100 + rate) / Decimal(100)
+    return int((Decimal(amount) / divisor).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def format_net_amount_from_gross(amount: int, currency: str) -> str:
+    return format_amount(net_amount_from_gross(amount), currency)
+
+
 def stripe_timestamp_to_datetime(value: Any):
     if not value:
         return None
@@ -33,6 +48,8 @@ def object_get(obj: Any, key: str, default=None):
 
 
 def normalize_billing_currency(currency: str | None = None) -> str:
+    if not settings.INTERNATIONAL_BILLING_ENABLED:
+        return BillingCurrency.PLN
     value = (currency or settings.STRIPE_CURRENCY or BillingCurrency.PLN).strip().lower()
     if value in BillingCurrency.values:
         return value
@@ -40,6 +57,8 @@ def normalize_billing_currency(currency: str | None = None) -> str:
 
 
 def supported_billing_currencies() -> list[str]:
+    if not settings.INTERNATIONAL_BILLING_ENABLED:
+        return [BillingCurrency.PLN]
     return list(BillingCurrency.values)
 
 
@@ -56,6 +75,26 @@ def get_active_plan_price(tier: str, currency: str | None = None) -> BillingPlan
 def plan_price_label(tier: str, currency: str | None = None) -> str:
     price = get_active_plan_price(tier, currency)
     return price.formatted_amount() if price else ""
+
+
+def plan_net_price_label(tier: str, currency: str | None = None) -> str:
+    price = get_active_plan_price(tier, currency)
+    return price.formatted_net_amount() if price else ""
+
+
+def manual_plan_amount(tier: str, currency: str | None = None) -> int:
+    """Use the current Stripe catalog gross price for a new manual order.
+
+    The amount is copied to ``ManualPlanOrder`` when the order is created, so
+    later catalog changes affect new orders only.
+    """
+    if tier not in UserPlanTier.values:
+        raise ValueError("Unsupported manual plan tier.")
+    currency = normalize_billing_currency(currency)
+    price = get_active_plan_price(tier, currency)
+    if not price:
+        raise ValueError("No active catalog price is configured for this manual plan.")
+    return price.amount
 
 
 def paid_access_statuses() -> set[str]:
@@ -118,7 +157,11 @@ def sync_subscription_from_stripe(subscription: Any, fallback_user=None, fallbac
     if current and current.stripe_customer_id and current.stripe_customer_id != customer_id:
         raise ValueError("Stripe customer mismatch")
     if current and current.stripe_subscription_id and current.stripe_subscription_id != subscription_id:
-        if current.blocks_new_purchase or status in {"canceled", "unpaid", "incomplete_expired"}:
+        if status in {"canceled", "unpaid", "incomplete_expired"} and current.blocks_new_purchase:
+            # A delayed event for the previous expired subscription must not
+            # cancel a newer subscription that is already active locally.
+            return current
+        if current.blocks_new_purchase:
             raise ValueError("Unexpected subscription replacement")
     items = object_get(subscription, "items", {}) or {}
     item_data = object_get(items, "data", []) or []
@@ -186,6 +229,7 @@ def record_invoice_payment(invoice: Any):
             "user": billing_subscription.user,
             "subscription": billing_subscription,
             "stripe_payment_intent_id": object_get(invoice, "payment_intent", "") or "",
+            "billing_reason": object_get(invoice, "billing_reason", "") or "",
             "amount_paid": int(object_get(invoice, "amount_paid", 0) or 0),
             "currency": object_get(invoice, "currency", settings.STRIPE_CURRENCY) or settings.STRIPE_CURRENCY,
             "status": status if status in BillingPaymentStatus.values else BillingPaymentStatus.OPEN,

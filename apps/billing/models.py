@@ -4,6 +4,7 @@ from django.db import models
 from django.utils import timezone
 import uuid
 from .storage import private_invoice_storage, validate_invoice_pdf
+from .validators import is_valid_polish_nip
 
 from apps.accounts.models import UserPlanTier
 
@@ -91,6 +92,8 @@ class BillingProfile(models.Model):
         return f"{self.user} billing profile"
 
     def billing_currency(self) -> str:
+        if not settings.INTERNATIONAL_BILLING_ENABLED:
+            return BillingCurrency.PLN
         return BillingCurrency.PLN if self.country.upper() == "PL" else BillingCurrency.EUR
 
     def is_complete(self) -> bool:
@@ -100,6 +103,9 @@ class BillingProfile(models.Model):
             return False
         if not self.tax_id:
             return False
+        if not settings.INTERNATIONAL_BILLING_ENABLED:
+            if self.country.upper() != "PL" or not is_valid_polish_nip(self.tax_id):
+                return False
         return all([self.street, self.postal_code, self.city, self.country, self.invoice_email])
 
 
@@ -139,6 +145,10 @@ class BillingPlanPrice(models.Model):
         from .services import format_amount
         return format_amount(self.amount, self.currency)
 
+    def formatted_net_amount(self) -> str:
+        from .services import format_net_amount_from_gross
+        return format_net_amount_from_gross(self.amount, self.currency)
+
 
 class BillingSubscription(models.Model):
     user = models.OneToOneField(
@@ -166,6 +176,7 @@ class BillingSubscription(models.Model):
     current_period_end = models.DateTimeField(blank=True, null=True)
     cancel_at_period_end = models.BooleanField(default=False)
     canceled_at = models.DateTimeField(blank=True, null=True)
+    termination_acknowledged_at = models.DateTimeField(blank=True, null=True)
     latest_invoice_id = models.CharField(max_length=255, blank=True)
     latest_payment_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -208,6 +219,7 @@ class ManualPlanOrder(models.Model):
     access_until = models.DateTimeField()
     paid_at = models.DateTimeField(blank=True, null=True)
     disabled_at = models.DateTimeField(blank=True, null=True)
+    termination_acknowledged_at = models.DateTimeField(blank=True, null=True)
     disabled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -244,6 +256,7 @@ class BillingPayment(models.Model):
     )
     stripe_invoice_id = models.CharField(max_length=255, unique=True)
     stripe_payment_intent_id = models.CharField(max_length=255, blank=True)
+    billing_reason = models.CharField(max_length=64, blank=True)
     amount_paid = models.PositiveIntegerField(default=0)
     currency = models.CharField(max_length=8, default="pln")
     status = models.CharField(max_length=32, choices=BillingPaymentStatus.choices, default=BillingPaymentStatus.OPEN)

@@ -8,22 +8,23 @@
     </h1>
     <div class="mt-6 space-y-3 rounded-lg border border-[#5ca197]/40 bg-[#5ca197]/10 p-5 text-sm leading-6 text-[#284b63]">
         {% if request.LANGUAGE_CODE == 'pl' %}
-            <p>Plan {{ manual_plan_name }} zostanie aktywowany natychmiast na 12 miesi&#281;cy w cenie <strong>{{ manual_pro_price_label }}</strong>.</p>
-            <p>Przelew musi zosta&#263; zaksi&#281;gowany w ci&#261;gu 12 dni. W przeciwnym razie dost&#281;p do publikacji zostanie wstrzymany.</p>
+            <p>Plan {{ manual_plan_name }} zostanie aktywowany natychmiast na 12 miesi&#281;cy. Cena netto wynosi {{ manual_pro_net_price_label }}.<br>Kwota do przelewu wynosi <strong>{{ manual_pro_price_label }} brutto z VAT</strong>.</p>
+            <p>Przelew musi zosta&#263; zaksi&#281;gowany w ci&#261;gu 12 dni.<br>W przeciwnym razie dost&#281;p do publikacji zostanie wstrzymany.</p>
             <p>Podczas aktywnego planu {{ manual_plan_name }} Manual nie mo&#380;na uruchomi&#263; dodatkowej subskrypcji Stripe.</p>
         {% else %}
-            <p>The {{ manual_plan_name }} plan will be activated immediately for 12 months at a price of <strong>{{ manual_pro_price_label }}</strong>.</p>
-            <p>The transfer must be received within 12 days. Otherwise, publication access will be suspended.</p>
+            <p>The {{ manual_plan_name }} plan will be activated immediately for 12 months. The net price is {{ manual_pro_net_price_label }}.<br>The amount payable by bank transfer is <strong>{{ manual_pro_price_label }} gross including VAT</strong>.</p>
+            <p>The transfer must be received within 12 days.<br>Otherwise, publication access will be suspended.</p>
             <p>You cannot start an additional Stripe subscription while {{ manual_plan_name }} Manual is active.</p>
         {% endif %}
     </div>
     <div class="mt-5 rounded-lg border border-[#d9d9d9] bg-[#f8fafa] p-5 text-sm">
         <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Firma{% else %}Company{% endif %}:</strong> {{ billing_profile.company_name }}</p>
         <p class="mt-2"><strong>VAT ID:</strong> {{ billing_profile.tax_id }}</p>
-        <p class="mt-2"><strong>{% if request.LANGUAGE_CODE == 'pl' %}Kwota{% else %}Amount{% endif %}:</strong> {{ manual_pro_price_label }}</p>
+        <p class="mt-2"><strong>{% if request.LANGUAGE_CODE == 'pl' %}Kwota brutto do przelewu{% else %}Gross amount to transfer{% endif %}:</strong> {{ manual_pro_price_label }}</p>
         <p class="mt-2"><strong>{% if request.LANGUAGE_CODE == 'pl' %}Odbiorca{% else %}Recipient{% endif %}:</strong> {{ manual_payment_recipient }}</p>
         <p class="mt-2"><strong>IBAN:</strong> {{ manual_payment_iban }}</p>
         <p class="mt-2"><strong>Bank:</strong> {{ manual_payment_bank }}</p>
+        <p class="mt-2"><strong>{% if request.LANGUAGE_CODE == 'pl' %}Tytuł przelewu (identyfikator płatności){% else %}Transfer title (payment identifier){% endif %}:</strong> <span class="font-mono">{{ manual_payment_reference }}</span></p>
     </div>
     <div class="mt-6 flex flex-wrap justify-end gap-2">
         <a class="inline-flex min-h-10 items-center rounded border border-[#d9d9d9] px-4 py-2 font-mono text-xs" href="{% url 'dashboard:plan-update' %}">{% if request.LANGUAGE_CODE == 'pl' %}Anuluj{% else %}Cancel{% endif %}</a>

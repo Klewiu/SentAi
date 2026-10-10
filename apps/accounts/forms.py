@@ -6,6 +6,17 @@ from django.contrib.auth.forms import PasswordChangeForm, UserCreationForm
 User = get_user_model()
 
 
+def validate_polish_company_country(value, language_code):
+    country = (value or "").strip()
+    if country.casefold() not in {"polska", "poland"}:
+        raise forms.ValidationError(
+            "Aplikacja jest dostępna jedynie dla firm z Polski."
+            if language_code == "pl"
+            else "The application is available only to companies from Poland."
+        )
+    return "Polska" if language_code == "pl" else "Poland"
+
+
 class UserRegistrationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = User
@@ -13,6 +24,7 @@ class UserRegistrationForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         language_code = kwargs.pop("language_code", "en")
+        self.language_code = language_code
         super().__init__(*args, **kwargs)
 
         self.fields["company_name"].required = True
@@ -41,6 +53,14 @@ class UserRegistrationForm(UserCreationForm):
             raise forms.ValidationError("A user with this email already exists.")
         return email
 
+    def clean_country(self):
+        if not self.cleaned_data.get("country") and not self.fields["country"].required:
+            return ""
+        return validate_polish_company_country(
+            self.cleaned_data.get("country"),
+            self.language_code,
+        )
+
 
 class ProfileForm(forms.ModelForm):
     class Meta:
@@ -49,6 +69,7 @@ class ProfileForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         language_code = kwargs.pop("language_code", "en")
+        self.language_code = language_code
         require_business_details = kwargs.pop("require_business_details", False)
         super().__init__(*args, **kwargs)
         if require_business_details:
@@ -68,6 +89,14 @@ class ProfileForm(forms.ModelForm):
         if qs.exists():
             raise forms.ValidationError("A user with this email already exists.")
         return email
+
+    def clean_country(self):
+        if not self.cleaned_data.get("country") and not self.fields["country"].required:
+            return ""
+        return validate_polish_company_country(
+            self.cleaned_data.get("country"),
+            self.language_code,
+        )
 
 
 class ProfilePasswordChangeForm(PasswordChangeForm):

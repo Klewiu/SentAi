@@ -58,6 +58,7 @@ class User(AbstractUser):
     country = models.CharField(max_length=120, blank=True)
     closed_at = models.DateTimeField(blank=True, null=True)
     closed_display_name = models.CharField(max_length=255, blank=True)
+    closed_email = models.EmailField(blank=True)
 
     class Meta:
         ordering = ["username"]

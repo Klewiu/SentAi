@@ -41,9 +41,9 @@
             {% else %}
                 <span class="inline-flex items-center rounded-full border border-[#d9d9d9] bg-[#f5f5f5] px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/60">BASIC</span>
             {% endif %}
-            <a href="{% url 'dashboard:plan-update' %}" class="font-mono text-[10px] text-[#5ca197] hover:underline">
-                {% if request.user.has_selected_plan %}
-                    {% if request.LANGUAGE_CODE == 'pl' %}Zmień plan{% else %}Change plan{% endif %}
+            <a href="{% if navbar_has_active_billing_subscription %}{% url 'dashboard:billing-portal' %}{% else %}{% url 'dashboard:plan-update' %}{% endif %}" class="font-mono text-[10px] text-[#5ca197] hover:underline">
+                {% if navbar_has_active_billing_subscription %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}Zarządzaj planem{% else %}Manage plan{% endif %}
                 {% else %}
                     {% if request.LANGUAGE_CODE == 'pl' %}Wybierz plan{% else %}Choose a plan{% endif %}
                 {% endif %} →
@@ -118,14 +118,14 @@
                     </p>
                     <p class="mt-1 text-xs leading-5 text-[#353535]/45">
                         {% if request.LANGUAGE_CODE == 'pl' %}
-                            Zamkniecie konta usuwa dane i anuluje aktywna subskrypcje.
+                            Usunięcie konta wyłącza dostęp i publikację, zwalnia e-mail oraz login, a dane archiwizuje dla administratora.
                         {% else %}
-                            Closing the account deletes your data and cancels any active subscription.
+                            Removing the account disables access and publication, releases the email and username, and archives the data for administrators.
                         {% endif %}
                     </p>
                 </div>
                 <button id="open-close-account-modal" type="button" class="self-start rounded border border-rose-200 bg-white px-3 py-1.5 font-mono text-[11px] font-medium text-rose-400 transition hover:border-rose-500 hover:text-rose-500 sm:self-auto">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Zamknij konto{% else %}Close account{% endif %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}Usuń konto{% else %}Remove account{% endif %}
                 </button>
             </div>
         </div>
@@ -138,15 +138,15 @@
             {% if request.LANGUAGE_CODE == 'pl' %}Nieodwracalne{% else %}Irreversible{% endif %}
         </p>
         <h2 id="close-account-title" class="mt-2 font-display text-2xl font-semibold tracking-tight text-[#284b63]">
-            {% if request.LANGUAGE_CODE == 'pl' %}Zamknac konto?{% else %}Close account?{% endif %}
+            {% if request.LANGUAGE_CODE == 'pl' %}Usunąć konto?{% else %}Remove account?{% endif %}
         </h2>
         <div class="mt-4 space-y-3 rounded-lg border border-[#d9d9d9] bg-[#f8fafa] p-4 text-sm leading-6 text-[#353535]/70">
             {% if request.LANGUAGE_CODE == 'pl' %}
-                <p>Po potwierdzeniu konto zostanie usuniete razem z danymi firm, profilami publicznymi i ustawieniami.</p>
-                <p>Jesli masz aktywna subskrypcje Stripe, zostanie anulowana przed usunieciem konta.</p>
+                <p>Konto zostanie wyłączone, otrzyma techniczny alias i nie będzie można się już do niego zalogować. Dotychczasowy e-mail oraz login będą ponownie dostępne do rejestracji.</p>
+                <p>Profile firm przestaną być publikowane. Dane zostaną zarchiwizowane dla administratora, który może później trwale usunąć cały rekord wraz z fakturami. Aktywna subskrypcja Stripe zostanie wcześniej anulowana.</p>
             {% else %}
-                <p>After confirmation, your account will be deleted together with company data, public profiles, and settings.</p>
-                <p>If you have an active Stripe subscription, it will be canceled before the account is deleted.</p>
+                <p>The account will be disabled, assigned a technical alias, and will no longer accept sign-in. Its previous email and username will become available for registration.</p>
+                <p>Company profiles will stop being published. Data will be archived for administrators, who can later permanently erase the entire record including invoices. Any active Stripe subscription will be canceled first.</p>
             {% endif %}
         </div>
         <div class="mt-5 rounded border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3">
@@ -162,7 +162,7 @@
             <form method="post" action="{% url 'accounts:close-account' %}">
                 {% csrf_token %}
                 <button id="close-account-confirm" disabled class="inline-flex min-h-10 items-center justify-center rounded border border-rose-200 bg-rose-50 px-4 py-2 font-mono text-xs font-medium text-rose-300 transition enabled:border-rose-500 enabled:bg-rose-500 enabled:text-white enabled:hover:bg-rose-600 disabled:cursor-not-allowed" type="submit">
-                    {% if request.LANGUAGE_CODE == 'pl' %}Potwierdz zamkniecie konta{% else %}Confirm account closure{% endif %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}Potwierdź usunięcie konta{% else %}Confirm account removal{% endif %}
                 </button>
             </form>
         </div>

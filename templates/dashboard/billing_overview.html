@@ -39,7 +39,40 @@
         </div>
     </div>
 
-    <form class="mt-6 flex flex-col gap-2 sm:flex-row" method="get">
+    <div class="mt-7 border-t border-[#d9d9d9] pt-6">
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+                <h2 class="font-display text-xl font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Obrót według planu i sposobu płatności{% else %}Turnover by plan and payment method{% endif %}</h2>
+                <p class="mt-1 text-xs leading-5 text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}Wartość aktywnych, opłaconych planów rocznych. Kwota miesięczna to średnia: wartość roczna ÷ 12.{% else %}Value of active, paid annual plans. The monthly amount is an average: annual value ÷ 12.{% endif %}</p>
+            </div>
+        </div>
+        <div class="mt-4 grid gap-4 lg:grid-cols-3">
+            {% for row in plan_turnover_rows %}
+                <section class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4">
+                    <h3 class="font-display text-xl font-bold uppercase text-[#284b63]">{{ row.plan_name }}</h3>
+                    <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                        <div class="rounded-lg border border-[#5ca197]/30 bg-white p-3">
+                            <p class="font-mono text-[9px] font-semibold uppercase tracking-widest text-[#5ca197]">Manual</p>
+                            <p class="mt-2 font-display text-lg font-semibold text-[#284b63]">{{ row.manual_annual_label }} <span class="font-sans text-[10px] font-normal text-[#353535]/45">/ {% if request.LANGUAGE_CODE == 'pl' %}rok{% else %}year{% endif %}</span></p>
+                            <p class="mt-1 font-mono text-[11px] text-[#353535]/60">{{ row.manual_monthly_label }} / {% if request.LANGUAGE_CODE == 'pl' %}miesiąc{% else %}month{% endif %}</p>
+                            <p class="mt-2 font-mono text-[9px] uppercase tracking-wider text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Aktywne plany: {{ row.manual_count }}{% else %}Active plans: {{ row.manual_count }}{% endif %}</p>
+                        </div>
+                        <div class="rounded-lg border border-[#284b63]/20 bg-white p-3">
+                            <p class="font-mono text-[9px] font-semibold uppercase tracking-widest text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Subskrypcja Stripe{% else %}Stripe subscription{% endif %}</p>
+                            <p class="mt-2 font-display text-lg font-semibold text-[#284b63]">{{ row.stripe_annual_label }} <span class="font-sans text-[10px] font-normal text-[#353535]/45">/ {% if request.LANGUAGE_CODE == 'pl' %}rok{% else %}year{% endif %}</span></p>
+                            <p class="mt-1 font-mono text-[11px] text-[#353535]/60">{{ row.stripe_monthly_label }} / {% if request.LANGUAGE_CODE == 'pl' %}miesiąc{% else %}month{% endif %}</p>
+                            <p class="mt-2 font-mono text-[9px] uppercase tracking-wider text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}Aktywne plany: {{ row.stripe_count }}{% else %}Active plans: {{ row.stripe_count }}{% endif %}</p>
+                        </div>
+                    </div>
+                </section>
+            {% endfor %}
+        </div>
+    </div>
+
+</section>
+
+<section class="min-w-0 rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
+    <form class="mb-8 flex flex-col gap-2 border-b border-[#d9d9d9] pb-7 sm:flex-row" method="get">
         <input type="hidden" name="manual_sort" value="{{ manual_sort }}">
         <input type="hidden" name="subscription_sort" value="{{ subscription_sort }}">
         <input
@@ -54,15 +87,19 @@
             <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:billing-overview' %}?manual_sort={{ manual_sort }}&subscription_sort={{ subscription_sort }}">X</a>
         {% endif %}
     </form>
-</section>
 
-<section class="min-w-0 rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
-    <h2 class="font-display text-2xl font-semibold tracking-tight text-[#284b63]">Manual</h2>
-    <p class="mt-1 text-sm text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}R&#281;czne p&#322;atno&#347;ci roczne. Przeterminowane zam&#243;wienia wymagaj&#261; r&#281;cznego wy&#322;&#261;czenia.{% else %}Manual annual payments. Overdue orders require manual deactivation.{% endif %}</p>
-    <div class="mt-4 overflow-x-auto">
+    <details class="group" open>
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg px-1 py-1 marker:content-none">
+            <h2 class="font-display text-2xl font-semibold tracking-tight text-[#284b63]">Manual</h2>
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#d9d9d9] bg-white text-[#284b63] transition group-open:rotate-180" aria-hidden="true">
+                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none"><path d="m5 7.5 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+        </summary>
+        <p class="mt-1 text-sm text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}R&#281;czne p&#322;atno&#347;ci roczne. Przeterminowane zam&#243;wienia wymagaj&#261; r&#281;cznego wy&#322;&#261;czenia.{% else %}Manual annual payments. Overdue orders require manual deactivation.{% endif %}</p>
+        <div class="mt-4 overflow-x-auto">
         <table class="w-full min-w-[1280px] table-fixed divide-y divide-[#d9d9d9] text-left font-mono text-[11px]">
             <colgroup><col class="w-[18%]"><col class="w-[8%]"><col class="w-[7%]"><col class="w-[8%]"><col class="w-[10%]"><col class="w-[10%]"><col class="w-[14%]"><col class="w-[7%]"><col class="w-[9%]"><col class="w-[9%]"></colgroup>
-            <thead><tr class="text-[10px] uppercase tracking-widest text-[#353535]/40"><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.customer }}">{% if request.LANGUAGE_CODE == 'pl' %}Klient{% else %}Customer{% endif %}</a></th><th class="px-3 py-3">Plan</th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.amount }}">{% if request.LANGUAGE_CODE == 'pl' %}Kwota{% else %}Amount{% endif %}</a></th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.status }}">Status</a></th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.payment_due }}">{% if request.LANGUAGE_CODE == 'pl' %}Termin p&#322;atno&#347;ci{% else %}Payment due{% endif %}</a></th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.access }}">{% if request.LANGUAGE_CODE == 'pl' %}Dost&#281;p do{% else %}Access until{% endif %}</a></th><th class="px-3 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Tytu&#322; przelewu{% else %}Payment reference{% endif %}</th><th class="px-3 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Akcje{% else %}Actions{% endif %}</th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.invoice }}">{% if request.LANGUAGE_CODE == 'pl' %}Status faktury{% else %}Invoice status{% endif %}</a></th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.invoice }}">{% if request.LANGUAGE_CODE == 'pl' %}Faktura{% else %}Invoice{% endif %}</a></th></tr></thead>
+            <thead><tr class="text-[10px] uppercase tracking-widest text-[#353535]/40"><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.customer }}">{% if request.LANGUAGE_CODE == 'pl' %}Klient{% else %}Customer{% endif %}</a></th><th class="px-3 py-3">Plan</th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.amount }}">{% if request.LANGUAGE_CODE == 'pl' %}Kwota{% else %}Amount{% endif %}</a></th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.status }}">Status</a></th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.payment_due }}">{% if request.LANGUAGE_CODE == 'pl' %}Termin p&#322;atno&#347;ci{% else %}Payment due{% endif %}</a></th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.access }}">{% if request.LANGUAGE_CODE == 'pl' %}Dost&#281;p do{% else %}Access until{% endif %}</a></th><th class="px-3 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Tytu&#322; / identyfikator przelewu{% else %}Transfer title / payment ID{% endif %}</th><th class="px-3 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Akcje{% else %}Actions{% endif %}</th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.invoice }}">{% if request.LANGUAGE_CODE == 'pl' %}Status faktury{% else %}Invoice status{% endif %}</a></th><th class="px-3 py-3"><a class="hover:text-[#5ca197]" href="{{ manual_sort_urls.invoice }}">{% if request.LANGUAGE_CODE == 'pl' %}Faktura{% else %}Invoice{% endif %}</a></th></tr></thead>
             <tbody class="divide-y divide-[#d9d9d9]">
                 {% for order in manual_plan_orders %}
                     <tr class="{% if order.is_overdue %}bg-rose-50{% endif %}">
@@ -70,16 +107,19 @@
                             <div class="break-words font-semibold">{% firstof order.user.company_name order.user.get_full_name order.user.username "-" %}</div>
                             <div class="mt-1 break-all text-[10px] text-[#353535]/55">{{ order.user.email }}</div>
                         </td>
-                        <td class="px-3 py-3 pl-4 leading-5 text-[#353535]/75">{{ order.get_tier_display }} Manual</td>
+                        <td class="px-3 py-3 pl-4 leading-5 text-[#353535]/75">
+                            {{ order.get_tier_display }} Manual
+                            {% if order.is_renewal_order %}<span class="mt-1 inline-flex rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-[#397b72]">{% if request.LANGUAGE_CODE == 'pl' %}Odnowienie{% else %}Renewal{% endif %}</span>{% endif %}
+                        </td>
                         <td class="px-3 py-3">{{ order.formatted_amount }}</td>
-                        <td class="px-3 py-3">{% if order.status == 'awaiting_payment' %}{% if request.LANGUAGE_CODE == 'pl' %}oczekuje{% else %}awaiting payment{% endif %}{% elif order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}op&#322;acony{% else %}paid{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}wy&#322;&#261;czony{% else %}disabled{% endif %}{% endif %}{% if order.is_overdue %} / overdue{% endif %}</td>
+                        <td class="px-3 py-3">{% if order.status == 'awaiting_payment' %}{% if request.LANGUAGE_CODE == 'pl' %}oczekuje{% else %}awaiting payment{% endif %}{% elif order.status == 'paid' %}{% if request.LANGUAGE_CODE == 'pl' %}op&#322;acony{% else %}paid{% endif %}{% elif order.termination_acknowledged_at %}{% if request.LANGUAGE_CODE == 'pl' %}anulowany{% else %}canceled{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}wy&#322;&#261;czony{% else %}disabled{% endif %}{% endif %}{% if order.is_overdue %} / overdue{% endif %}</td>
                         <td class="px-3 py-3">{{ order.payment_due_at|date:'Y-m-d H:i' }}</td>
                         <td class="px-3 py-3">{{ order.access_until|date:'Y-m-d H:i' }}</td>
                         <td class="break-words px-2 py-3 text-[10px] leading-4">{{ order.payment_reference }}</td>
                         <td class="px-2 py-3 align-top">
                             {% if order.status == 'awaiting_payment' %}
                                 <button class="whitespace-nowrap rounded bg-[#5ca197] px-2 py-1.5 text-[10px] font-semibold text-white" type="button" data-manual-confirm data-action="{% url 'dashboard:manual-plan-mark-paid' order.pk %}" data-title="{% if request.LANGUAGE_CODE == 'pl' %}Potwierdzi&#263; p&#322;atno&#347;&#263;?{% else %}Confirm payment?{% endif %}" data-description="{% if request.LANGUAGE_CODE == 'pl' %}Kwota {{ order.formatted_amount }} zostanie doliczona do obrotu jako op&#322;acona.{% else %}The amount {{ order.formatted_amount }} will be added to turnover as paid.{% endif %}">{% if request.LANGUAGE_CODE == 'pl' %}Potwierd&#378;{% else %}Confirm{% endif %}</button>
-                            {% elif order.status == 'disabled' %}
+                            {% elif order.status == 'disabled' and not order.termination_acknowledged_at %}
                                 <button class="whitespace-nowrap rounded bg-[#5ca197] px-2 py-1.5 text-[10px] font-semibold text-white" type="button" data-manual-confirm data-action="{% url 'dashboard:manual-plan-mark-paid' order.pk %}" data-title="{% if request.LANGUAGE_CODE == 'pl' %}Potwierdzi&#263; p&#322;atno&#347;&#263; i przywr&#243;ci&#263;?{% else %}Confirm payment and restore?{% endif %}" data-description="{% if request.LANGUAGE_CODE == 'pl' %}P&#322;atno&#347;&#263; zostanie zapisana, a dost&#281;p przywr&#243;cony najwy&#380;ej do pierwotnej daty {{ order.access_until|date:'Y-m-d H:i' }}. Okres roczny nie rozpocznie si&#281; ponownie.{% else %}The payment will be recorded and access restored only until the original date {{ order.access_until|date:'Y-m-d H:i' }}. The annual period will not restart.{% endif %}">{% if request.LANGUAGE_CODE == 'pl' %}Przywr&#243;&#263;{% else %}Restore{% endif %}</button>
                             {% endif %}
                             {% if order.status == 'awaiting_payment' or order.status == 'paid' %}
@@ -112,8 +152,8 @@
                 {% empty %}<tr><td class="px-3 py-5 text-[#353535]/45" colspan="10">{% if request.LANGUAGE_CODE == 'pl' %}Brak zam&#243;wie&#324; Manual.{% else %}No Manual orders.{% endif %}</td></tr>{% endfor %}
             </tbody>
         </table>
-    </div>
-</section>
+        </div>
+    </details>
 
 <div id="manual-action-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#353535]/60 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="manual-action-title">
     <div class="w-full max-w-md rounded-xl border border-[#d9d9d9] bg-white p-6 shadow-xl">
@@ -176,8 +216,13 @@
 })();
 </script>
 
-<section class="min-w-0 rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
-    <h2 class="font-display text-2xl font-semibold tracking-tight text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Subskrypcje{% else %}Subscriptions{% endif %}</h2>
+<details class="group mt-8 border-t border-[#d9d9d9] pt-8" open>
+    <summary class="flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg px-1 py-1 marker:content-none">
+        <h2 class="font-display text-2xl font-semibold tracking-tight text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Subskrypcje{% else %}Subscriptions{% endif %}</h2>
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#d9d9d9] bg-white text-[#284b63] transition group-open:rotate-180" aria-hidden="true">
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none"><path d="m5 7.5 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+    </summary>
     <div class="mt-4 max-w-full overflow-x-auto">
         <table class="min-w-full divide-y divide-[#d9d9d9] text-left">
             <thead>
@@ -197,7 +242,10 @@
                 {% for sub in subscriptions %}
                     <tr>
                         <td class="px-4 py-3">{{ sub.user.email }}</td>
-                        <td class="px-4 py-3">{{ sub.get_tier_display }}</td>
+                        <td class="px-4 py-3">
+                            {{ sub.get_tier_display }}
+                            {% if sub.latest_payment_is_renewal %}<span class="mt-1 inline-flex rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-[#397b72]">{% if request.LANGUAGE_CODE == 'pl' %}Odnowienie{% else %}Renewal{% endif %}</span>{% endif %}
+                        </td>
                         <td class="px-4 py-3">{{ sub.status }}{% if sub.cancel_at_period_end %} / canceling{% endif %}</td>
                         <td class="px-4 py-3">{% if sub.plan_price %}{{ sub.plan_price.formatted_amount }}{% else %}{{ sub.stripe_price_id }}{% endif %}</td>
                         <td class="px-4 py-3">{{ sub.current_public_price_label }}</td>
@@ -232,6 +280,7 @@
             </tbody>
         </table>
     </div>
+</details>
 </section>
 
 {% endblock %}

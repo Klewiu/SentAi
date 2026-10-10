@@ -127,9 +127,9 @@ def notify_customer_plan_not_selected(user):
     notify_customer(
         user=user,
         title="Choose a plan",
-        message="Select Basic, Plus, Pro or Pro Manual to activate the correct limits and workflow for your account.",
+        message="Select Basic, Plus, or Pro, then choose a Stripe subscription or annual bank transfer.",
         title_pl="Wybierz plan",
-        message_pl="Wybierz Basic, Plus, Pro albo Pro Manual, aby aktywować właściwe limity i przepływ pracy dla konta.",
+        message_pl="Wybierz Basic, Plus lub Pro, a następnie subskrypcję Stripe albo roczną płatność przelewem.",
         category=NotificationCategory.PLAN,
         severity=NotificationSeverity.WARNING,
         action_url=reverse("dashboard:plan-update"),
@@ -152,11 +152,16 @@ def notify_plan_selected(user, plan_tier):
 
 
 def notify_manual_order_created(order):
+    is_renewal = ManualPlanOrder.objects.filter(
+        user=order.user,
+        paid_at__isnull=False,
+        created_at__lt=order.created_at,
+    ).exclude(pk=order.pk).exists()
     notify_admin(
-        title=f"New {order.get_tier_display()} Manual order",
-        message=f"{order.user.email} activated {order.get_tier_display()} Manual. Payment is due by {order.payment_due_at:%Y-%m-%d %H:%M}.",
-        title_pl=f"Nowe zamówienie {order.get_tier_display()} Manual",
-        message_pl=f"{order.user.email} aktywował plan {order.get_tier_display()} Manual. Termin płatności: {order.payment_due_at:%Y-%m-%d %H:%M}.",
+        title=(f"{order.get_tier_display()} Manual renewal order" if is_renewal else f"New {order.get_tier_display()} Manual order"),
+        message=f"{order.user.email} activated {'another annual period of' if is_renewal else ''} {order.get_tier_display()} Manual. Payment is due by {order.payment_due_at:%Y-%m-%d %H:%M}.",
+        title_pl=(f"Odnowienie {order.get_tier_display()} Manual" if is_renewal else f"Nowe zamówienie {order.get_tier_display()} Manual"),
+        message_pl=f"{order.user.email} aktywował {'kolejny roczny okres planu' if is_renewal else 'plan'} {order.get_tier_display()} Manual. Termin płatności: {order.payment_due_at:%Y-%m-%d %H:%M}.",
         category=NotificationCategory.MANUAL_PLAN,
         severity=NotificationSeverity.WARNING,
         customer=order.user,
@@ -166,11 +171,16 @@ def notify_manual_order_created(order):
 
 
 def notify_invoice_needed_for_payment(payment):
+    is_renewal = payment.billing_reason == "subscription_cycle" or BillingPayment.objects.filter(
+        user=payment.user,
+        status=BillingPaymentStatus.PAID,
+        created_at__lt=payment.created_at,
+    ).exclude(pk=payment.pk).exists()
     notify_admin(
-        title="Stripe payment needs invoice",
-        message=f"{payment.user.email} paid {payment.formatted_amount()}. Upload and send an invoice.",
-        title_pl="Płatność Stripe wymaga wystawienia faktury",
-        message_pl=f"{payment.user.email} zapłacił {payment.formatted_amount()}. Wystaw i wyślij fakturę.",
+        title="Stripe renewal payment needs invoice" if is_renewal else "Stripe payment needs invoice",
+        message=f"{payment.user.email} paid {payment.formatted_amount()} for {'a subscription renewal' if is_renewal else 'a new subscription'}. Upload and send an invoice.",
+        title_pl="Odnowienie Stripe wymaga wystawienia faktury" if is_renewal else "Płatność Stripe wymaga wystawienia faktury",
+        message_pl=f"{payment.user.email} zapłacił {payment.formatted_amount()} za {'odnowienie subskrypcji' if is_renewal else 'nową subskrypcję'}. Wystaw i wyślij fakturę.",
         category=NotificationCategory.INVOICE,
         severity=NotificationSeverity.WARNING,
         customer=payment.user,
@@ -180,11 +190,16 @@ def notify_invoice_needed_for_payment(payment):
 
 
 def notify_invoice_needed_for_manual_order(order):
+    is_renewal = ManualPlanOrder.objects.filter(
+        user=order.user,
+        paid_at__isnull=False,
+        created_at__lt=order.created_at,
+    ).exclude(pk=order.pk).exists()
     notify_admin(
-        title=f"{order.get_tier_display()} Manual payment needs invoice",
-        message=f"{order.user.email} paid {order.formatted_amount()}. Upload and send an invoice.",
-        title_pl=f"Płatność {order.get_tier_display()} Manual wymaga wystawienia faktury",
-        message_pl=f"{order.user.email} zapłacił {order.formatted_amount()}. Wystaw i wyślij fakturę.",
+        title=f"{order.get_tier_display()} Manual {'renewal ' if is_renewal else ''}payment needs invoice",
+        message=f"{order.user.email} paid {order.formatted_amount()} for {'a Manual renewal' if is_renewal else 'a new Manual plan'}. Upload and send an invoice.",
+        title_pl=(f"Odnowienie {order.get_tier_display()} Manual wymaga wystawienia faktury" if is_renewal else f"Płatność {order.get_tier_display()} Manual wymaga wystawienia faktury"),
+        message_pl=f"{order.user.email} zapłacił {order.formatted_amount()} za {'odnowienie planu Manual' if is_renewal else 'nowy plan Manual'}. Wystaw i wyślij fakturę.",
         category=NotificationCategory.INVOICE,
         severity=NotificationSeverity.WARNING,
         customer=order.user,
@@ -340,9 +355,9 @@ def notify_customer_subscription_renewal(subscription):
     notify_customer(
         user=subscription.user,
         title="Subscription renews soon",
-        message=f"Your {subscription.get_tier_display()} subscription renews on {subscription.current_period_end:%Y-%m-%d}. Make sure your card/payment method is valid.",
+        message=f"Your {subscription.get_tier_display()} billing period ends on {subscription.current_period_end:%Y-%m-%d}. Stripe will soon charge the next annual subscription fee. Make sure your payment method is valid.",
         title_pl="Subskrypcja wkrótce się odnowi",
-        message_pl=f"Twoja subskrypcja {subscription.get_tier_display()} odnowi się {subscription.current_period_end:%Y-%m-%d}. Upewnij się, że karta lub metoda płatności jest aktualna.",
+        message_pl=f"Okres rozliczeniowy subskrypcji {subscription.get_tier_display()} kończy się {subscription.current_period_end:%Y-%m-%d}. Stripe wkrótce pobierze opłatę za kolejny rok. Upewnij się, że metoda płatności jest aktualna.",
         category=NotificationCategory.STRIPE,
         severity=NotificationSeverity.WARNING,
         action_url=reverse("dashboard:billing-portal"),
@@ -382,13 +397,43 @@ def notify_customer_manual_renewal(order, days):
     notify_customer(
         user=order.user,
         title=f"{order.get_tier_display()} Manual ends in {days} days",
-        message=f"Your {order.get_tier_display()} Manual access ends on {order.access_until:%Y-%m-%d}. Contact us or renew {order.get_tier_display()} Manual to continue annual access.",
+        message=f"Your {order.get_tier_display()} Manual plan ends on {order.access_until:%Y-%m-%d}. Purchase the plan again to keep company profiles published without interruption.",
         title_pl=f"{order.get_tier_display()} Manual kończy się za {days} dni",
-        message_pl=f"Twój dostęp {order.get_tier_display()} Manual kończy się {order.access_until:%Y-%m-%d}. Odnów {order.get_tier_display()} Manual, aby kontynuować roczny dostęp.",
+        message_pl=f"Twój plan {order.get_tier_display()} Manual kończy się {order.access_until:%Y-%m-%d}. Wykup plan ponownie, aby zachować ciągłość publikacji profili firm.",
         category=NotificationCategory.MANUAL_PLAN,
-        severity=NotificationSeverity.WARNING if days == 30 else NotificationSeverity.URGENT,
+        severity=NotificationSeverity.URGENT,
         action_url=reverse("dashboard:plan-update"),
         reference_key=f"customer:{order.user_id}:manual-renewal-{days}:{order.pk}:{order.access_until.date()}",
+    )
+
+
+def notify_admin_subscription_renewal(subscription):
+    if not subscription.current_period_end:
+        return
+    notify_admin(
+        title="Stripe subscription renews within 14 days",
+        message=f"{subscription.user.email}'s {subscription.get_tier_display()} billing period ends on {subscription.current_period_end:%Y-%m-%d}. Stripe will charge the next annual fee.",
+        title_pl="Subskrypcja Stripe odnowi się w ciągu 14 dni",
+        message_pl=f"Okres rozliczeniowy planu {subscription.get_tier_display()} klienta {subscription.user.email} kończy się {subscription.current_period_end:%Y-%m-%d}. Stripe pobierze opłatę za kolejny rok.",
+        category=NotificationCategory.STRIPE,
+        severity=NotificationSeverity.WARNING,
+        customer=subscription.user,
+        action_url=reverse("dashboard:client-detail", args=[subscription.user_id]),
+        reference_key=f"subscription:{subscription.pk}:renewal-14:{subscription.current_period_end.date()}",
+    )
+
+
+def notify_admin_manual_renewal(order):
+    notify_admin(
+        title=f"{order.get_tier_display()} Manual ends within 14 days",
+        message=f"{order.user.email}'s {order.get_tier_display()} Manual plan ends on {order.access_until:%Y-%m-%d}. The customer must purchase a new plan to maintain publication continuity.",
+        title_pl=f"{order.get_tier_display()} Manual kończy się w ciągu 14 dni",
+        message_pl=f"Plan {order.get_tier_display()} Manual klienta {order.user.email} kończy się {order.access_until:%Y-%m-%d}. Klient musi ponownie wykupić plan, aby zachować ciągłość publikacji.",
+        category=NotificationCategory.MANUAL_PLAN,
+        severity=NotificationSeverity.WARNING,
+        customer=order.user,
+        action_url=reverse("dashboard:client-detail", args=[order.user_id]),
+        reference_key=f"manual-order:{order.pk}:renewal-14:{order.access_until.date()}",
     )
 
 
@@ -418,6 +463,24 @@ def scan_admin_notifications():
         notify_subscription_past_due(subscription)
     for subscription in BillingSubscription.objects.filter(cancel_at_period_end=True).select_related("user"):
         notify_subscription_canceling(subscription)
+
+    now = timezone.now()
+    renewal_cutoff = now + timedelta(days=14)
+    for subscription in BillingSubscription.objects.filter(
+        user__is_active=True,
+        status__in=["active", "trialing"],
+        cancel_at_period_end=False,
+        current_period_end__gte=now,
+        current_period_end__lte=renewal_cutoff,
+    ).select_related("user"):
+        notify_admin_subscription_renewal(subscription)
+    for order in ManualPlanOrder.objects.filter(
+        user__is_active=True,
+        status=ManualPlanOrderStatus.PAID,
+        access_until__gte=now,
+        access_until__lte=renewal_cutoff,
+    ).select_related("user"):
+        notify_admin_manual_renewal(order)
 
     paid_manual_with_invoice = BillingInvoice.objects.filter(manual_order__isnull=False).select_related("manual_order")
     for invoice in paid_manual_with_invoice:
@@ -455,8 +518,6 @@ def scan_customer_notifications(user):
 
     for order in ManualPlanOrder.objects.filter(user=user, status=ManualPlanOrderStatus.PAID):
         days_left = (order.access_until.date() - now.date()).days
-        if 0 <= days_left <= 30:
-            notify_customer_manual_renewal(order, 30)
         if 0 <= days_left <= 14:
             notify_customer_manual_renewal(order, 14)
 
