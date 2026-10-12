@@ -486,9 +486,11 @@ class PublicLanguageTests(TestCase):
     def test_sitemap_contains_language_pages_and_hreflang(self):
         response = self.client.get(reverse("sitemap-xml"))
         body = response.content.decode()
+        expected_lastmod = self.org.updated_at.isoformat(timespec="seconds")
         self.assertContains(response, f"/companies/{self.org.slug}/en/")
         self.assertContains(response, f"/companies/{self.org.slug}/pl/")
         self.assertIn('hreflang="x-default"', body)
+        self.assertContains(response, f"<lastmod>{expected_lastmod}</lastmod>", count=3)
         self.assertNotIn(f"/api/public/{self.org.slug}/company.json", body)
 
     def test_api_discovery_documents_language_endpoints(self):

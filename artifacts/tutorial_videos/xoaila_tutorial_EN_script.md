@@ -12,11 +12,11 @@ The workflow has six clear steps: register, choose a plan, add a company page, c
 
 ## Choose the right profile scope
 
-Basic includes one company and one language. Plus adds a second profile, a second language, specialties, frequently asked questions and official social profiles. Pro supports up to three profiles and languages, plus a product and service catalog. Every plan includes all four data formats.
+Basic includes one company and one language. Plus adds a second profile, a second language, specialties and two official social profiles. Pro supports up to three profiles and languages, five social profiles, five frequently asked questions, and a product and service catalog. Every plan includes all four data formats.
 
 ## Create your account
 
-Enter a username, company name, email address, country and a secure password, then verify your email. If Google sign-in is configured, you can also use your Google account.
+Enter a username, company name, email address, Poland as the country of operation, and a secure password. Xoaila is currently available to Polish businesses. Then verify your email. If Google sign-in is configured, you can also use your Google account.
 
 ## Your customer dashboard
 

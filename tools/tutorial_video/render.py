@@ -89,7 +89,7 @@ def make_slide(language, index, screenshot_name, title, narration, output):
         for line in title_lines:
             draw.text((150, y), line, font=font(72, True), fill="white")
             y += 88
-        subtitle = "Sprzedaż i instrukcja krok po kroku" if language == "pl" else "Product overview and step-by-step tutorial"
+        subtitle = "Opis i instrukcja krok po kroku" if language == "pl" else "Product overview and step-by-step tutorial"
         draw.text((155, y + 30), subtitle, font=font(34), fill="#d8ece8")
         body_y = y + 105
         for line in wrapped_lines(draw, narration, font(27), 1420)[:4]:
