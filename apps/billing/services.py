@@ -35,6 +35,13 @@ def format_net_amount_from_gross(amount: int, currency: str) -> str:
     return format_amount(net_amount_from_gross(amount), currency)
 
 
+def amount_after_discount(amount: int, discount_percent: int) -> int:
+    if discount_percent not in {0, 10, 20, 30}:
+        raise ValueError("Unsupported discount percentage.")
+    multiplier = Decimal(100 - discount_percent) / Decimal(100)
+    return int((Decimal(amount) * multiplier).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
 def stripe_timestamp_to_datetime(value: Any):
     if not value:
         return None

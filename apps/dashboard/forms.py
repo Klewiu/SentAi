@@ -1,12 +1,15 @@
 import re
+import secrets
+import string
 
 from django import forms
 from django.conf import settings
 from django.db.models import Q
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from apps.accounts.models import AccountType, USER_PLAN_ORGANIZATION_LIMITS, UserPlanTier
-from apps.billing.models import BillingCurrency, BillingCustomerType, BillingInvoice, BillingPayment, BillingProfile
+from apps.billing.models import BillingCurrency, BillingCustomerType, BillingInvoice, BillingPayment, BillingProfile, ManualDiscountCoupon
 from apps.billing.validators import is_valid_polish_nip, normalize_vat_id
 
 
@@ -261,6 +264,66 @@ class StripePriceForm(forms.Form):
         if not value.startswith("price_"):
             raise forms.ValidationError("Stripe Price ID musi zaczynać się od price_.")
         return value
+
+
+class ManualDiscountCouponForm(forms.ModelForm):
+    code = forms.CharField(
+        max_length=40,
+        required=False,
+        label="Kod kuponu / Coupon code",
+        help_text="Pozostaw puste, aby wygenerować kod automatycznie. / Leave blank to generate a code.",
+        widget=forms.TextInput(attrs={"placeholder": "PRO-XXXXXXXX", "autocomplete": "off"}),
+    )
+    discount_percent = forms.TypedChoiceField(
+        choices=ManualDiscountCoupon.DISCOUNT_CHOICES,
+        coerce=int,
+        label="Rabat / Discount",
+    )
+    max_redemptions = forms.IntegerField(
+        min_value=1,
+        initial=1,
+        label="Limit użyć / Redemption limit",
+    )
+    expires_at = forms.DateTimeField(
+        required=False,
+        label="Ważny do / Expires at",
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}),
+    )
+
+    class Meta:
+        model = ManualDiscountCoupon
+        fields = ("code", "discount_percent", "max_redemptions", "expires_at")
+
+    def clean_code(self):
+        code = (self.cleaned_data.get("code") or "").strip().upper()
+        if not code:
+            alphabet = string.ascii_uppercase + string.digits
+            while True:
+                code = "PRO-" + "".join(secrets.choice(alphabet) for _ in range(8))
+                if not ManualDiscountCoupon.objects.filter(code=code).exists():
+                    break
+        if not re.fullmatch(r"[A-Z0-9-]{4,40}", code):
+            raise forms.ValidationError("Użyj 4–40 znaków: wielkie litery, cyfry lub myślnik.")
+        if ManualDiscountCoupon.objects.filter(code__iexact=code).exists():
+            raise forms.ValidationError("Kupon z takim kodem już istnieje.")
+        return code
+
+    def clean_expires_at(self):
+        value = self.cleaned_data.get("expires_at")
+        if value and value <= timezone.now():
+            raise forms.ValidationError("Data ważności musi przypadać w przyszłości.")
+        return value
+
+
+class ManualCouponApplyForm(forms.Form):
+    coupon_code = forms.CharField(
+        max_length=40,
+        label="Kod rabatowy / Discount code",
+        widget=forms.TextInput(attrs={"placeholder": "PRO-XXXXXXXX", "autocomplete": "off"}),
+    )
+
+    def clean_coupon_code(self):
+        return self.cleaned_data["coupon_code"].strip().upper()
 
 
 class BillingPaymentInvoiceForm(forms.ModelForm):

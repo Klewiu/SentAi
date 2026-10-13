@@ -27,11 +27,13 @@ from apps.billing.models import (
     BillingPlanPrice,
     BillingProfile,
     BillingSubscription,
+    ManualDiscountCoupon,
     ManualPlanOrder,
     ManualPlanOrderStatus,
 )
 from apps.billing.services import (
     activate_paid_plan,
+    amount_after_discount,
     expire_paid_access,
     format_amount,
     format_net_amount_from_gross,
@@ -51,7 +53,7 @@ from apps.companies.models import Organization, VerificationStatus
 from apps.companies.services import public_feed_urls
 from apps.subscriptions.models import Subscription
 
-from .forms import ArchivedClientPurgeForm, BillingInvoiceForm, BillingPaymentInvoiceForm, BillingProfileForm, PlanTerminationForm, PurchasePaymentMethodForm, PurchaseTermsForm, SellerCreateForm, UserPlanUpdateForm, ProspectClientForm, ProspectActivityForm
+from .forms import ArchivedClientPurgeForm, BillingInvoiceForm, BillingPaymentInvoiceForm, BillingProfileForm, ManualCouponApplyForm, ManualDiscountCouponForm, PlanTerminationForm, PurchasePaymentMethodForm, PurchaseTermsForm, SellerCreateForm, UserPlanUpdateForm, ProspectClientForm, ProspectActivityForm
 from .forms import ProspectLinkClientForm
 
 
@@ -69,7 +71,7 @@ def build_manual_payment_reference(user, tier):
 
 
 @transaction.atomic
-def create_manual_plan_order(user, currency, tier=UserPlanTier.PRO, payment_reference=None):
+def create_manual_plan_order(user, currency, tier=UserPlanTier.PRO, payment_reference=None, coupon_code=""):
     if tier not in UserPlanTier.values:
         raise ValueError("Unsupported manual plan")
     user = User.objects.select_for_update().get(pk=user.pk)
@@ -83,10 +85,25 @@ def create_manual_plan_order(user, currency, tier=UserPlanTier.PRO, payment_refe
         raise ValueError("Cancel your existing subscription before creating a manual order.")
     now = timezone.now()
     payment_reference = payment_reference or build_manual_payment_reference(user, tier)
-    amount = manual_plan_amount(tier, currency)
+    original_amount = manual_plan_amount(tier, currency)
+    coupon = None
+    discount_percent = 0
+    coupon_code = (coupon_code or "").strip().upper()
+    if coupon_code:
+        if tier != UserPlanTier.PRO:
+            raise ValueError("Discount coupons are available only for Pro Manual.")
+        coupon = ManualDiscountCoupon.objects.select_for_update().filter(code__iexact=coupon_code).first()
+        if not coupon or not coupon.is_available(at=now):
+            raise ValueError("This discount coupon is invalid, expired, or has already been used.")
+        discount_percent = coupon.discount_percent
+    amount = amount_after_discount(original_amount, discount_percent)
     order = ManualPlanOrder.objects.create(
         user=user,
         tier=tier,
+        discount_coupon=coupon,
+        coupon_code=coupon.code if coupon else "",
+        discount_percent=discount_percent,
+        original_amount=original_amount,
         amount=amount,
         currency=currency,
         payment_reference=payment_reference,
@@ -1212,12 +1229,27 @@ class ManualPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
         pending = self.pending_purchase()
         tier = pending["tier"]
         currency = profile.billing_currency()
-        amount = manual_plan_amount(tier, currency)
+        original_amount = manual_plan_amount(tier, currency)
+        coupon = None
+        coupon_code = (pending.get("coupon_code") or "").strip().upper()
+        if tier == UserPlanTier.PRO and coupon_code:
+            coupon = ManualDiscountCoupon.objects.filter(code__iexact=coupon_code).first()
+            if not coupon or not coupon.is_available():
+                pending.pop("coupon_code", None)
+                self.request.session["pending_plan_purchase"] = pending
+                coupon = None
+        discount_percent = coupon.discount_percent if coupon else 0
+        amount = amount_after_discount(original_amount, discount_percent)
         context.update({
             "billing_profile": profile,
             "manual_plan_name": UserPlanTier(tier).label,
             "manual_pro_price_label": format_amount(amount, currency),
             "manual_pro_net_price_label": format_net_amount_from_gross(amount, currency),
+            "manual_original_price_label": format_amount(original_amount, currency),
+            "manual_original_net_price_label": format_net_amount_from_gross(original_amount, currency),
+            "coupon_form": ManualCouponApplyForm(initial={"coupon_code": coupon.code if coupon else ""}),
+            "applied_coupon": coupon,
+            "coupon_available": tier == UserPlanTier.PRO,
             "manual_payment_recipient": settings.MANUAL_PAYMENT_RECIPIENT,
             "manual_payment_bank": settings.MANUAL_PAYMENT_BANK,
             "manual_payment_iban": settings.MANUAL_PAYMENT_IBAN_PLN if currency == "pln" else settings.MANUAL_PAYMENT_IBAN_EUR,
@@ -1229,14 +1261,53 @@ class ManualPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
         profile = request.user.billing_profile
         pending = self.pending_purchase()
         tier = pending["tier"]
+        action = request.POST.get("action", "confirm")
+        if action == "apply_coupon":
+            if tier != UserPlanTier.PRO:
+                messages.error(request, "Kupony rabatowe są dostępne wyłącznie dla planu Pro Manual.")
+                return redirect("dashboard:manual-plan-confirm")
+            form = ManualCouponApplyForm(request.POST)
+            if not form.is_valid():
+                messages.error(request, "Wpisz prawidłowy kod rabatowy.")
+                return redirect("dashboard:manual-plan-confirm")
+            code = form.cleaned_data["coupon_code"]
+            coupon = ManualDiscountCoupon.objects.filter(code__iexact=code).first()
+            if not coupon or not coupon.is_available():
+                pending.pop("coupon_code", None)
+                request.session["pending_plan_purchase"] = pending
+                if request.LANGUAGE_CODE == "pl":
+                    messages.error(request, "Kod rabatowy jest nieprawidłowy, wygasł lub został już wykorzystany.")
+                else:
+                    messages.error(request, "The discount code is invalid, expired, or has already been used.")
+                return redirect("dashboard:manual-plan-confirm")
+            pending["coupon_code"] = coupon.code
+            request.session["pending_plan_purchase"] = pending
+            if request.LANGUAGE_CODE == "pl":
+                messages.success(request, f"Zastosowano rabat {coupon.discount_percent}%.")
+            else:
+                messages.success(request, f"A {coupon.discount_percent}% discount has been applied.")
+            return redirect("dashboard:manual-plan-confirm")
+        if action == "remove_coupon":
+            pending.pop("coupon_code", None)
+            request.session["pending_plan_purchase"] = pending
+            return redirect("dashboard:manual-plan-confirm")
         try:
             create_manual_plan_order(
                 request.user,
                 profile.billing_currency(),
                 tier=tier,
                 payment_reference=pending["payment_reference"],
+                coupon_code=pending.get("coupon_code", ""),
             )
         except ValueError as exc:
+            if pending.get("coupon_code"):
+                pending.pop("coupon_code", None)
+                request.session["pending_plan_purchase"] = pending
+                if request.LANGUAGE_CODE == "pl":
+                    messages.error(request, "Nie można użyć tego kodu rabatowego. Sprawdź kod lub zastosuj inny.")
+                else:
+                    messages.error(request, "This discount code cannot be used. Check the code or apply another one.")
+                return redirect("dashboard:manual-plan-confirm")
             messages.error(request, str(exc))
             return redirect("dashboard:plan-update")
         if request.LANGUAGE_CODE == "pl":
@@ -1443,7 +1514,7 @@ class BillingOverviewView(AdminRequiredMixin, TemplateView):
                     order.currency or "",
                     order.formatted_amount(),
                     invoice_text(order.latest_manual_invoice),
-                    f"{order.get_tier_display()} Manual",
+                    order.admin_plan_label,
                 ]).lower()
             ]
             subscription_rows = [
@@ -1623,7 +1694,7 @@ class BillingInvoicesAdminView(AdminRequiredMixin, TemplateView):
                 "kind": "manual",
                 "object": order,
                 "user": order.user,
-                "plan": f"{order.get_tier_display()} Manual",
+                "plan": order.admin_plan_label,
                 "amount": order.formatted_amount(),
                 "amount_value": order.amount,
                 "paid_at": order.paid_at,
@@ -2029,6 +2100,12 @@ class ClientListView(AdminRequiredMixin, TemplateView):
             except BillingSubscription.DoesNotExist:
                 subscription = None
 
+            client.admin_plan_label = (
+                manual_order.admin_plan_label
+                if client.uses_manual_plan and manual_order
+                else client.plan_tier
+            )
+
             if client.closed_at:
                 key = "account_closed"
             elif client.uses_manual_plan and manual_order:
@@ -2323,6 +2400,11 @@ class ClientDetailView(AdminRequiredMixin, TemplateView):
                 or latest_manual_order.created_at > subscription_period_start
             )
         )
+        client.admin_plan_label = (
+            latest_manual_order.admin_plan_label
+            if client.uses_manual_plan and latest_manual_order
+            else client.plan_tier
+        )
         settlement = getattr(client, "seller_settlement", None)
         attributed_prospect = getattr(client, "attributed_prospect", None)
         seller = None
@@ -2373,6 +2455,51 @@ class ClientDetailView(AdminRequiredMixin, TemplateView):
             for organization in organizations
         ]
         return context
+
+
+class ManualDiscountCouponManagementView(AdminRequiredMixin, FormView):
+    form_class = ManualDiscountCouponForm
+    template_name = "dashboard/manual_discount_coupon_management.html"
+    success_url = reverse_lazy("dashboard:manual-discount-coupons")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["coupons"] = ManualDiscountCoupon.objects.annotate(
+            used_count=models.Count("manual_orders")
+        ).select_related("created_by")
+        return context
+
+    def form_valid(self, form):
+        coupon = form.save(commit=False)
+        coupon.created_by = self.request.user
+        coupon.save()
+        messages.success(
+            self.request,
+            f"Utworzono kupon {coupon.code}: {coupon.discount_percent}% rabatu na Pro Manual.",
+        )
+        return super().form_valid(form)
+
+
+class ManualDiscountCouponToggleView(AdminRequiredMixin, View):
+    active = False
+
+    def post(self, request, pk, *args, **kwargs):
+        coupon = get_object_or_404(ManualDiscountCoupon, pk=pk)
+        coupon.active = self.active
+        coupon.save(update_fields=["active", "updated_at"])
+        messages.success(
+            request,
+            f"Kupon {coupon.code} został {'aktywowany' if self.active else 'wyłączony'}.",
+        )
+        return redirect("dashboard:manual-discount-coupons")
+
+
+class ManualDiscountCouponActivateView(ManualDiscountCouponToggleView):
+    active = True
+
+
+class ManualDiscountCouponDeactivateView(ManualDiscountCouponToggleView):
+    active = False
 
 
 class ClientPurgeView(AdminRequiredMixin, View):

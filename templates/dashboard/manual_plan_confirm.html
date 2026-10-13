@@ -17,9 +17,30 @@
             <p>You cannot start an additional Stripe subscription while {{ manual_plan_name }} Manual is active.</p>
         {% endif %}
     </div>
+    {% if coupon_available %}
+    <div class="mt-5 rounded-lg border border-[#d9d9d9] bg-white p-5">
+        <h2 class="font-display text-lg font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Kod rabatowy{% else %}Discount code{% endif %}</h2>
+        {% if applied_coupon %}
+            <div class="mt-3 flex flex-col gap-3 rounded-lg border border-[#5ca197]/40 bg-[#CFEAE4] p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="font-mono text-xs font-semibold text-[#284b63]">{{ applied_coupon.code }}</p>
+                    <p class="mt-1 text-sm text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Zastosowano rabat{% else %}Discount applied{% endif %}: <strong>{{ applied_coupon.discount_percent }}%</strong></p>
+                </div>
+                <form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove_coupon"><button class="rounded border border-[#5ca197]/50 bg-white px-3 py-2 font-mono text-xs text-[#397b72]" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Usuń kod{% else %}Remove code{% endif %}</button></form>
+            </div>
+        {% else %}
+            <form method="post" class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                {% csrf_token %}<input type="hidden" name="action" value="apply_coupon">
+                <label class="flex-1"><span class="mb-1 block font-mono text-[10px] uppercase tracking-widest text-[#353535]/45">{{ coupon_form.coupon_code.label }}</span>{{ coupon_form.coupon_code }}</label>
+                <button class="min-h-10 rounded border border-[#5ca197] bg-white px-4 py-2 text-sm font-semibold text-[#397b72]" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Zastosuj kod{% else %}Apply code{% endif %}</button>
+            </form>
+        {% endif %}
+    </div>
+    {% endif %}
     <div class="mt-5 rounded-lg border border-[#d9d9d9] bg-[#f8fafa] p-5 text-sm">
         <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Firma{% else %}Company{% endif %}:</strong> {{ billing_profile.company_name }}</p>
         <p class="mt-2"><strong>VAT ID:</strong> {{ billing_profile.tax_id }}</p>
+        {% if applied_coupon %}<p class="mt-2 text-[#353535]/55"><span>{% if request.LANGUAGE_CODE == 'pl' %}Cena przed rabatem{% else %}Price before discount{% endif %}:</span> <span class="line-through">{{ manual_original_price_label }}</span></p>{% endif %}
         <p class="mt-2"><strong>{% if request.LANGUAGE_CODE == 'pl' %}Kwota brutto do przelewu{% else %}Gross amount to transfer{% endif %}:</strong> {{ manual_pro_price_label }}</p>
         <p class="mt-2"><strong>{% if request.LANGUAGE_CODE == 'pl' %}Odbiorca{% else %}Recipient{% endif %}:</strong> {{ manual_payment_recipient }}</p>
         <p class="mt-2"><strong>IBAN:</strong> {{ manual_payment_iban }}</p>
@@ -30,6 +51,7 @@
         <a class="inline-flex min-h-10 items-center rounded border border-[#d9d9d9] px-4 py-2 font-mono text-xs" href="{% url 'dashboard:plan-update' %}">{% if request.LANGUAGE_CODE == 'pl' %}Anuluj{% else %}Cancel{% endif %}</a>
         <form method="post">
             {% csrf_token %}
+            <input type="hidden" name="action" value="confirm">
             <button class="min-h-10 rounded bg-[#284b63] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#1e3a4f]" type="submit">
                 {% if request.LANGUAGE_CODE == 'pl' %}Potwierdzam zam&#243;wienie i obowi&#261;zek zap&#322;aty{% else %}Confirm order and payment obligation{% endif %}
             </button>

@@ -133,11 +133,11 @@
                         </td>
                         <td class="px-4 py-3">
                             {% if client.plan_tier == 'PRO' %}
-                                <span class="inline-flex items-center whitespace-nowrap rounded-full border border-[#284b63]/30 bg-[#284b63]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#284b63]">{{ client.plan_tier }}{% if client.uses_manual_plan %} MANUAL{% endif %}</span>
+                                <span class="inline-flex items-center whitespace-nowrap rounded-full border border-[#284b63]/30 bg-[#284b63]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#284b63]">{{ client.admin_plan_label }}</span>
                             {% elif client.plan_tier == 'PLUS' %}
-                                <span class="inline-flex items-center rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">PLUS{% if client.uses_manual_plan %} MANUAL{% endif %}</span>
+                                <span class="inline-flex items-center rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">{{ client.admin_plan_label }}</span>
                             {% else %}
-                                <span class="inline-flex items-center rounded-full border border-[#d9d9d9] bg-[#f5f5f5] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/60">BASIC{% if client.uses_manual_plan %} MANUAL{% endif %}</span>
+                                <span class="inline-flex items-center rounded-full border border-[#d9d9d9] bg-[#f5f5f5] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/60">{{ client.admin_plan_label }}</span>
                             {% endif %}
                         </td>
                         <td class="px-4 py-3">

@@ -108,7 +108,7 @@
                             <div class="mt-1 break-all text-[10px] text-[#353535]/55">{{ order.user.email }}</div>
                         </td>
                         <td class="px-3 py-3 pl-4 leading-5 text-[#353535]/75">
-                            {{ order.get_tier_display }} Manual
+                            {{ order.admin_plan_label }}
                             {% if order.is_renewal_order %}<span class="mt-1 inline-flex rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-[#397b72]">{% if request.LANGUAGE_CODE == 'pl' %}Odnowienie{% else %}Renewal{% endif %}</span>{% endif %}
                         </td>
                         <td class="px-3 py-3">{{ order.formatted_amount }}</td>

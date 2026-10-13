@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+            <span class="inline-flex rounded-full border border-[#5ca197]/25 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">{% if request.LANGUAGE_CODE == 'pl' %}Kupony{% else %}Coupons{% endif %}</span>
+            <h1 class="mt-3 font-display text-3xl font-bold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Kupony rabatowe Pro Manual{% else %}Pro Manual discount coupons{% endif %}</h1>
+            <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">{% if request.LANGUAGE_CODE == 'pl' %}Kupony obniżają wyłącznie cenę planu Pro opłacanego przelewem. Nie działają dla Stripe ani planów Basic i Plus.{% else %}Coupons reduce only the Pro plan price paid by bank transfer. They do not apply to Stripe, Basic, or Plus.{% endif %}</p>
+        </div>
+        <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] px-4 py-2 font-mono text-xs" href="{% url 'dashboard:home' %}">{% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}</a>
+    </div>
+
+    <form method="post" class="mt-6 grid gap-4 rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4 md:grid-cols-2 xl:grid-cols-4">
+        {% csrf_token %}
+        {% for field in form %}
+            <label>
+                <span class="mb-1 block font-mono text-[10px] uppercase tracking-widest text-[#353535]/45">{{ field.label }}</span>
+                {{ field }}
+                {% if field.help_text %}<span class="mt-1 block font-mono text-[10px] leading-relaxed text-[#353535]/45">{{ field.help_text }}</span>{% endif %}
+                {% if field.errors %}<span class="mt-1 block font-mono text-xs text-rose-500">{{ field.errors|striptags }}</span>{% endif %}
+            </label>
+        {% endfor %}
+        {% if form.non_field_errors %}<p class="md:col-span-2 xl:col-span-4 font-mono text-xs text-rose-500">{{ form.non_field_errors|striptags }}</p>{% endif %}
+        <div class="md:col-span-2 xl:col-span-4">
+            <button class="min-h-10 rounded bg-[#284b63] px-5 py-2 text-sm font-semibold text-white" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Utwórz kupon{% else %}Create coupon{% endif %}</button>
+        </div>
+    </form>
+</section>
+
+<section class="rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
+    <h2 class="font-display text-2xl font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Lista kuponów{% else %}Coupon list{% endif %}</h2>
+    <div class="mt-4 overflow-x-auto">
+        <table class="min-w-full divide-y divide-[#d9d9d9] text-left">
+            <thead><tr class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40"><th class="px-4 py-3">Kod</th><th class="px-4 py-3">Rabat</th><th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Użycia{% else %}Uses{% endif %}</th><th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Ważny do{% else %}Expires{% endif %}</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Akcja{% else %}Action{% endif %}</th></tr></thead>
+            <tbody class="divide-y divide-[#d9d9d9] font-mono text-xs">
+                {% for coupon in coupons %}
+                    <tr>
+                        <td class="px-4 py-3 font-semibold text-[#284b63]">{{ coupon.code }}</td>
+                        <td class="px-4 py-3">{{ coupon.discount_percent }}%</td>
+                        <td class="px-4 py-3">{{ coupon.redemption_count }} / {{ coupon.max_redemptions }}</td>
+                        <td class="px-4 py-3">{{ coupon.expires_at|date:'Y-m-d H:i'|default:'-' }}</td>
+                        <td class="px-4 py-3">{% if coupon.is_available %}<span class="text-[#5ca197]">{% if request.LANGUAGE_CODE == 'pl' %}aktywny{% else %}active{% endif %}</span>{% elif coupon.active %}<span class="text-amber-600">{% if request.LANGUAGE_CODE == 'pl' %}wykorzystany lub wygasły{% else %}used or expired{% endif %}</span>{% else %}<span class="text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}wyłączony{% else %}disabled{% endif %}</span>{% endif %}</td>
+                        <td class="px-4 py-3">
+                            {% if coupon.active %}
+                                <form method="post" action="{% url 'dashboard:manual-discount-coupon-deactivate' coupon.pk %}">{% csrf_token %}<button class="rounded border border-rose-300 px-3 py-1.5 text-rose-500" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Wyłącz{% else %}Disable{% endif %}</button></form>
+                            {% else %}
+                                <form method="post" action="{% url 'dashboard:manual-discount-coupon-activate' coupon.pk %}">{% csrf_token %}<button class="rounded border border-[#5ca197]/40 px-3 py-1.5 text-[#5ca197]" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Aktywuj{% else %}Activate{% endif %}</button></form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}<tr><td class="px-4 py-6 text-[#353535]/45" colspan="6">{% if request.LANGUAGE_CODE == 'pl' %}Nie utworzono jeszcze żadnych kuponów.{% else %}No coupons have been created yet.{% endif %}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

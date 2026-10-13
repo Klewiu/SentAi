@@ -151,17 +151,23 @@ def notify_plan_selected(user, plan_tier):
     )
 
 
+def _manual_order_admin_plan_label(order):
+    label = f"{order.get_tier_display()} Manual"
+    return f"{label} {order.discount_percent}%" if order.discount_percent else label
+
+
 def notify_manual_order_created(order):
     is_renewal = ManualPlanOrder.objects.filter(
         user=order.user,
         paid_at__isnull=False,
         created_at__lt=order.created_at,
     ).exclude(pk=order.pk).exists()
+    plan_label = _manual_order_admin_plan_label(order)
     notify_admin(
-        title=(f"{order.get_tier_display()} Manual renewal order" if is_renewal else f"New {order.get_tier_display()} Manual order"),
-        message=f"{order.user.email} activated {'another annual period of' if is_renewal else ''} {order.get_tier_display()} Manual. Payment is due by {order.payment_due_at:%Y-%m-%d %H:%M}.",
-        title_pl=(f"Odnowienie {order.get_tier_display()} Manual" if is_renewal else f"Nowe zamówienie {order.get_tier_display()} Manual"),
-        message_pl=f"{order.user.email} aktywował {'kolejny roczny okres planu' if is_renewal else 'plan'} {order.get_tier_display()} Manual. Termin płatności: {order.payment_due_at:%Y-%m-%d %H:%M}.",
+        title=(f"{plan_label} renewal order" if is_renewal else f"New {plan_label} order"),
+        message=f"{order.user.email} activated {'another annual period of' if is_renewal else ''} {plan_label}. Payment is due by {order.payment_due_at:%Y-%m-%d %H:%M}.",
+        title_pl=(f"Odnowienie {plan_label}" if is_renewal else f"Nowe zamówienie {plan_label}"),
+        message_pl=f"{order.user.email} aktywował {'kolejny roczny okres planu' if is_renewal else 'plan'} {plan_label}. Termin płatności: {order.payment_due_at:%Y-%m-%d %H:%M}.",
         category=NotificationCategory.MANUAL_PLAN,
         severity=NotificationSeverity.WARNING,
         customer=order.user,
@@ -195,10 +201,11 @@ def notify_invoice_needed_for_manual_order(order):
         paid_at__isnull=False,
         created_at__lt=order.created_at,
     ).exclude(pk=order.pk).exists()
+    plan_label = _manual_order_admin_plan_label(order)
     notify_admin(
-        title=f"{order.get_tier_display()} Manual {'renewal ' if is_renewal else ''}payment needs invoice",
+        title=f"{plan_label} {'renewal ' if is_renewal else ''}payment needs invoice",
         message=f"{order.user.email} paid {order.formatted_amount()} for {'a Manual renewal' if is_renewal else 'a new Manual plan'}. Upload and send an invoice.",
-        title_pl=(f"Odnowienie {order.get_tier_display()} Manual wymaga wystawienia faktury" if is_renewal else f"Płatność {order.get_tier_display()} Manual wymaga wystawienia faktury"),
+        title_pl=(f"Odnowienie {plan_label} wymaga wystawienia faktury" if is_renewal else f"Płatność {plan_label} wymaga wystawienia faktury"),
         message_pl=f"{order.user.email} zapłacił {order.formatted_amount()} za {'odnowienie planu Manual' if is_renewal else 'nowy plan Manual'}. Wystaw i wyślij fakturę.",
         category=NotificationCategory.INVOICE,
         severity=NotificationSeverity.WARNING,
@@ -209,11 +216,12 @@ def notify_invoice_needed_for_manual_order(order):
 
 
 def notify_manual_order_overdue(order):
+    plan_label = _manual_order_admin_plan_label(order)
     notify_admin(
-        title=f"{order.get_tier_display()} Manual payment overdue",
-        message=f"{order.user.email} has not paid {order.get_tier_display()} Manual by {order.payment_due_at:%Y-%m-%d %H:%M}. Review and disable the plan if needed.",
-        title_pl=f"Przekroczony termin płatności {order.get_tier_display()} Manual",
-        message_pl=f"{order.user.email} nie opłacił planu {order.get_tier_display()} Manual do {order.payment_due_at:%Y-%m-%d %H:%M}. Sprawdź zamówienie i w razie potrzeby wyłącz plan.",
+        title=f"{plan_label} payment overdue",
+        message=f"{order.user.email} has not paid {plan_label} by {order.payment_due_at:%Y-%m-%d %H:%M}. Review and disable the plan if needed.",
+        title_pl=f"Przekroczony termin płatności {plan_label}",
+        message_pl=f"{order.user.email} nie opłacił planu {plan_label} do {order.payment_due_at:%Y-%m-%d %H:%M}. Sprawdź zamówienie i w razie potrzeby wyłącz plan.",
         category=NotificationCategory.MANUAL_PLAN,
         severity=NotificationSeverity.URGENT,
         customer=order.user,
@@ -424,11 +432,12 @@ def notify_admin_subscription_renewal(subscription):
 
 
 def notify_admin_manual_renewal(order):
+    plan_label = _manual_order_admin_plan_label(order)
     notify_admin(
-        title=f"{order.get_tier_display()} Manual ends within 14 days",
-        message=f"{order.user.email}'s {order.get_tier_display()} Manual plan ends on {order.access_until:%Y-%m-%d}. The customer must purchase a new plan to maintain publication continuity.",
-        title_pl=f"{order.get_tier_display()} Manual kończy się w ciągu 14 dni",
-        message_pl=f"Plan {order.get_tier_display()} Manual klienta {order.user.email} kończy się {order.access_until:%Y-%m-%d}. Klient musi ponownie wykupić plan, aby zachować ciągłość publikacji.",
+        title=f"{plan_label} ends within 14 days",
+        message=f"{order.user.email}'s {plan_label} plan ends on {order.access_until:%Y-%m-%d}. The customer must purchase a new plan to maintain publication continuity.",
+        title_pl=f"{plan_label} kończy się w ciągu 14 dni",
+        message_pl=f"Plan {plan_label} klienta {order.user.email} kończy się {order.access_until:%Y-%m-%d}. Klient musi ponownie wykupić plan, aby zachować ciągłość publikacji.",
         category=NotificationCategory.MANUAL_PLAN,
         severity=NotificationSeverity.WARNING,
         customer=order.user,
