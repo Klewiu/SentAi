@@ -8,6 +8,7 @@ from apps.accounts.models import User
 
 from .catalog import activate_price, archive_price, import_price
 from .models import BillingPlanPrice, BillingSubscription
+from .services import format_net_amount_from_gross, net_amount_from_gross
 
 
 def remote_price(price_id="price_new", amount=15000, currency="pln", active=True, interval="year"):
@@ -30,6 +31,11 @@ class CatalogTests(TestCase):
             username="catalog-admin", email="catalog@example.com", password="test-password"
         )
 
+    @override_settings(BILLING_VAT_RATE_PERCENT=23)
+    def test_net_price_is_derived_from_vat_inclusive_stripe_amount(self):
+        self.assertEqual(net_amount_from_gross(40000), 32520)
+        self.assertEqual(format_net_amount_from_gross(40000, "pln"), "325.20 PLN")
+
     @patch("stripe.Price.retrieve")
     def test_product_id_is_rejected_before_stripe_request(self, retrieve):
         with self.assertRaisesMessage(ValueError, "Product ID"):
@@ -37,6 +43,7 @@ class CatalogTests(TestCase):
         retrieve.assert_not_called()
         self.assertFalse(BillingPlanPrice.objects.exists())
 
+    @override_settings(INTERNATIONAL_BILLING_ENABLED=True)
     @patch("stripe.Price.retrieve", return_value=remote_price(amount=2500, currency="eur"))
     def test_import_uses_amount_and_currency_returned_by_stripe(self, retrieve):
         local = import_price("BASIC", "price_new", self.admin)
@@ -44,6 +51,12 @@ class CatalogTests(TestCase):
         self.assertEqual(local.currency, "eur")
         self.assertEqual(local.interval, "year")
         self.assertTrue(local.active_for_new_customers)
+
+    @patch("stripe.Price.retrieve", return_value=remote_price(amount=2500, currency="eur"))
+    def test_eur_price_is_rejected_while_poland_only_billing_is_enabled(self, retrieve):
+        with self.assertRaisesMessage(ValueError, "EUR billing is currently disabled"):
+            import_price("BASIC", "price_eur_disabled", self.admin)
+        self.assertFalse(BillingPlanPrice.objects.exists())
 
     @patch("stripe.Price.retrieve", return_value=remote_price())
     def test_replacement_preserves_old_subscription_price(self, retrieve):

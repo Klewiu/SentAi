@@ -104,14 +104,26 @@ class GoogleSignInTests(TestCase):
 
         self.assertRedirects(response, reverse("accounts:profile"), fetch_redirect_response=False)
 
-    def test_matching_email_requires_explicit_linking(self):
+    def test_password_account_cannot_add_google_after_registration(self):
         user = User.objects.create_user(username="existing", email=self.claims["email"], password="password")
         self.post()
         self.assertFalse(GoogleIdentity.objects.exists())
         self.assertNotIn("_auth_user_id", self.client.session)
         self.client.force_login(user)
-        self.post()
-        self.assertEqual(GoogleIdentity.objects.get().user, user)
+        profile = self.client.get(reverse("accounts:profile"))
+        self.assertNotContains(profile, reverse("accounts:google-signin"))
+        response = self.post()
+        self.assertRedirects(response, reverse("accounts:profile"), fetch_redirect_response=False)
+        self.assertFalse(GoogleIdentity.objects.exists())
+
+    def test_legacy_password_account_with_google_identity_must_use_password(self):
+        user = User.objects.create_user(username="legacy-linked", email=self.claims["email"], password="password")
+        GoogleIdentity.objects.create(user=user, subject=self.claims["sub"], is_primary=False)
+
+        response = self.post()
+
+        self.assertRedirects(response, reverse("login"), fetch_redirect_response=False)
+        self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_unverified_email_and_nonce_mismatch_are_rejected(self):
         self.post({**self.claims, "email_verified": False})

@@ -4,8 +4,8 @@
 {% block content %}
 {% include 'partials/step_flow_dashboard.html' %}
 {% if not has_publication_access %}
-<div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm">
-    {% if request.LANGUAGE_CODE == 'pl' %}Publikacja profili wymaga aktywnego płatnego planu. Basic kosztuje 100 PLN lub 25 EUR rocznie. Twoje zapisane dane pozostają dostępne do edycji.{% else %}Publishing profiles requires an active paid plan. Basic costs 100 PLN or 25 EUR per year. Your saved data remains available to edit.{% endif %}
+<div class="rounded-xl border border-[#a8d5cb] bg-[#CFEAE4] p-4 text-sm leading-6 text-[#284b63]">
+    {% if request.LANGUAGE_CODE == 'pl' %}Publikacja profili wymaga aktywnego płatnego planu. Wybierz wśród 3 dostępnych planów. Rozliczaj się poprzez cykliczną subskrypcję lub zapłać przelewem za rok.{% else %}Publishing profiles requires an active paid plan. Choose from 3 available plans. Use recurring subscription billing or pay for one year by bank transfer.{% endif %}
     <a class="font-semibold underline" href="{% url 'dashboard:plan-update' %}">{% if request.LANGUAGE_CODE == 'pl' %}Wybierz lub odnów plan{% else %}Choose or renew a plan{% endif %}</a>
 </div>
 {% endif %}

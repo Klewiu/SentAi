@@ -25,10 +25,14 @@ DEMO_PASSWORD = "Xoaila-demo-2026!"
 
 def run():
     User = get_user_model()
+    # Keep the isolated recording database free of the former tutorial login.
+    User.objects.filter(username="demo.customer").delete()
     user, _ = User.objects.update_or_create(
-        username="demo.customer",
+        username="jan.kowalski",
         defaults={
-            "email": "demo@xoaila.example",
+            "first_name": "Jan",
+            "last_name": "Kowalski",
+            "email": "jan.kowalski@example.com",
             "company_name": "Greenwise Studio",
             "country": "PL",
             "preferred_language": "pl",
@@ -43,19 +47,19 @@ def run():
     user.set_password(DEMO_PASSWORD)
     user.save()
 
-    for tier, pln, eur in (("BASIC", 10000, 2500), ("PLUS", 20000, 4600), ("PRO", 40000, 9300)):
-        for currency, amount in (("pln", pln), ("eur", eur)):
-            BillingPlanPrice.objects.update_or_create(
-                tier=tier,
-                currency=currency,
-                active_for_new_customers=True,
-                defaults={
-                    "stripe_price_id": f"price_tutorial_{tier.lower()}_{currency}",
-                    "amount": amount,
-                    "interval": "year",
-                    "notes": "Tutorial data only",
-                },
-            )
+    BillingPlanPrice.objects.filter(currency="eur").delete()
+    for tier, amount in (("BASIC", 10000), ("PLUS", 20000), ("PRO", 40000)):
+        BillingPlanPrice.objects.update_or_create(
+            tier=tier,
+            currency="pln",
+            active_for_new_customers=True,
+            defaults={
+                "stripe_price_id": f"price_tutorial_{tier.lower()}_pln",
+                "amount": amount,
+                "interval": "year",
+                "notes": "Tutorial data only",
+            },
+        )
 
     BillingSubscription.objects.update_or_create(
         user=user,

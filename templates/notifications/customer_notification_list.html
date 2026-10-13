@@ -53,12 +53,12 @@
 
     <div class="mt-5 space-y-3">
         {% for notification in notifications %}
-            <article class="rounded-lg border {% if notification.closed_at %}border-[#d9d9d9] bg-[#f8fafa]{% elif notification.severity == 'urgent' %}border-rose-300 bg-rose-50{% elif notification.severity == 'warning' %}border-amber-300 bg-amber-50{% else %}border-[#d9d9d9] bg-white{% endif %} p-4">
+            <article class="rounded-lg border {% if notification.closed_at %}border-[#d9d9d9] bg-[#f8fafa]{% elif notification.severity == 'urgent' %}border-rose-300 bg-rose-50{% elif notification.severity == 'warning' %}border-[#a8d5cb] bg-[#CFEAE4]{% else %}border-[#d9d9d9] bg-white{% endif %} p-4">
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="rounded-full border border-[#d9d9d9] bg-white px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[#353535]/55">{{ notification.get_category_display }}</span>
-                            <span class="rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest {% if notification.severity == 'urgent' %}bg-rose-100 text-rose-700{% elif notification.severity == 'warning' %}bg-amber-100 text-amber-700{% else %}bg-[#5ca197]/10 text-[#397b72]{% endif %}">{{ notification.get_severity_display }}</span>
+                            <span class="rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest {% if notification.severity == 'urgent' %}bg-rose-100 text-rose-700{% elif notification.severity == 'warning' %}bg-white/65 text-[#284b63]{% else %}bg-[#5ca197]/10 text-[#397b72]{% endif %}">{{ notification.get_severity_display }}</span>
                             {% if notification.closed_at %}<span class="font-mono text-[10px] text-[#353535]/45">{% if request.LANGUAGE_CODE == 'pl' %}Zamknięte{% else %}Closed{% endif %}: {{ notification.closed_at|date:"Y-m-d H:i" }}</span>{% endif %}
                         </div>
                         <h2 class="mt-2 font-display text-xl font-semibold text-[#284b63]">{{ notification.display_title }}</h2>

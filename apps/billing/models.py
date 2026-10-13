@@ -4,6 +4,7 @@ from django.db import models
 from django.utils import timezone
 import uuid
 from .storage import private_invoice_storage, validate_invoice_pdf
+from .validators import is_valid_polish_nip
 
 from apps.accounts.models import UserPlanTier
 
@@ -61,6 +62,52 @@ class ManualPlanOrderStatus(models.TextChoices):
     DISABLED = "disabled", "Disabled"
 
 
+class ManualDiscountCoupon(models.Model):
+    DISCOUNT_CHOICES = (
+        (10, "10%"),
+        (20, "20%"),
+        (30, "30%"),
+    )
+
+    code = models.CharField(max_length=40, unique=True)
+    discount_percent = models.PositiveSmallIntegerField(choices=DISCOUNT_CHOICES)
+    active = models.BooleanField(default=True)
+    max_redemptions = models.PositiveIntegerField(default=1)
+    expires_at = models.DateTimeField(blank=True, null=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="created_manual_discount_coupons",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.code} ({self.discount_percent}%)"
+
+    def save(self, *args, **kwargs):
+        self.code = self.code.strip().upper()
+        super().save(*args, **kwargs)
+
+    @property
+    def redemption_count(self) -> int:
+        annotated_count = getattr(self, "used_count", None)
+        return annotated_count if annotated_count is not None else self.manual_orders.count()
+
+    def is_available(self, *, at=None) -> bool:
+        at = at or timezone.now()
+        return bool(
+            self.active
+            and (self.expires_at is None or self.expires_at > at)
+            and self.redemption_count < self.max_redemptions
+        )
+
+
 class BillingProfile(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -91,6 +138,8 @@ class BillingProfile(models.Model):
         return f"{self.user} billing profile"
 
     def billing_currency(self) -> str:
+        if not settings.INTERNATIONAL_BILLING_ENABLED:
+            return BillingCurrency.PLN
         return BillingCurrency.PLN if self.country.upper() == "PL" else BillingCurrency.EUR
 
     def is_complete(self) -> bool:
@@ -100,6 +149,9 @@ class BillingProfile(models.Model):
             return False
         if not self.tax_id:
             return False
+        if not settings.INTERNATIONAL_BILLING_ENABLED:
+            if self.country.upper() != "PL" or not is_valid_polish_nip(self.tax_id):
+                return False
         return all([self.street, self.postal_code, self.city, self.country, self.invoice_email])
 
 
@@ -139,6 +191,10 @@ class BillingPlanPrice(models.Model):
         from .services import format_amount
         return format_amount(self.amount, self.currency)
 
+    def formatted_net_amount(self) -> str:
+        from .services import format_net_amount_from_gross
+        return format_net_amount_from_gross(self.amount, self.currency)
+
 
 class BillingSubscription(models.Model):
     user = models.OneToOneField(
@@ -166,6 +222,7 @@ class BillingSubscription(models.Model):
     current_period_end = models.DateTimeField(blank=True, null=True)
     cancel_at_period_end = models.BooleanField(default=False)
     canceled_at = models.DateTimeField(blank=True, null=True)
+    termination_acknowledged_at = models.DateTimeField(blank=True, null=True)
     latest_invoice_id = models.CharField(max_length=255, blank=True)
     latest_payment_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -196,6 +253,16 @@ class BillingSubscription(models.Model):
 class ManualPlanOrder(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="manual_plan_orders")
     tier = models.CharField(max_length=16, choices=UserPlanTier.choices, default=UserPlanTier.PRO)
+    discount_coupon = models.ForeignKey(
+        ManualDiscountCoupon,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="manual_orders",
+    )
+    coupon_code = models.CharField(max_length=40, blank=True)
+    discount_percent = models.PositiveSmallIntegerField(default=0)
+    original_amount = models.PositiveIntegerField(default=0, help_text="Gross catalog amount before discount.")
     amount = models.PositiveIntegerField(help_text="Amount in the smallest currency unit.")
     currency = models.CharField(max_length=8, choices=BillingCurrency.choices)
     status = models.CharField(
@@ -208,6 +275,7 @@ class ManualPlanOrder(models.Model):
     access_until = models.DateTimeField()
     paid_at = models.DateTimeField(blank=True, null=True)
     disabled_at = models.DateTimeField(blank=True, null=True)
+    termination_acknowledged_at = models.DateTimeField(blank=True, null=True)
     disabled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -220,13 +288,37 @@ class ManualPlanOrder(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(discount_percent__in=[0, 10, 20, 30]),
+                name="manual_order_supported_discount_percent",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(discount_percent=0) | models.Q(tier=UserPlanTier.PRO),
+                name="manual_order_discount_only_for_pro",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.payment_reference} - {self.user} - {self.status}"
 
+    def save(self, *args, **kwargs):
+        if not self.original_amount:
+            self.original_amount = self.amount
+        super().save(*args, **kwargs)
+
     def formatted_amount(self) -> str:
         from .services import format_amount
         return format_amount(self.amount, self.currency)
+
+    def formatted_original_amount(self) -> str:
+        from .services import format_amount
+        return format_amount(self.original_amount or self.amount, self.currency)
+
+    @property
+    def admin_plan_label(self) -> str:
+        label = f"{self.get_tier_display().upper()} MANUAL"
+        return f"{label} {self.discount_percent}%" if self.discount_percent else label
 
     @property
     def is_overdue(self) -> bool:
@@ -244,6 +336,7 @@ class BillingPayment(models.Model):
     )
     stripe_invoice_id = models.CharField(max_length=255, unique=True)
     stripe_payment_intent_id = models.CharField(max_length=255, blank=True)
+    billing_reason = models.CharField(max_length=64, blank=True)
     amount_paid = models.PositiveIntegerField(default=0)
     currency = models.CharField(max_length=8, default="pln")
     status = models.CharField(max_length=32, choices=BillingPaymentStatus.choices, default=BillingPaymentStatus.OPEN)

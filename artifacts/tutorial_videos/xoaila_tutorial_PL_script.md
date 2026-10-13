@@ -12,11 +12,11 @@ Proces ma sześć prostych kroków: rejestracja, wybór planu, dodanie strony fi
 
 ## Wybierz zakres profilu
 
-Plan Basic obejmuje jedną firmę i jeden język. Plus dodaje drugi profil, drugi język, specjalizacje, FAQ i oficjalne profile społecznościowe. Pro obsługuje do trzech profili i języków, a także katalog produktów i usług. Wszystkie plany udostępniają cztery formaty danych.
+Plan Basic obejmuje jedną firmę i jeden język. Plus dodaje drugi profil, drugi język, specjalizacje i dwa oficjalne profile społecznościowe. Pro obsługuje do trzech profili i języków, pięć profili społecznościowych, pięć pytań FAQ oraz katalog produktów i usług. Wszystkie plany udostępniają cztery formaty danych.
 
 ## Załóż konto
 
-Podaj nazwę użytkownika, firmę, adres e-mail, kraj i bezpieczne hasło. Po rejestracji potwierdź adres e-mail. Jeżeli logowanie Google jest skonfigurowane, możesz także użyć konta Google.
+Podaj nazwę użytkownika, firmę, adres e-mail, Polskę jako kraj działalności i bezpieczne hasło. Xoaila jest obecnie dostępna dla firm z Polski. Po rejestracji potwierdź adres e-mail. Jeżeli logowanie Google jest skonfigurowane, możesz także użyć konta Google.
 
 ## Panel klienta
 

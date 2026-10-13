@@ -2,12 +2,20 @@ from django.contrib import admin
 from django import forms
 from django.db import models
 
-from .models import BillingInvoice, BillingPayment, BillingPlanPrice, BillingProfile, BillingSubscription, ManualPlanOrder
+from .models import BillingInvoice, BillingPayment, BillingPlanPrice, BillingProfile, BillingSubscription, ManualDiscountCoupon, ManualPlanOrder
+
+
+@admin.register(ManualDiscountCoupon)
+class ManualDiscountCouponAdmin(admin.ModelAdmin):
+    list_display = ("code", "discount_percent", "active", "max_redemptions", "redemption_count", "expires_at", "created_at")
+    list_filter = ("discount_percent", "active")
+    search_fields = ("code",)
+    readonly_fields = ("created_by", "created_at", "updated_at")
 
 
 @admin.register(ManualPlanOrder)
 class ManualPlanOrderAdmin(admin.ModelAdmin):
-    list_display = ("payment_reference", "user", "amount", "currency", "status", "payment_due_at", "access_until")
+    list_display = ("payment_reference", "user", "admin_plan_label", "amount", "currency", "status", "payment_due_at", "access_until", "termination_acknowledged_at")
     list_filter = ("status", "currency")
     search_fields = ("payment_reference", "user__email", "user__username")
 
@@ -31,7 +39,7 @@ class BillingPlanPriceAdmin(admin.ModelAdmin):
 
 @admin.register(BillingSubscription)
 class BillingSubscriptionAdmin(admin.ModelAdmin):
-    list_display = ("user", "tier", "status", "cancel_at_period_end", "current_period_end", "stripe_subscription_id")
+    list_display = ("user", "tier", "status", "cancel_at_period_end", "current_period_end", "termination_acknowledged_at", "stripe_subscription_id")
     list_filter = ("tier", "status", "cancel_at_period_end")
     search_fields = ("user__email", "user__username", "stripe_customer_id", "stripe_subscription_id")
 

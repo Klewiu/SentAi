@@ -12,6 +12,20 @@ from .services import sync_subscription_from_stripe, get_active_plan_price
 
 
 class PaidBasicTests(TestCase):
+    def confirmed_checkout(self, tier="BASIC", currency="pln"):
+        session = self.client.session
+        session["pending_plan_purchase"] = {
+            "tier": tier,
+            "currency": currency,
+            "payment_method": "stripe",
+            "terms_accepted": True,
+        }
+        session.save()
+        return self.client.post(
+            reverse("dashboard:plan-update"),
+            {"plan_tier": tier, "billing_currency": currency, "checkout_confirmed": "1"},
+        )
+
     @override_settings(STRIPE_BASIC_PRICE_ID_PLN="", STRIPE_BASIC_PRICE_ID_EUR="", STRIPE_PLUS_PRICE_ID="", STRIPE_PRO_PRICE_ID="")
     def test_database_prices_do_not_require_environment_ids(self):
         self.assertEqual(get_active_plan_price("BASIC", "pln"), self.price)
@@ -23,17 +37,17 @@ class PaidBasicTests(TestCase):
         remote = {"active": True, "currency": "pln", "unit_amount": 10000,
                   "recurring": {"interval": "year", "interval_count": 1}}
         with patch("stripe.Price.retrieve", return_value=remote), patch("stripe.checkout.Session.create") as create:
-            self.client.post(reverse("dashboard:plan-update"), {"plan_tier": "BASIC", "subscription_terms_accepted": True})
+            self.confirmed_checkout()
             create.assert_not_called()
         remote["unit_amount"] = 8000
         with patch("stripe.Price.retrieve", return_value=remote), patch("stripe.checkout.Session.create", return_value={"id": "cs_custom_basic", "url": "https://checkout.stripe.com/custom-basic"}) as create:
-            response = self.client.post(reverse("dashboard:plan-update"), {"plan_tier": "BASIC", "subscription_terms_accepted": True})
+            response = self.confirmed_checkout()
             self.assertEqual(response.url, "https://checkout.stripe.com/custom-basic")
             create.assert_called_once()
 
     def setUp(self):
         self.user = User.objects.create_user(username="paidbasic", email="paidbasic@example.com", password="test-password")
-        BillingProfile.objects.create(user=self.user, company_name="Basic customer", tax_id="1234567890", street="Street 1", postal_code="00-001", city="Warsaw", country="PL", invoice_email=self.user.email)
+        BillingProfile.objects.create(user=self.user, company_name="Basic customer", tax_id="PL5260250274", street="Street 1", postal_code="00-001", city="Warsaw", country="PL", invoice_email=self.user.email)
         self.org = Organization.objects.create(owner=self.user, name="Paid Basic Profile", verification_status=VerificationStatus.HUMAN_ADMIN_VERIFIED)
         self.price = BillingPlanPrice.objects.create(tier="BASIC", amount=10000, currency="pln", interval="year", stripe_price_id="price_basic")
         self.client.force_login(self.user)
@@ -45,13 +59,18 @@ class PaidBasicTests(TestCase):
         self.assertNotContains(self.client.get(reverse("site-llms-txt")), self.org.slug)
         self.assertFalse(has_publication_access(self.user))
 
-    def test_non_pro_manual_orders_are_rejected(self):
-        for tier in ["BASIC", "PLUS"]:
-            with self.subTest(tier=tier), self.assertRaises(ValueError):
-                create_manual_plan_order(self.user, "pln", tier)
-        self.assertFalse(ManualPlanOrder.objects.filter(user=self.user).exists())
+    def test_basic_manual_order_uses_the_basic_catalog_price(self):
+        order = create_manual_plan_order(self.user, "pln", "BASIC")
+        self.assertEqual(order.tier, "BASIC")
+        self.assertEqual(order.amount, 10000)
 
-    def test_removed_manual_option_is_rejected_and_stale_session_is_ignored(self):
+    def test_plus_manual_order_uses_the_plus_catalog_price(self):
+        BillingPlanPrice.objects.create(tier="PLUS", amount=20000, currency="pln", stripe_price_id="price_plus_manual")
+        order = create_manual_plan_order(self.user, "pln", "PLUS")
+        self.assertEqual(order.tier, "PLUS")
+        self.assertEqual(order.amount, 20000)
+
+    def test_removed_manual_tier_option_is_rejected_and_manual_is_chosen_as_payment_method(self):
         response = self.client.post(reverse("dashboard:plan-update"), {"plan_tier": "BASIC_MANUAL"})
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["form"].errors)
@@ -60,7 +79,18 @@ class PaidBasicTests(TestCase):
         session["manual_plan_tier"] = "BASIC"
         session.save()
         response = self.client.get(reverse("dashboard:manual-plan-confirm"))
-        self.assertContains(response, "Pro Manual")
+        self.assertRedirects(response, reverse("dashboard:plan-update"))
+        BillingPlanPrice.objects.create(tier="PRO", amount=40000, currency="pln", stripe_price_id="price_pro")
+        selection = self.client.post(reverse("dashboard:plan-update"), {"plan_tier": "PRO"})
+        self.assertRedirects(selection, reverse("dashboard:plan-payment-method"))
+        self.client.post(reverse("dashboard:plan-payment-method"), {"payment_method": "manual"})
+        self.client.post(reverse("dashboard:billing-profile") + f"?next={reverse('dashboard:plan-purchase-continue')}", {
+            "company_name": "Basic customer", "tax_id": "PL5260250274", "street": "Street 1",
+            "postal_code": "00-001", "city": "Warsaw", "country": "PL", "invoice_email": self.user.email,
+            "next": reverse("dashboard:plan-purchase-continue"),
+        })
+        self.client.get(reverse("dashboard:plan-purchase-continue"))
+        self.client.post(reverse("dashboard:plan-purchase-terms"), {"terms_accepted": "on"})
         self.client.post(reverse("dashboard:manual-plan-confirm"))
         self.assertEqual(ManualPlanOrder.objects.get(user=self.user).tier, "PRO")
 
@@ -68,7 +98,7 @@ class PaidBasicTests(TestCase):
     def test_basic_checkout_requires_payment_and_annual_price(self):
         remote = {"active": True, "currency": "pln", "unit_amount": 10000, "recurring": {"interval": "year", "interval_count": 1}}
         with patch("stripe.Price.retrieve", return_value=remote), patch("stripe.checkout.Session.create", return_value={"id": "cs_basic", "url": "https://checkout.stripe.com/basic"}) as create:
-            response = self.client.post(reverse("dashboard:plan-update"), {"plan_tier": "BASIC", "subscription_terms_accepted": True})
+            response = self.confirmed_checkout()
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, "https://checkout.stripe.com/basic")
         self.assertEqual(create.call_args.kwargs["line_items"], [{"price": "price_basic", "quantity": 1}])
@@ -77,7 +107,7 @@ class PaidBasicTests(TestCase):
         self.assertIsNone(self.user.paid_plan_started_at)
         remote["recurring"]["interval"] = "month"
         with patch("stripe.Price.retrieve", return_value=remote), patch("stripe.checkout.Session.create") as create:
-            self.client.post(reverse("dashboard:plan-update"), {"plan_tier": "BASIC", "subscription_terms_accepted": True})
+            self.confirmed_checkout()
             create.assert_not_called()
 
     def test_stripe_basic_sync_activates_and_expiry_removes_publication(self):
@@ -118,6 +148,7 @@ class PaidBasicTests(TestCase):
         self.assertEqual(self.user.plan_access_status, "EXPIRED")
         self.assertFalse(has_publication_access(self.user))
 
+    @override_settings(INTERNATIONAL_BILLING_ENABLED=True)
     def test_basic_uses_separate_eur_price(self):
         eur_price = BillingPlanPrice.objects.create(
             tier="BASIC", amount=2500, currency="eur", interval="year", stripe_price_id="price_basic_eur"
@@ -125,6 +156,7 @@ class PaidBasicTests(TestCase):
         self.assertEqual(get_active_plan_price("BASIC", "pln"), self.price)
         self.assertEqual(get_active_plan_price("BASIC", "eur"), eur_price)
 
+    @override_settings(INTERNATIONAL_BILLING_ENABLED=True)
     def test_plan_pages_show_consistent_whole_prices_in_selected_currency(self):
         BillingPlanPrice.objects.create(tier="BASIC", amount=2500, currency="eur", interval="year", stripe_price_id="price_basic_eur")
         BillingPlanPrice.objects.create(tier="PLUS", amount=20000, currency="pln", interval="year", stripe_price_id="price_plus_pln")
@@ -142,7 +174,7 @@ class PaidBasicTests(TestCase):
                         self.assertContains(response, price)
                         self.assertNotContains(response, price.replace(" ", ".00 "))
 
-    @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
+    @override_settings(STRIPE_SECRET_KEY="sk_test_dummy", INTERNATIONAL_BILLING_ENABLED=True)
     def test_eur_basic_checkout_validates_and_uses_eur_price(self):
         eur_price = BillingPlanPrice.objects.create(
             tier="BASIC", amount=2500, currency="eur", interval="year", stripe_price_id="price_basic_eur"
@@ -155,10 +187,7 @@ class PaidBasicTests(TestCase):
             "stripe.checkout.Session.create",
             return_value={"id": "cs_basic_eur", "url": "https://checkout.stripe.com/basic-eur"},
         ) as create:
-            response = self.client.post(
-                reverse("dashboard:plan-update"),
-                {"plan_tier": "BASIC", "billing_currency": "eur", "subscription_terms_accepted": True},
-            )
+            response = self.confirmed_checkout(currency="eur")
         self.assertEqual(response.url, "https://checkout.stripe.com/basic-eur")
         self.assertEqual(create.call_args.kwargs["line_items"], [{"price": eur_price.stripe_price_id, "quantity": 1}])
 
@@ -178,6 +207,7 @@ class PaidBasicTests(TestCase):
 
     def test_pro_manual_payment_creates_invoice_notification(self):
         from apps.notifications.models import AdminNotification
+        BillingPlanPrice.objects.create(tier="PRO", amount=40000, currency="pln", stripe_price_id="price_pro_invoice")
         order = create_manual_plan_order(self.user, "pln", "PRO")
         admin = User.objects.create_superuser(username="basicadmin", email="basicadmin@example.com", password="test-password")
         self.client.force_login(admin)

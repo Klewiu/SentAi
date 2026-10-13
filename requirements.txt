@@ -8,7 +8,7 @@ stripe>=12.5,<13.0
 
 django-otp>=1.7.2,<2
 requests>=2.34.2,<3
-urllib3>=2.7,<3
+urllib3>=2.8.0,<3
 idna>=3.19,<4
 sqlparse>=0.6,<1
 

@@ -41,7 +41,6 @@ def soft_close_user_with_financial_records(user):
         closed_at=now,
         updated_at=now,
     )
-    user.organizations.all().delete()
     GoogleIdentity.objects.filter(user=user).delete()
     anonymized = f"{user.pk}-{uuid.uuid4().hex}"
     user.is_active = False
@@ -49,6 +48,7 @@ def soft_close_user_with_financial_records(user):
     user.closed_display_name = (
         user.company_name or user.get_full_name() or user.username
     )[:255]
+    user.closed_email = user.email
     user.username = f"closed_{anonymized}"[:150]
     user.email = f"closed-{anonymized}@deleted.invalid"
     user.first_name = ""
@@ -277,9 +277,9 @@ class AccountCloseView(LoginRequiredMixin, View):
         # removing public/customer identity data and freeing the original email.
         soft_close_user_with_financial_records(user)
         if request.LANGUAGE_CODE == "pl":
-            messages.success(request, "Konto zostalo zamkniete. Dane zostaly usuniete, a subskrypcja anulowana.")
+            messages.success(request, "Konto zostało usunięte i zarchiwizowane. E-mail oraz login są ponownie dostępne do rejestracji.")
         else:
-            messages.success(request, "Your account has been closed and public profiles removed. Financial records are retained for accounting.")
+            messages.success(request, "Your account was removed and archived. Its email address and username are available for registration again.")
         return redirect("login")
 
 

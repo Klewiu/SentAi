@@ -14,7 +14,7 @@ class NotificationLifecycleTests(TestCase):
 
     def test_billing_condition_resolves_and_reopens(self):
         scan_customer_notifications(self.user)
-        profile = BillingProfile.objects.create(user=self.user, company_name="Company", tax_id="PL123", street="Street", postal_code="00-001", city="Warsaw", country="PL", invoice_email=self.user.email)
+        profile = BillingProfile.objects.create(user=self.user, company_name="Company", tax_id="PL5260250274", street="Street", postal_code="00-001", city="Warsaw", country="PL", invoice_email=self.user.email)
         notice = CustomerNotification.objects.get(reference_key=f"customer:{self.user.pk}:billing-incomplete")
         self.assertIsNotNone(notice.resolved_at)
         profile.tax_id = ""

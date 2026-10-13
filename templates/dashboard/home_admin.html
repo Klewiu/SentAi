@@ -32,6 +32,9 @@
             <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:billing-price-management' %}">
                 {% if request.LANGUAGE_CODE == 'pl' %}Ceny planow{% else %}Price management{% endif %}
             </a>
+            <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:manual-discount-coupons' %}">
+                {% if request.LANGUAGE_CODE == 'pl' %}Kupony Pro Manual{% else %}Pro Manual coupons{% endif %}
+            </a>
             <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:billing-overview' %}">
                 {% if request.LANGUAGE_CODE == 'pl' %}Subskrypcje i obroty{% else %}Subscriptions & Turnovers{% endif %}
             </a>

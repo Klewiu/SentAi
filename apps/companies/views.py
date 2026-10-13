@@ -933,6 +933,15 @@ class SitemapXmlView(APIView):
     authentication_classes = []
 
     def get(self, request, *args, **kwargs):
+        organizations = list(
+            verified_public_organization_queryset()
+            .select_related("subscription")
+            .order_by("slug")
+        )
+        directory_lastmod = max(
+            (organization.updated_at for organization in organizations),
+            default=None,
+        )
         urls = [
             {
                 "loc": request.build_absolute_uri(reverse("landing")),
@@ -940,17 +949,16 @@ class SitemapXmlView(APIView):
             },
             {
                 "loc": request.build_absolute_uri(reverse("public-company-directory")),
-                "lastmod": None,
+                "lastmod": (
+                    directory_lastmod.isoformat(timespec="seconds")
+                    if directory_lastmod
+                    else None
+                ),
             },
         ]
 
-        organizations = (
-            verified_public_organization_queryset()
-            .select_related("subscription")
-            .order_by("slug")
-        )
         for org in organizations:
-            lastmod = org.updated_at.date().isoformat()
+            lastmod = org.updated_at.isoformat(timespec="seconds")
             languages = profile_language_choices(org)
             alternates = [
                 {"language": item["code"], "url": public_profile_url(org, item["code"], request)}

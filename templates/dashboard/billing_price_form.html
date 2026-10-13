@@ -10,9 +10,9 @@
             </h1>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">
                 {% if request.LANGUAGE_CODE == 'pl' %}
-                    Najpierw utwórz nową cenę w Stripe, a następnie wklej jej Price ID. Aplikacja pobierze kwotę i walutę ze Stripe. Obecne subskrypcje zachowają dotychczasową cenę.
+                    Najpierw utwórz w Stripe nową roczną cenę brutto zawierającą VAT, a następnie wklej jej Price ID. Aplikacja pobierze kwotę brutto i wyliczy cenę netto. Obecne subskrypcje zachowają dotychczasową cenę.
                 {% else %}
-                    First create a new price in Stripe, then paste its Price ID. The application retrieves the amount and currency from Stripe. Existing subscriptions retain their previous price.
+                    First create a new annual gross price including VAT in Stripe, then paste its Price ID. The application retrieves the gross amount and derives the net price. Existing subscriptions retain their previous price.
                 {% endif %}
             </p>
         </div>

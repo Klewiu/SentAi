@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 def google_context(request):
     enabled = bool(settings.GOOGLE_CLIENT_ID)
     nonce = ""
-    if enabled and request.method == "GET" and any(part in request.path for part in ("/login/", "/register/", "/profile/")):
+    if enabled and request.method == "GET" and any(part in request.path for part in ("/login/", "/register/")):
         challenge = request.session.get("google_challenge", {})
         current_id = request.user.pk if request.user.is_authenticated else None
         if time.time() - challenge.get("created", 0) > 600 or challenge.get("user") != current_id:
@@ -49,25 +49,20 @@ def verify_google_credential(credential):
 
 @transaction.atomic
 def resolve_google_user(claims, current_user=None):
+    if current_user:
+        raise ValueError("The sign-in method is selected when the account is created and cannot be changed later.")
     identity = GoogleIdentity.objects.select_related("user").filter(subject=claims["sub"]).first()
     if identity:
-        if current_user and identity.user_id != current_user.pk:
-            raise ValueError("This Google account is already linked to another profile.")
         if not identity.user.is_active:
             raise ValueError("This account is disabled. Contact support.")
+        if not identity.is_primary:
+            raise ValueError("This account uses password sign-in. Use its original sign-in method.")
         return identity.user
     email = claims["email"].strip().lower()
-    if current_user:
-        user = User.objects.select_for_update().get(pk=current_user.pk)
-        if not user.is_active or user.email.lower() != email:
-            raise ValueError("Choose the Google account with the same email as your profile.")
-        if GoogleIdentity.objects.filter(user=user).exists():
-            raise ValueError("A different Google account is already linked.")
-    else:
-        if User.objects.filter(email__iexact=email).exists():
-            raise ValueError("An account already uses this email. Sign in with your password, then link Google from your profile.")
-        user = User.objects.create_user(username="google_" + uuid.uuid4().hex[:20], email=email, email_verified_at=timezone.now(), first_name=str(claims.get("given_name", ""))[:150], last_name=str(claims.get("family_name", ""))[:150])
-    GoogleIdentity.objects.create(user=user, subject=claims["sub"])
+    if User.objects.filter(email__iexact=email).exists():
+        raise ValueError("An account already uses this email. Sign in using the method selected during registration.")
+    user = User.objects.create_user(username="google_" + uuid.uuid4().hex[:20], email=email, email_verified_at=timezone.now(), first_name=str(claims.get("given_name", ""))[:150], last_name=str(claims.get("family_name", ""))[:150])
+    GoogleIdentity.objects.create(user=user, subject=claims["sub"], is_primary=True)
     if not user.email_verified_at:
         user.email_verified_at = timezone.now()
         user.save(update_fields=["email_verified_at"])
@@ -77,6 +72,14 @@ def resolve_google_user(claims, current_user=None):
 class GoogleSignInView(View):
     def post(self, request):
         destination = "accounts:profile" if request.user.is_authenticated else "login"
+        if request.user.is_authenticated:
+            messages.error(
+                request,
+                "Metoda logowania jest wybierana podczas rejestracji i nie można jej później zmienić."
+                if request.LANGUAGE_CODE == "pl"
+                else "The sign-in method is selected during registration and cannot be changed later.",
+            )
+            return redirect(destination)
         challenge = request.session.pop("google_challenge", {})
         try:
             if not settings.GOOGLE_CLIENT_ID or not challenge or time.time() - challenge.get("created", 0) > 600:
@@ -96,11 +99,7 @@ class GoogleSignInView(View):
                 raise ValueError("Use a Gmail or Google Workspace account, or sign in with your password.")
             if not isinstance(claims.get("sub"), str) or not 1 <= len(claims["sub"]) <= 255:
                 raise ValueError("Google sign-in could not be verified.")
-            current = request.user if request.user.is_authenticated else None
-            user = resolve_google_user(claims, current)
-            if current:
-                messages.success(request, "Google is linked. You can use it to sign in next time.")
-                return redirect("accounts:profile")
+            user = resolve_google_user(claims)
             login(request, user, backend="django.contrib.auth.backends.ModelBackend")
             # This proves the Google identity, not an administrator's second factor.
             if not user.company_name.strip() or not user.country.strip():

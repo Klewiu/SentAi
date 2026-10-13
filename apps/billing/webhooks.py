@@ -34,14 +34,16 @@ def process_event(event):
     stripe.api_key = settings.STRIPE_SECRET_KEY
     if event_type == "checkout.session.completed":
         if object_get(obj, "mode") == "subscription" and subscription_id:
-            sync_subscription_from_stripe(stripe.Subscription.retrieve(subscription_id))
+            remote_subscription = stripe.Subscription.retrieve(subscription_id)
+            sync_subscription_from_stripe(remote_subscription)
         elif object_get(metadata, "upgrade_type") == "plus_to_pro":
             # Old standalone payments require reconciliation/refund; never reinterpret
             # a Checkout Session as a Subscription or bill the customer a second time.
             from apps.notifications.services import notify_admin
             notify_admin(title="Legacy upgrade payment needs review", message="Review the standalone upgrade payment in Stripe before granting access or refunding it.", category="payment", severity="urgent", reference_key=f"stripe:{event_id}:legacy-upgrade")
     elif event_type.startswith("customer.subscription."):
-        sync_subscription_from_stripe(stripe.Subscription.retrieve(subscription_id))
+        remote_subscription = stripe.Subscription.retrieve(subscription_id)
+        sync_subscription_from_stripe(remote_subscription)
     elif event_type in {
         "invoice.paid",
         "invoice.payment_succeeded",

@@ -12,9 +12,9 @@
             </h1>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">
                 {% if request.LANGUAGE_CODE == 'pl' %}
-                    Utwórz cenę roczną w Stripe, a następnie wklej jej Price ID zaczynające się od <span class="font-mono">price_</span>. Kwota i waluta zostaną pobrane oraz sprawdzone automatycznie. Nie wpisuj Product ID zaczynającego się od <span class="font-mono">prod_</span>.
+                    Utwórz w Stripe roczną cenę brutto zawierającą VAT, a następnie wklej jej Price ID zaczynające się od <span class="font-mono">price_</span>. Aplikacja pobierze pełną kwotę do zapłaty i wyliczy z niej cenę netto. Nie wpisuj Product ID zaczynającego się od <span class="font-mono">prod_</span>.
                 {% else %}
-                    Create an annual price in Stripe, then paste its Price ID beginning with <span class="font-mono">price_</span>. Its amount and currency are retrieved and verified automatically. Do not enter a Product ID beginning with <span class="font-mono">prod_</span>.
+                    Create an annual gross price including VAT in Stripe, then paste its Price ID beginning with <span class="font-mono">price_</span>. The application retrieves the full payable amount and derives the net price. Do not enter a Product ID beginning with <span class="font-mono">prod_</span>.
                 {% endif %}
             </p>
         </div>
@@ -58,7 +58,8 @@
                 <tr class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
                     <th class="px-4 py-3">Plan</th>
                     <th class="px-4 py-3">Price ID</th>
-                    <th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Kwota{% else %}Amount{% endif %}</th>
+                    <th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Netto{% else %}Net{% endif %}</th>
+                    <th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Brutto z VAT{% else %}Gross incl. VAT{% endif %}</th>
                     <th class="px-4 py-3">Currency</th>
                     <th class="px-4 py-3">Status</th>
                     <th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Akcja{% else %}Action{% endif %}</th>
@@ -69,7 +70,8 @@
                     <tr>
                         <td class="px-4 py-3 font-semibold text-[#284b63]">{{ price.tier }}</td>
                         <td class="px-4 py-3 text-[#353535]/60">{{ price.stripe_price_id }}</td>
-                        <td class="px-4 py-3">{{ price.formatted_amount }} / {{ price.interval }}</td>
+                        <td class="px-4 py-3">{{ price.formatted_net_amount }} / {{ price.interval }}</td>
+                        <td class="px-4 py-3 font-semibold">{{ price.formatted_amount }} / {{ price.interval }}</td>
                         <td class="px-4 py-3 uppercase">{{ price.currency }}</td>
                         <td class="px-4 py-3">
                             {% if price.active_for_new_customers %}
@@ -103,7 +105,7 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td class="px-4 py-6 text-[#353535]/45" colspan="6">No prices configured yet.</td>
+                        <td class="px-4 py-6 text-[#353535]/45" colspan="7">No prices configured yet.</td>
                     </tr>
                 {% endfor %}
             </tbody>
