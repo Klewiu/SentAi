@@ -143,10 +143,10 @@
         <div class="mt-4 space-y-3 rounded-lg border border-[#d9d9d9] bg-[#f8fafa] p-4 text-sm leading-6 text-[#353535]/70">
             {% if request.LANGUAGE_CODE == 'pl' %}
                 <p>Konto zostanie wyłączone, otrzyma techniczny alias i nie będzie można się już do niego zalogować. Dotychczasowy e-mail oraz login będą ponownie dostępne do rejestracji.</p>
-                <p>Profile firm przestaną być publikowane. Dane zostaną zarchiwizowane dla administratora, który może później trwale usunąć cały rekord wraz z fakturami. Aktywna subskrypcja Stripe zostanie wcześniej anulowana.</p>
+                <p>Profile firm przestaną być publikowane. Dane zostaną zarchiwizowane dla administratora, który może później trwale usunąć cały rekord wraz z fakturami.</p>
             {% else %}
                 <p>The account will be disabled, assigned a technical alias, and will no longer accept sign-in. Its previous email and username will become available for registration.</p>
-                <p>Company profiles will stop being published. Data will be archived for administrators, who can later permanently erase the entire record including invoices. Any active Stripe subscription will be canceled first.</p>
+                <p>Company profiles will stop being published. Data will be archived for administrators, who can later permanently erase the entire record including invoices.</p>
             {% endif %}
         </div>
         <div class="mt-5 rounded border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3">

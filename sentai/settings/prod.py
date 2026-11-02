@@ -7,7 +7,7 @@ if len(SECRET_KEY) < 50 or len(set(SECRET_KEY)) < 5 or SECRET_KEY.startswith("dj
     raise ImproperlyConfigured("Set a strong DJANGO_SECRET_KEY before starting production.")
 if urlsplit(SITE_BASE_URL).scheme != "https":
     raise ImproperlyConfigured("Production SITE_BASE_URL must use HTTPS.")
-if STRIPE_SECRET_KEY and not STRIPE_WEBHOOK_SECRET:
+if SUBSCRIPTION_BILLING_ENABLED and STRIPE_SECRET_KEY and not STRIPE_WEBHOOK_SECRET:
     raise ImproperlyConfigured("Stripe requires STRIPE_WEBHOOK_SECRET in production.")
 if EMAIL_BACKEND.endswith("console.EmailBackend"):
     raise ImproperlyConfigured("Configure a delivery email backend for production.")

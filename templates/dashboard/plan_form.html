@@ -12,7 +12,7 @@
     <span class="inline-flex rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">Plan</span>
     <h1 class="mt-3 font-display text-3xl font-bold text-[#284b63] sm:text-4xl">{% if is_upgrade_view %}{% if request.LANGUAGE_CODE == 'pl' %}Ulepsz plan{% else %}Upgrade plan{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Wybierz plan{% else %}Choose a plan{% endif %}{% endif %}</h1>
     <p class="mt-2 font-mono text-xs text-[#353535]/50">{% if request.LANGUAGE_CODE == 'pl' %}// wykorzystujesz {{ current_organization_count }}/{{ current_organization_limit }} stron{% else %}// using {{ current_organization_count }}/{{ current_organization_limit }} pages{% endif %}</p>
-    <p class="mt-2 text-sm text-[#353535]/60">{% if request.LANGUAGE_CODE == 'pl' %}Najpierw wybierz zakres planu. Sposób płatności — subskrypcję Stripe lub przelew bankowy — wybierzesz w następnym kroku.{% else %}First choose your plan. You will choose a Stripe subscription or bank transfer in the next step.{% endif %}</p>
+    <p class="mt-2 text-sm text-[#353535]/60">{% if request.LANGUAGE_CODE == 'pl' %}Wybierz zakres rocznego planu opłacanego przelewem bankowym.{% else %}Choose an annual plan paid by bank transfer.{% endif %}</p>
     <form class="mt-7" method="post">
         {% csrf_token %}{{ form.billing_currency }}
         <div class="grid gap-4 md:grid-cols-3">

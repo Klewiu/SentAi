@@ -564,13 +564,14 @@ class DashboardPlanLimitTests(TestCase):
             polish = self.client.get(reverse("dashboard:home"))
         self.assertContains(polish, "Publikacja profili wymaga aktywnego płatnego planu")
         self.assertContains(polish, "Wybierz wśród 3 dostępnych planów")
-        self.assertContains(polish, "Rozliczaj się poprzez cykliczną subskrypcję lub zapłać przelewem za rok")
+        self.assertContains(polish, "zapłać przelewem za rok")
         self.assertNotContains(polish, "100 PLN")
         self.assertNotContains(polish, "25 EUR")
 
         with override("en"):
             english = self.client.get(reverse("dashboard:home"))
         self.assertContains(english, "Choose from 3 available plans")
+        self.assertContains(english, "pay for one year by bank transfer")
         self.assertNotContains(english, "100 PLN")
         self.assertNotContains(english, "25 EUR")
 

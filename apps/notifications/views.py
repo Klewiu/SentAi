@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.conf import settings
 from django.shortcuts import get_object_or_404, redirect
 from django.db.models import Q
 from django.urls import reverse
@@ -83,9 +84,12 @@ class AdminNotificationListView(AdminNotificationsRequiredMixin, TemplateView):
         context["closed_count"] = AdminNotification.objects.filter(closed_at__isnull=False).count()
         context["show"] = show
         context["selected_type"] = selected_type
+        category_choices = NotificationCategory.choices
+        if not settings.SUBSCRIPTION_BILLING_ENABLED:
+            category_choices = [choice for choice in category_choices if choice[0] != NotificationCategory.STRIPE]
         context["type_choices"] = [
             (value, ADMIN_CATEGORY_LABELS_PL.get(value, label) if self.request.LANGUAGE_CODE == "pl" else label)
-            for value, label in NotificationCategory.choices
+            for value, label in category_choices
         ]
         context["search_query"] = q
         return context
@@ -142,7 +146,11 @@ class CustomerNotificationListView(LoginRequiredMixin, TemplateView):
         context["closed_count"] = CustomerNotification.objects.filter(user=self.request.user, closed_at__isnull=False).count()
         context["show"] = show
         context["selected_type"] = selected_type
-        context["type_choices"] = NotificationCategory.choices
+        context["type_choices"] = [
+            choice
+            for choice in NotificationCategory.choices
+            if settings.SUBSCRIPTION_BILLING_ENABLED or choice[0] != NotificationCategory.STRIPE
+        ]
         context["search_query"] = q
         return context
 
