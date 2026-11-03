@@ -62,6 +62,11 @@ class ManualPlanOrderStatus(models.TextChoices):
     DISABLED = "disabled", "Disabled"
 
 
+class AnnualPlanPaymentMethod(models.TextChoices):
+    BANK_TRANSFER = "bank_transfer", "Bank transfer"
+    BLIK = "blik", "BLIK"
+
+
 class ManualDiscountCoupon(models.Model):
     DISCOUNT_CHOICES = (
         (10, "10%"),
@@ -162,6 +167,11 @@ class BillingPlanPrice(models.Model):
     currency = models.CharField(max_length=8, choices=BillingCurrency.choices, default=BillingCurrency.PLN)
     interval = models.CharField(max_length=16, choices=BillingInterval.choices, default=BillingInterval.YEAR)
     active_for_new_customers = models.BooleanField(default=True)
+    effective_from = models.DateTimeField(default=timezone.now)
+    effective_until = models.DateTimeField(blank=True, null=True)
+    previous_amount = models.PositiveIntegerField(blank=True, null=True)
+    lowest_amount_30_days = models.PositiveIntegerField(blank=True, null=True)
+    reduction_display_until = models.DateTimeField(blank=True, null=True)
     notes = models.CharField(max_length=255, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -194,6 +204,25 @@ class BillingPlanPrice(models.Model):
     def formatted_net_amount(self) -> str:
         from .services import format_net_amount_from_gross
         return format_net_amount_from_gross(self.amount, self.currency)
+
+    @property
+    def shows_price_reduction(self) -> bool:
+        return bool(
+            self.active_for_new_customers
+            and self.previous_amount
+            and self.lowest_amount_30_days
+            and self.amount < self.previous_amount
+            and self.reduction_display_until
+            and self.reduction_display_until > timezone.now()
+        )
+
+    def formatted_previous_amount(self) -> str:
+        from .services import format_amount
+        return format_amount(self.previous_amount, self.currency) if self.previous_amount else ""
+
+    def formatted_lowest_amount_30_days(self) -> str:
+        from .services import format_amount
+        return format_amount(self.lowest_amount_30_days, self.currency) if self.lowest_amount_30_days else ""
 
 
 class BillingSubscription(models.Model):
@@ -265,6 +294,13 @@ class ManualPlanOrder(models.Model):
     original_amount = models.PositiveIntegerField(default=0, help_text="Gross catalog amount before discount.")
     amount = models.PositiveIntegerField(help_text="Amount in the smallest currency unit.")
     currency = models.CharField(max_length=8, choices=BillingCurrency.choices)
+    payment_method = models.CharField(
+        max_length=24,
+        choices=AnnualPlanPaymentMethod.choices,
+        default=AnnualPlanPaymentMethod.BANK_TRANSFER,
+    )
+    stripe_checkout_session_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
+    stripe_payment_intent_id = models.CharField(max_length=255, blank=True)
     status = models.CharField(
         max_length=32,
         choices=ManualPlanOrderStatus.choices,
@@ -293,10 +329,6 @@ class ManualPlanOrder(models.Model):
                 condition=models.Q(discount_percent__in=[0, 10, 20, 30]),
                 name="manual_order_supported_discount_percent",
             ),
-            models.CheckConstraint(
-                condition=models.Q(discount_percent=0) | models.Q(tier=UserPlanTier.PRO),
-                name="manual_order_discount_only_for_pro",
-            ),
         ]
 
     def __str__(self) -> str:
@@ -317,12 +349,17 @@ class ManualPlanOrder(models.Model):
 
     @property
     def admin_plan_label(self) -> str:
-        label = f"{self.get_tier_display().upper()} MANUAL"
+        payment_label = "BLIK" if self.payment_method == AnnualPlanPaymentMethod.BLIK else "MANUAL"
+        label = f"{self.get_tier_display().upper()} {payment_label}"
         return f"{label} {self.discount_percent}%" if self.discount_percent else label
 
     @property
     def is_overdue(self) -> bool:
-        return self.status == ManualPlanOrderStatus.AWAITING_PAYMENT and timezone.now() > self.payment_due_at
+        return (
+            self.payment_method == AnnualPlanPaymentMethod.BANK_TRANSFER
+            and self.status == ManualPlanOrderStatus.AWAITING_PAYMENT
+            and timezone.now() > self.payment_due_at
+        )
 
 
 class BillingPayment(models.Model):

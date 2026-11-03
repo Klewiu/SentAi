@@ -366,8 +366,8 @@ class BillingInvoiceTrackingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Subscription renews soon")
-        self.assertContains(response, "Pro Manual ends in 14 days")
-        self.assertNotContains(response, "Pro Manual ends in 30 days")
+        self.assertContains(response, "Pro ends in 14 days")
+        self.assertNotContains(response, "Pro ends in 30 days")
 
         self.client.force_login(self.admin)
         admin_response = self.client.get(reverse("dashboard:notifications"), {"show": "all"})
@@ -564,14 +564,14 @@ class DashboardPlanLimitTests(TestCase):
             polish = self.client.get(reverse("dashboard:home"))
         self.assertContains(polish, "Publikacja profili wymaga aktywnego płatnego planu")
         self.assertContains(polish, "Wybierz wśród 3 dostępnych planów")
-        self.assertContains(polish, "zapłać przelewem za rok")
+        self.assertContains(polish, "Zapłać BLIK-iem albo przelewem bankowym za 12 miesięcy")
         self.assertNotContains(polish, "100 PLN")
         self.assertNotContains(polish, "25 EUR")
 
         with override("en"):
             english = self.client.get(reverse("dashboard:home"))
         self.assertContains(english, "Choose from 3 available plans")
-        self.assertContains(english, "pay for one year by bank transfer")
+        self.assertContains(english, "Pay for 12 months with BLIK or by bank transfer")
         self.assertNotContains(english, "100 PLN")
         self.assertNotContains(english, "25 EUR")
 
@@ -831,7 +831,8 @@ class DashboardPlanLimitTests(TestCase):
         self.assertIn("Client-Company", order.payment_reference)
 
         portal = self.client.get(reverse("dashboard:billing-portal"))
-        self.assertContains(portal, "PRO MANUAL")
+        self.assertContains(portal, "PRO")
+        self.assertNotContains(portal, "PRO MANUAL")
         self.assertContains(portal, "Temporary access until")
         self.assertContains(portal, "Awaiting payment")
         self.assertContains(portal, order.payment_reference)
@@ -1091,7 +1092,8 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(order.access_until, original_access_until)
         self.client.force_login(self.user)
         portal = self.client.get(reverse("dashboard:billing-portal"))
-        self.assertContains(portal, "PRO MANUAL")
+        self.assertContains(portal, "PRO")
+        self.assertNotContains(portal, "PRO MANUAL")
         self.assertContains(portal, "Paid")
         displayed_access_until = timezone.localtime(order.access_until).strftime("%Y-%m-%d %H:%M")
         self.assertContains(portal, displayed_access_until)

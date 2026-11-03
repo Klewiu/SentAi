@@ -23,31 +23,61 @@
                     <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">{{ navbar_active_notification_count }}</span>
                 {% endif %}
             </a>
-            <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:seller-list' %}">
-                {% if request.LANGUAGE_CODE == 'pl' %}Sprzedawcy{% else %}Sellers{% endif %}
-            </a>
-            <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:seller-settlements' %}">
-                {% if request.LANGUAGE_CODE == 'pl' %}Rozliczenia sprzedawcow{% else %}Seller settlements{% endif %}
-            </a>
-            {% if subscription_billing_enabled %}<a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:billing-price-management' %}">
+            <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:billing-price-management' %}">
                 {% if request.LANGUAGE_CODE == 'pl' %}Ceny planow{% else %}Price management{% endif %}
-            </a>{% endif %}
+            </a>
             <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:manual-discount-coupons' %}">
-                {% if request.LANGUAGE_CODE == 'pl' %}Kupony Pro Manual{% else %}Pro Manual coupons{% endif %}
+                {% if request.LANGUAGE_CODE == 'pl' %}Kupony rabatowe{% else %}Discount coupons{% endif %}
             </a>
             <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:billing-overview' %}">
-                {% if request.LANGUAGE_CODE == 'pl' %}Plany Manual i obroty{% else %}Manual Plans & Turnover{% endif %}
+                {% if request.LANGUAGE_CODE == 'pl' %}Obroty{% else %}Turnover{% endif %}
             </a>
             <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:billing-invoices-admin' %}">
                 {% if request.LANGUAGE_CODE == 'pl' %}Faktury{% else %}Invoices{% endif %}
             </a>
-            <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:report-seller-activities' %}">
-                {% if request.LANGUAGE_CODE == 'pl' %}Raporty{% else %}Reports{% endif %}
-            </a>
-            <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'public-company-directory' %}" target="_blank" rel="noopener">
-                {% if request.LANGUAGE_CODE == 'pl' %}Katalog firm{% else %}Company catalog{% endif %}
-            </a>
         </div>
+    </div>
+</section>
+
+<section class="mt-6 rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
+    <div>
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">
+            <span class="h-1.5 w-1.5 rounded-full bg-[#5ca197]"></span>
+            {% if request.LANGUAGE_CODE == 'pl' %}Sprzedaż{% else %}Sales{% endif %}
+        </span>
+        <h2 class="mt-3 font-display text-3xl font-bold leading-tight tracking-tight text-[#284b63]">
+            {% if request.LANGUAGE_CODE == 'pl' %}Sprzedawcy{% else %}Sellers{% endif %}
+        </h2>
+    </div>
+
+    <div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:seller-list' %}">
+            {% if request.LANGUAGE_CODE == 'pl' %}Sprzedawcy{% else %}Sellers{% endif %}
+        </a>
+        <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:seller-settlements' %}">
+            {% if request.LANGUAGE_CODE == 'pl' %}Rozliczenia sprzedawców{% else %}Seller settlements{% endif %}
+        </a>
+        <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:report-seller-activities' %}">
+            {% if request.LANGUAGE_CODE == 'pl' %}Raporty sprzedawców{% else %}Seller reports{% endif %}
+        </a>
+    </div>
+</section>
+
+<section class="mt-6 rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
+    <div>
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">
+            <span class="h-1.5 w-1.5 rounded-full bg-[#5ca197]"></span>
+            {% if request.LANGUAGE_CODE == 'pl' %}Publikacja{% else %}Publishing{% endif %}
+        </span>
+        <h2 class="mt-3 font-display text-3xl font-bold leading-tight tracking-tight text-[#284b63]">
+            {% if request.LANGUAGE_CODE == 'pl' %}Katalog firm{% else %}Company catalog{% endif %}
+        </h2>
+    </div>
+
+    <div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <a class="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-[#f8fafa] px-4 py-3 font-mono text-sm font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'public-company-directory' %}" target="_blank" rel="noopener">
+            {% if request.LANGUAGE_CODE == 'pl' %}Wszystkie firmy{% else %}All companies{% endif %}
+        </a>
     </div>
 </section>
 {% endblock %}

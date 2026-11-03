@@ -2,13 +2,18 @@
 from django.db.models import Q
 from django.utils import timezone
 from apps.accounts.models import UserPlanAccessStatus, UserPlanTier
-from .models import BillingSubscription, ManualPlanOrder
+from .models import AnnualPlanPaymentMethod, BillingSubscription, ManualPlanOrder
 
 
 def eligible_manual_orders(user):
     now = timezone.now()
     return ManualPlanOrder.objects.filter(user=user, access_until__gt=now).filter(
-        Q(status="paid") | Q(status="awaiting_payment", payment_due_at__gt=now)
+        Q(status="paid")
+        | Q(
+            status="awaiting_payment",
+            payment_method=AnnualPlanPaymentMethod.BANK_TRANSFER,
+            payment_due_at__gt=now,
+        )
     )
 
 
@@ -42,7 +47,14 @@ def publication_users():
     from django.contrib.auth import get_user_model
     now = timezone.now()
     stripe_users = BillingSubscription.objects.filter(status__in=["active", "trialing"], current_period_end__gt=now).values("user_id")
-    manual_users = ManualPlanOrder.objects.filter(access_until__gt=now).filter(Q(status="paid") | Q(status="awaiting_payment", payment_due_at__gt=now)).values("user_id")
+    manual_users = ManualPlanOrder.objects.filter(access_until__gt=now).filter(
+        Q(status="paid")
+        | Q(
+            status="awaiting_payment",
+            payment_method=AnnualPlanPaymentMethod.BANK_TRANSFER,
+            payment_due_at__gt=now,
+        )
+    ).values("user_id")
     return get_user_model().objects.filter(is_active=True).filter(
         Q(pk__in=stripe_users) | Q(pk__in=manual_users) | Q(is_superuser=True)
     ).distinct()

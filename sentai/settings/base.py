@@ -83,6 +83,9 @@ STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "pln").strip().lower()
 # Stripe subscription billing is retained for a possible future relaunch, but
 # is disabled in the published application while all plans use bank transfer.
 SUBSCRIPTION_BILLING_ENABLED = env_bool("SUBSCRIPTION_BILLING_ENABLED", False)
+# One-time annual BLIK payments use Stripe Checkout in ``payment`` mode.  This
+# is independent from the dormant recurring-subscription integration above.
+BLIK_PAYMENTS_ENABLED = env_bool("BLIK_PAYMENTS_ENABLED", True)
 INTERNATIONAL_BILLING_ENABLED = env_bool("INTERNATIONAL_BILLING_ENABLED", False)
 BILLING_VAT_RATE_PERCENT = env_int("BILLING_VAT_RATE_PERCENT", 23)
 MANUAL_PRO_PRICE_PLN = env_int("MANUAL_PRO_PRICE_PLN", 48000)

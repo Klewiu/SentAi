@@ -15,19 +15,20 @@ class ManualDiscountCouponAdmin(admin.ModelAdmin):
 
 @admin.register(ManualPlanOrder)
 class ManualPlanOrderAdmin(admin.ModelAdmin):
-    list_display = ("payment_reference", "user", "admin_plan_label", "amount", "currency", "status", "payment_due_at", "access_until", "termination_acknowledged_at")
-    list_filter = ("status", "currency")
-    search_fields = ("payment_reference", "user__email", "user__username")
+    list_display = ("payment_reference", "user", "admin_plan_label", "payment_method", "amount", "currency", "status", "payment_due_at", "access_until", "termination_acknowledged_at")
+    list_filter = ("payment_method", "status", "currency")
+    search_fields = ("payment_reference", "stripe_checkout_session_id", "stripe_payment_intent_id", "user__email", "user__username")
 
 
 @admin.register(BillingPlanPrice)
 class BillingPlanPriceAdmin(admin.ModelAdmin):
-    list_display = ("tier", "formatted_amount", "currency", "interval", "active_for_new_customers", "stripe_price_id")
+    list_display = ("tier", "formatted_amount", "currency", "interval", "active_for_new_customers", "effective_from", "effective_until", "stripe_price_id")
     list_filter = ("tier", "active_for_new_customers", "currency", "interval")
     search_fields = ("stripe_price_id", "notes")
     readonly_fields = (
         "tier", "stripe_price_id", "amount", "currency", "interval",
-        "active_for_new_customers", "notes", "created_by", "created_at", "updated_at",
+        "active_for_new_customers", "effective_from", "effective_until", "previous_amount",
+        "lowest_amount_30_days", "reduction_display_until", "notes", "created_by", "created_at", "updated_at",
     )
 
     def has_add_permission(self, request):

@@ -1,6 +1,7 @@
 import re
 import secrets
 import string
+from decimal import Decimal, ROUND_HALF_UP
 
 from django import forms
 from django.conf import settings
@@ -120,7 +121,10 @@ class UserPlanUpdateForm(forms.Form):
 class PurchasePaymentMethodForm(forms.Form):
     STRIPE = "stripe"
     MANUAL = "manual"
-    payment_method = forms.ChoiceField(choices=((STRIPE, "Stripe"), (MANUAL, "Bank transfer")))
+    BLIK = "blik"
+    payment_method = forms.ChoiceField(
+        choices=((BLIK, "BLIK"), (MANUAL, "Bank transfer"), (STRIPE, "Stripe subscription"))
+    )
 
 
 class PurchaseTermsForm(forms.Form):
@@ -264,6 +268,27 @@ class StripePriceForm(forms.Form):
         if not value.startswith("price_"):
             raise forms.ValidationError("Stripe Price ID musi zaczynać się od price_.")
         return value
+
+
+class PublicPlanPriceForm(forms.Form):
+    tier = forms.ChoiceField(choices=UserPlanTier.choices, label="Plan")
+    gross_amount_pln = forms.DecimalField(
+        min_value=Decimal("2.00"),
+        max_digits=10,
+        decimal_places=2,
+        label="Nowa cena brutto z VAT (PLN)",
+        help_text="Cena będzie używana dla nowych płatności BLIK i przelewów bankowych.",
+        widget=forms.NumberInput(attrs={"step": "0.01", "min": "2.00", "placeholder": "400.00"}),
+    )
+    notes = forms.CharField(
+        required=False,
+        max_length=255,
+        label="Notatka wewnętrzna",
+        widget=forms.TextInput(attrs={"placeholder": "np. obniżka jesienna"}),
+    )
+
+    def amount_in_grosz(self):
+        return int((self.cleaned_data["gross_amount_pln"] * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 class ManualDiscountCouponForm(forms.ModelForm):

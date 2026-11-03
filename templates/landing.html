@@ -683,6 +683,7 @@
                     </span>
                     <span class="font-sans text-sm text-[#353535]/50">{% if request.LANGUAGE_CODE == 'pl' %}netto{% else %}net{% endif %} / {% if request.LANGUAGE_CODE == 'pl' %}rok{% else %}year{% endif %}</span>
                     {% if basic_price %}<p class="mt-1 font-sans text-xs text-[#353535]/45">{{ basic_price }} {% if request.LANGUAGE_CODE == 'pl' %}brutto (z VAT){% else %}gross (VAT included){% endif %}</p>{% endif %}
+                    {% if basic_price_offer.shows_price_reduction %}<div class="mt-2 text-xs leading-5 text-[#353535]/60"><p><span class="line-through">{{ basic_price_offer.formatted_previous_amount }}</span> {% if request.LANGUAGE_CODE == 'pl' %}poprzednia cena brutto{% else %}previous gross price{% endif %}</p><p>{% if request.LANGUAGE_CODE == 'pl' %}Najniższa cena z 30 dni przed obniżką:{% else %}Lowest price in the 30 days before the reduction:{% endif %} <strong>{{ basic_price_offer.formatted_lowest_amount_30_days }}</strong></p></div>{% endif %}
                 </div>
                 <p class="mb-6 font-sans text-sm text-[#353535]/60">
                     {% if request.LANGUAGE_CODE == 'pl' %}
@@ -720,6 +721,7 @@
                     <span class="font-display text-4xl font-bold text-[#353535]">{% if plus_price_net %}{{ plus_price_net }}{% else %}-{% endif %}</span>
                     <span class="font-sans text-sm text-[#353535]/50">{% if request.LANGUAGE_CODE == 'pl' %}netto{% else %}net{% endif %} / {% if request.LANGUAGE_CODE == 'pl' %}rok{% else %}year{% endif %}</span>
                     {% if plus_price %}<p class="mt-1 font-sans text-xs text-[#353535]/45">{{ plus_price }} {% if request.LANGUAGE_CODE == 'pl' %}brutto (z VAT){% else %}gross (VAT included){% endif %}</p>{% endif %}
+                    {% if plus_price_offer.shows_price_reduction %}<div class="mt-2 text-xs leading-5 text-[#353535]/60"><p><span class="line-through">{{ plus_price_offer.formatted_previous_amount }}</span> {% if request.LANGUAGE_CODE == 'pl' %}poprzednia cena brutto{% else %}previous gross price{% endif %}</p><p>{% if request.LANGUAGE_CODE == 'pl' %}Najniższa cena z 30 dni przed obniżką:{% else %}Lowest price in the 30 days before the reduction:{% endif %} <strong>{{ plus_price_offer.formatted_lowest_amount_30_days }}</strong></p></div>{% endif %}
                 </div>
                 <p class="mb-6 font-sans text-sm text-[#353535]/60">
                     {% if request.LANGUAGE_CODE == 'pl' %}
@@ -767,6 +769,7 @@
                     <span class="font-display text-4xl font-bold text-white">{% if pro_price_net %}{{ pro_price_net }}{% else %}-{% endif %}</span>
                     <span class="font-sans text-sm text-white/60">{% if request.LANGUAGE_CODE == 'pl' %}netto{% else %}net{% endif %} / {% if request.LANGUAGE_CODE == 'pl' %}rok{% else %}year{% endif %}</span>
                     {% if pro_price %}<p class="mt-1 font-sans text-xs text-white/50">{{ pro_price }} {% if request.LANGUAGE_CODE == 'pl' %}brutto (z VAT){% else %}gross (VAT included){% endif %}</p>{% endif %}
+                    {% if pro_price_offer.shows_price_reduction %}<div class="mt-2 text-xs leading-5 text-white/70"><p><span class="line-through">{{ pro_price_offer.formatted_previous_amount }}</span> {% if request.LANGUAGE_CODE == 'pl' %}poprzednia cena brutto{% else %}previous gross price{% endif %}</p><p>{% if request.LANGUAGE_CODE == 'pl' %}Najniższa cena z 30 dni przed obniżką:{% else %}Lowest price in the 30 days before the reduction:{% endif %} <strong>{{ pro_price_offer.formatted_lowest_amount_30_days }}</strong></p></div>{% endif %}
                 </div>
                 <p class="mb-6 font-sans text-sm text-white/70">
                     {% if request.LANGUAGE_CODE == 'pl' %}

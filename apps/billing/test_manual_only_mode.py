@@ -1,5 +1,6 @@
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import translation
 
 from apps.accounts.models import User, UserPlanTier
 from apps.billing.models import BillingPlanPrice, BillingProfile
@@ -12,6 +13,7 @@ from apps.billing.models import BillingPlanPrice, BillingProfile
 )
 class ManualOnlyBillingModeTests(TestCase):
     def setUp(self):
+        translation.activate("en")
         self.user = User.objects.create_user(
             username="manual-only-customer",
             email="manual-only@example.com",
@@ -40,21 +42,23 @@ class ManualOnlyBillingModeTests(TestCase):
             )
         self.client.force_login(self.user)
 
-    def test_plan_selection_skips_payment_method_and_starts_manual_flow(self):
+    def tearDown(self):
+        translation.deactivate()
+
+    def test_plan_selection_offers_blik_or_bank_transfer_without_subscription(self):
         response = self.client.post(
             reverse("dashboard:plan-update"),
             {"plan_tier": UserPlanTier.PLUS, "billing_currency": "pln"},
         )
 
+        self.assertRedirects(response, reverse("dashboard:plan-payment-method"))
+        methods = self.client.get(reverse("dashboard:plan-payment-method"))
+        self.assertContains(methods, "BLIK")
+        self.assertContains(methods, "Bank transfer")
+        self.assertNotContains(methods, "subscription")
+        method = self.client.post(reverse("dashboard:plan-payment-method"), {"payment_method": "manual"})
         expected_next = reverse("dashboard:plan-purchase-continue")
-        self.assertRedirects(
-            response,
-            f"{reverse('dashboard:billing-profile')}?next={expected_next}",
-            fetch_redirect_response=False,
-        )
-        pending = self.client.session["pending_plan_purchase"]
-        self.assertEqual(pending["payment_method"], "manual")
-        self.assertFalse(pending["terms_accepted"])
+        self.assertRedirects(method, expected_next, fetch_redirect_response=False)
 
         continuation = self.client.get(expected_next)
         self.assertRedirects(continuation, reverse("dashboard:plan-purchase-terms"))
@@ -73,18 +77,18 @@ class ManualOnlyBillingModeTests(TestCase):
         self.assertNotContains(confirmation, "Stripe")
         self.assertNotContains(confirmation, "subscription")
 
-    def test_subscription_routes_and_price_editor_are_not_exposed(self):
-        self.assertRedirects(
-            self.client.get(reverse("dashboard:plan-payment-method")),
-            reverse("dashboard:plan-update"),
-        )
+    def test_subscription_routes_are_hidden_but_local_price_editor_is_available(self):
+        session = self.client.session
+        session["pending_plan_purchase"] = {"tier": "BASIC", "currency": "pln"}
+        session.save()
+        self.assertEqual(self.client.get(reverse("dashboard:plan-payment-method")).status_code, 200)
         self.assertRedirects(
             self.client.get(reverse("dashboard:stripe-plan-confirm")),
             reverse("dashboard:plan-update"),
         )
         self.assertEqual(
             self.client.post(reverse("stripe-webhook"), data=b"{}", content_type="application/json").status_code,
-            404,
+            400,
         )
 
         admin = User.objects.create_superuser(
@@ -93,14 +97,11 @@ class ManualOnlyBillingModeTests(TestCase):
             password="Admin-test-password-123!",
         )
         self.client.force_login(admin)
-        self.assertRedirects(
-            self.client.get(reverse("dashboard:billing-price-management")),
-            reverse("dashboard:home"),
-        )
+        self.assertEqual(self.client.get(reverse("dashboard:billing-price-management")).status_code, 200)
 
     def test_published_manual_pages_do_not_render_subscription_copy(self):
         plan_page = self.client.get(reverse("dashboard:plan-update"))
-        self.assertContains(plan_page, "annual plan paid by bank transfer")
+        self.assertContains(plan_page, "pay with BLIK or by bank transfer")
         self.assertNotContains(plan_page, "Stripe")
         self.assertNotContains(plan_page, "subscription")
 
@@ -111,12 +112,12 @@ class ManualOnlyBillingModeTests(TestCase):
         )
         self.client.force_login(admin)
         home = self.client.get(reverse("dashboard:home"))
-        self.assertContains(home, "Manual Plans & Turnover")
+        self.assertContains(home, "Turnover")
         self.assertNotContains(home, "Subscriptions & Turnovers")
-        self.assertNotContains(home, "Price management")
+        self.assertContains(home, "Price management")
 
         overview = self.client.get(reverse("dashboard:billing-overview"))
-        self.assertContains(overview, "Manual Plans & Turnover")
+        self.assertContains(overview, "Annual Plans & Turnover")
         self.assertNotContains(overview, "Stripe subscription")
         self.assertNotContains(overview, "No subscriptions yet")
 

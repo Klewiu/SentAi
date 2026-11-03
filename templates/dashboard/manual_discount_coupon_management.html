@@ -5,8 +5,8 @@
     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
             <span class="inline-flex rounded-full border border-[#5ca197]/25 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">{% if request.LANGUAGE_CODE == 'pl' %}Kupony{% else %}Coupons{% endif %}</span>
-            <h1 class="mt-3 font-display text-3xl font-bold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Kupony rabatowe Pro Manual{% else %}Pro Manual discount coupons{% endif %}</h1>
-            <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">{% if request.LANGUAGE_CODE == 'pl' %}Kupony obniżają wyłącznie cenę planu Pro Manual. Nie działają dla planów Basic i Plus.{% else %}Coupons reduce only the Pro Manual plan price. They do not apply to Basic or Plus.{% endif %}</p>
+            <h1 class="mt-3 font-display text-3xl font-bold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Kupony rabatowe planów{% else %}Plan discount coupons{% endif %}</h1>
+            <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">{% if request.LANGUAGE_CODE == 'pl' %}Kupony działają dla planów Basic, Plus i Pro, zarówno przy płatności przelewem, jak i BLIK-iem.{% else %}Coupons apply to Basic, Plus, and Pro plans paid by bank transfer or BLIK.{% endif %}</p>
         </div>
         <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] px-4 py-2 font-mono text-xs" href="{% url 'dashboard:home' %}">{% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}</a>
     </div>
