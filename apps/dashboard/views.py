@@ -22,6 +22,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 
 from apps.accounts.models import AccountType, User, UserPlanTier
 from apps.billing.models import (
+    AnnualPlanPaymentMethod,
     BillingInvoice,
     BillingPayment,
     BillingPlanPrice,
@@ -37,6 +38,7 @@ from apps.billing.services import (
     expire_paid_access,
     format_amount,
     format_net_amount_from_gross,
+    fulfill_blik_checkout,
     object_get,
     get_active_plan_price,
     manual_plan_amount,
@@ -53,7 +55,7 @@ from apps.companies.models import Organization, VerificationStatus
 from apps.companies.services import public_feed_urls
 from apps.subscriptions.models import Subscription
 
-from .forms import ArchivedClientPurgeForm, BillingInvoiceForm, BillingPaymentInvoiceForm, BillingProfileForm, ManualCouponApplyForm, ManualDiscountCouponForm, PlanTerminationForm, PurchasePaymentMethodForm, PurchaseTermsForm, SellerCreateForm, UserPlanUpdateForm, ProspectClientForm, ProspectActivityForm
+from .forms import ArchivedClientPurgeForm, BillingInvoiceForm, BillingPaymentInvoiceForm, BillingProfileForm, ManualCouponApplyForm, ManualDiscountCouponForm, PlanTerminationForm, PublicPlanPriceForm, PurchasePaymentMethodForm, PurchaseTermsForm, SellerCreateForm, UserPlanUpdateForm, ProspectClientForm, ProspectActivityForm
 from .forms import ProspectLinkClientForm
 
 
@@ -81,7 +83,12 @@ def create_manual_plan_order(user, currency, tier=UserPlanTier.PRO, payment_refe
     ).first()
     if active_manual_order:
         raise ValueError("A manual order already exists for this period.")
-    if BillingSubscription.objects.filter(user=user).exclude(status__in=["canceled", "incomplete_expired", "unpaid"]).exists():
+    if (
+        settings.SUBSCRIPTION_BILLING_ENABLED
+        and BillingSubscription.objects.filter(user=user).exclude(
+            status__in=["canceled", "incomplete_expired", "unpaid"]
+        ).exists()
+    ):
         raise ValueError("Cancel your existing subscription before creating a manual order.")
     now = timezone.now()
     payment_reference = payment_reference or build_manual_payment_reference(user, tier)
@@ -90,8 +97,6 @@ def create_manual_plan_order(user, currency, tier=UserPlanTier.PRO, payment_refe
     discount_percent = 0
     coupon_code = (coupon_code or "").strip().upper()
     if coupon_code:
-        if tier != UserPlanTier.PRO:
-            raise ValueError("Discount coupons are available only for Pro Manual.")
         coupon = ManualDiscountCoupon.objects.select_for_update().filter(code__iexact=coupon_code).first()
         if not coupon or not coupon.is_available(at=now):
             raise ValueError("This discount coupon is invalid, expired, or has already been used.")
@@ -141,6 +146,9 @@ class LandingView(TemplateView):
         context["basic_price_net"] = plan_net_price_label(UserPlanTier.BASIC, selected_currency)
         context["plus_price_net"] = plan_net_price_label(UserPlanTier.PLUS, selected_currency)
         context["pro_price_net"] = plan_net_price_label(UserPlanTier.PRO, selected_currency)
+        context["basic_price_offer"] = get_active_plan_price(UserPlanTier.BASIC, selected_currency)
+        context["plus_price_offer"] = get_active_plan_price(UserPlanTier.PLUS, selected_currency)
+        context["pro_price_offer"] = get_active_plan_price(UserPlanTier.PRO, selected_currency)
         return context
 
 
@@ -306,7 +314,11 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
             else:
                 messages.info(request, "Administrator account does not use plan limits.")
             return redirect("dashboard:home")
-        billing_subscription = getattr(request.user, "billing_subscription", None)
+        billing_subscription = (
+            getattr(request.user, "billing_subscription", None)
+            if settings.SUBSCRIPTION_BILLING_ENABLED
+            else None
+        )
         active_manual_order = request.user.manual_plan_orders.filter(
             status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID],
             access_until__gt=timezone.now(),
@@ -358,7 +370,11 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
         context["selected_billing_currency"] = selected_currency
         context["billing_currencies"] = supported_billing_currencies()
         context["international_billing_enabled"] = settings.INTERNATIONAL_BILLING_ENABLED
-        context["stripe_checkout_enabled"] = bool(settings.STRIPE_SECRET_KEY and (basic_price or plus_price or pro_price))
+        context["stripe_checkout_enabled"] = bool(
+            settings.SUBSCRIPTION_BILLING_ENABLED
+            and settings.STRIPE_SECRET_KEY
+            and (basic_price or plus_price or pro_price)
+        )
         context["stripe_test_mode"] = settings.STRIPE_SECRET_KEY.startswith("sk_test_")
         context["basic_price_label"] = plan_price_label(
             UserPlanTier.BASIC,
@@ -375,10 +391,17 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
         context["basic_price_net_label"] = plan_net_price_label(UserPlanTier.BASIC, selected_currency)
         context["plus_price_net_label"] = plan_net_price_label(UserPlanTier.PLUS, selected_currency)
         context["pro_price_net_label"] = plan_net_price_label(UserPlanTier.PRO, selected_currency)
+        context["basic_price_offer"] = basic_price
+        context["plus_price_offer"] = plus_price
+        context["pro_price_offer"] = pro_price
         context["plus_price_configured"] = bool(plus_price)
         context["pro_price_configured"] = bool(pro_price)
         context["basic_price_configured"] = bool(basic_price)
-        context["billing_subscription"] = getattr(self.request.user, "billing_subscription", None)
+        context["billing_subscription"] = (
+            getattr(self.request.user, "billing_subscription", None)
+            if settings.SUBSCRIPTION_BILLING_ENABLED
+            else None
+        )
         context["billing_profile"] = getattr(self.request.user, "billing_profile", None)
         context["is_upgrade_view"] = self.request.GET.get("upgrade") == "1"
         current_rank = UserPlanUpdateForm.PLAN_RANKS[self.request.user.plan_tier]
@@ -534,7 +557,7 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
         ).first()
 
         if active_manual_order:
-            messages.warning(self.request, "Plan Manual jest aktywny. Inny plan będzie dostępny po jego wyłączeniu lub zakończeniu.")
+            messages.warning(self.request, "Masz aktywny plan. Inny plan będzie dostępny po jego wyłączeniu lub zakończeniu.")
             return redirect("dashboard:plan-update")
 
         if self.request.POST.get("checkout_confirmed") != "1":
@@ -550,7 +573,17 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
                 "currency": selected_currency,
                 "upgrade": self.request.GET.get("upgrade") == "1",
             }
+            if not settings.SUBSCRIPTION_BILLING_ENABLED:
+                billing_profile = getattr(user, "billing_profile", None)
+                if billing_profile and billing_profile.is_complete():
+                    return redirect("dashboard:plan-payment-method")
+                next_url = reverse("dashboard:plan-payment-method")
+                return redirect(f"{reverse('dashboard:billing-profile')}?next={next_url}")
             return redirect("dashboard:plan-payment-method")
+
+        if not settings.SUBSCRIPTION_BILLING_ENABLED:
+            self.request.session.pop("pending_plan_purchase", None)
+            return redirect("dashboard:plan-update")
 
         if selected_tier in self.paid_tiers:
             pending = self.request.session.get("pending_plan_purchase") or {}
@@ -669,17 +702,41 @@ class PlanUpdateView(LoginRequiredMixin, FormView):
 
 class PlanCheckoutSuccessView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
+        if not (settings.SUBSCRIPTION_BILLING_ENABLED or settings.BLIK_PAYMENTS_ENABLED):
+            return redirect("dashboard:plan-update")
         from apps.billing.services import object_get
         session_id = request.GET.get("session_id", "")
         if not settings.STRIPE_SECRET_KEY or not session_id.startswith("cs_"):
             messages.error(request, "Payment confirmation is unavailable.")
             return redirect("dashboard:plan-update")
         stripe.api_key = settings.STRIPE_SECRET_KEY
+        is_blik_checkout = False
         try:
             session = stripe.checkout.Session.retrieve(session_id)
             metadata = object_get(session, "metadata", {}) or {}
             if str(object_get(metadata, "user_id", "")) != str(request.user.pk):
                 messages.error(request, "This payment session does not belong to your account.")
+                return redirect("dashboard:plan-update")
+            if object_get(metadata, "payment_kind") == "blik_annual":
+                is_blik_checkout = True
+                order = fulfill_blik_checkout(session)
+                if order:
+                    request.session.pop("pending_plan_purchase", None)
+                    messages.success(
+                        request,
+                        f"Płatność BLIK została potwierdzona. Plan {order.get_tier_display()} jest aktywny przez 12 miesięcy."
+                        if request.LANGUAGE_CODE == "pl"
+                        else f"Your BLIK payment is confirmed. The {order.get_tier_display()} plan is active for 12 months.",
+                    )
+                    return redirect("dashboard:home")
+                messages.warning(
+                    request,
+                    "Płatność BLIK oczekuje na potwierdzenie. Plan włączy się automatycznie po potwierdzeniu przez Stripe."
+                    if request.LANGUAGE_CODE == "pl"
+                    else "The BLIK payment is awaiting confirmation. The plan will activate automatically after Stripe confirms it.",
+                )
+                return redirect("dashboard:home")
+            if not settings.SUBSCRIPTION_BILLING_ENABLED:
                 return redirect("dashboard:plan-update")
             subscription_id = object_get(session, "subscription", "")
             if object_get(session, "mode") != "subscription" or object_get(session, "status") != "complete" or not subscription_id:
@@ -701,6 +758,14 @@ class PlanCheckoutSuccessView(LoginRequiredMixin, View):
                     messages.warning(request, "Your payment is still pending. Access will update after confirmation.")
         except Exception:
             logger.exception("Checkout confirmation failed")
+            if is_blik_checkout:
+                messages.warning(
+                    request,
+                    "Nie udało się jeszcze potwierdzić płatności BLIK. Status zostanie zaktualizowany automatycznie po potwierdzeniu przez Stripe."
+                    if request.LANGUAGE_CODE == "pl"
+                    else "The BLIK payment could not be confirmed yet. Its status will update automatically after Stripe confirms it.",
+                )
+                return redirect("dashboard:home")
             messages.warning(request, "Payment confirmation is pending. Please check your subscription shortly.")
             return redirect("dashboard:billing-portal")
         return redirect("dashboard:home")
@@ -708,6 +773,13 @@ class PlanCheckoutSuccessView(LoginRequiredMixin, View):
 
 class PlanCheckoutCancelView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
+        pending = request.session.get("pending_plan_purchase") or {}
+        if pending.get("payment_method") == PurchasePaymentMethodForm.BLIK:
+            if request.LANGUAGE_CODE == "pl":
+                messages.info(request, "Płatność BLIK została przerwana. Możesz spróbować ponownie.")
+            else:
+                messages.info(request, "The BLIK payment was canceled. You can try again.")
+            return redirect("dashboard:blik-plan-confirm")
         request.session.pop("pending_plan_purchase", None)
         if request.LANGUAGE_CODE == "pl":
             messages.info(request, "Płatność została anulowana.")
@@ -721,7 +793,11 @@ class BillingPortalView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        billing_subscription = getattr(self.request.user, "billing_subscription", None)
+        billing_subscription = (
+            getattr(self.request.user, "billing_subscription", None)
+            if settings.SUBSCRIPTION_BILLING_ENABLED
+            else None
+        )
         manual_plan_order = self.request.user.manual_plan_orders.filter(
             status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID],
             access_until__gt=timezone.now(),
@@ -783,6 +859,8 @@ class BillingPortalView(LoginRequiredMixin, TemplateView):
 
 class StripeCustomerPortalView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
+        if not settings.SUBSCRIPTION_BILLING_ENABLED:
+            return redirect("dashboard:plan-update")
         billing_subscription = getattr(request.user, "billing_subscription", None)
         customer_id = getattr(billing_subscription, "stripe_customer_id", "") if billing_subscription else ""
         if not settings.STRIPE_SECRET_KEY or not customer_id:
@@ -804,6 +882,8 @@ class StripeCustomerPortalView(LoginRequiredMixin, View):
 
 class BillingSubscriptionCancelRenewalView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
+        if not settings.SUBSCRIPTION_BILLING_ENABLED:
+            return redirect("dashboard:plan-update")
         billing_subscription = getattr(request.user, "billing_subscription", None)
         subscription_id = getattr(billing_subscription, "stripe_subscription_id", "") if billing_subscription else ""
         if (
@@ -924,13 +1004,13 @@ class BillingSubscriptionCancelView(LoginRequiredMixin, View):
         messages.success(
             request,
             (
-                "Plan Manual został zakończony, a publikacja danych zatrzymana. Możesz teraz wykupić nowy plan."
+                "Plan został zakończony, a publikacja danych zatrzymana. Możesz teraz wykupić nowy plan."
                 if manual
                 else "Subskrypcja Stripe została zakończona, a publikacja danych zatrzymana. Możesz teraz wykupić nowy plan."
             )
             if request.LANGUAGE_CODE == "pl"
             else (
-                "The Manual plan has ended and data publication has stopped. You can now purchase a new plan."
+                "The plan has ended and data publication has stopped. You can now purchase a new plan."
                 if manual
                 else "The Stripe subscription has ended and data publication has stopped. You can now purchase a new plan."
             ),
@@ -940,6 +1020,8 @@ class BillingSubscriptionCancelView(LoginRequiredMixin, View):
 
 class BillingSubscriptionReactivateView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
+        if not settings.SUBSCRIPTION_BILLING_ENABLED:
+            return redirect("dashboard:plan-update")
         billing_subscription = getattr(request.user, "billing_subscription", None)
         subscription_id = getattr(billing_subscription, "stripe_subscription_id", "") if billing_subscription else ""
         if not settings.STRIPE_SECRET_KEY or not subscription_id:
@@ -998,7 +1080,22 @@ class PlanPaymentMethodView(LoginRequiredMixin, PendingPurchaseMixin, FormView):
         if not self.pending_purchase():
             messages.warning(request, "Najpierw wybierz plan.")
             return redirect("dashboard:plan-update")
+        profile = getattr(request.user, "billing_profile", None)
+        if not settings.SUBSCRIPTION_BILLING_ENABLED and (not profile or not profile.is_complete()):
+            next_url = reverse("dashboard:plan-payment-method")
+            return redirect(f"{reverse('dashboard:billing-profile')}?next={next_url}")
         return super().dispatch(request, *args, **kwargs)
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if settings.SUBSCRIPTION_BILLING_ENABLED:
+            allowed = {PurchasePaymentMethodForm.STRIPE, PurchasePaymentMethodForm.MANUAL}
+        else:
+            allowed = {PurchasePaymentMethodForm.BLIK, PurchasePaymentMethodForm.MANUAL}
+        form.fields["payment_method"].choices = [
+            choice for choice in form.fields["payment_method"].choices if choice[0] in allowed
+        ]
+        return form
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1008,10 +1105,8 @@ class PlanPaymentMethodView(LoginRequiredMixin, PendingPurchaseMixin, FormView):
         except ValueError:
             context["price_unavailable"] = True
             context["selected_plan_name"] = UserPlanTier(pending["tier"]).label
-        context["stripe_available"] = bool(
-            settings.STRIPE_SECRET_KEY
-            and get_active_plan_price(pending["tier"], normalize_billing_currency(pending.get("currency")))
-        )
+        context["blik_available"] = bool(settings.BLIK_PAYMENTS_ENABLED and settings.STRIPE_SECRET_KEY)
+        context["subscription_billing_enabled"] = settings.SUBSCRIPTION_BILLING_ENABLED
         return context
 
     def form_valid(self, form):
@@ -1031,24 +1126,33 @@ class PlanPaymentMethodView(LoginRequiredMixin, PendingPurchaseMixin, FormView):
             messages.error(self.request, "Brak aktywnej ceny dla wybranego planu.")
             self.request.session.pop("pending_plan_purchase", None)
             return redirect("dashboard:plan-update")
+        if method == PurchasePaymentMethodForm.BLIK and (
+            not settings.BLIK_PAYMENTS_ENABLED or not settings.STRIPE_SECRET_KEY
+        ):
+            messages.error(self.request, "Płatność BLIK nie jest obecnie dostępna.")
+            return self.form_invalid(form)
         if method == PurchasePaymentMethodForm.STRIPE and not settings.STRIPE_SECRET_KEY:
             messages.error(self.request, "Płatność Stripe nie jest obecnie dostępna.")
             return self.form_invalid(form)
         pending["payment_method"] = method
         pending["terms_accepted"] = False
         self.request.session["pending_plan_purchase"] = pending
-        next_url = reverse("dashboard:plan-purchase-continue")
-        return redirect(f"{reverse('dashboard:billing-profile')}?next={next_url}")
+        if settings.SUBSCRIPTION_BILLING_ENABLED:
+            next_url = reverse("dashboard:plan-purchase-continue")
+            return redirect(f"{reverse('dashboard:billing-profile')}?next={next_url}")
+        return redirect("dashboard:plan-purchase-continue")
 
 
 class PendingPlanPurchaseView(LoginRequiredMixin, PendingPurchaseMixin, View):
 
     def get(self, request, *args, **kwargs):
         pending = self.pending_purchase()
-        if not pending or pending.get("payment_method") not in {
-            PurchasePaymentMethodForm.STRIPE,
-            PurchasePaymentMethodForm.MANUAL,
-        }:
+        allowed_methods = {PurchasePaymentMethodForm.MANUAL}
+        if settings.BLIK_PAYMENTS_ENABLED:
+            allowed_methods.add(PurchasePaymentMethodForm.BLIK)
+        if settings.SUBSCRIPTION_BILLING_ENABLED:
+            allowed_methods.add(PurchasePaymentMethodForm.STRIPE)
+        if not pending or pending.get("payment_method") not in allowed_methods:
             return redirect("dashboard:plan-update")
 
         billing_profile = getattr(request.user, "billing_profile", None)
@@ -1072,10 +1176,12 @@ class PlanPurchaseTermsView(LoginRequiredMixin, PendingPurchaseMixin, FormView):
     def dispatch(self, request, *args, **kwargs):
         pending = self.pending_purchase()
         profile = getattr(request.user, "billing_profile", None)
-        if not pending or pending.get("payment_method") not in {
-            PurchasePaymentMethodForm.STRIPE,
-            PurchasePaymentMethodForm.MANUAL,
-        }:
+        allowed_methods = {PurchasePaymentMethodForm.MANUAL}
+        if settings.BLIK_PAYMENTS_ENABLED:
+            allowed_methods.add(PurchasePaymentMethodForm.BLIK)
+        if settings.SUBSCRIPTION_BILLING_ENABLED:
+            allowed_methods.add(PurchasePaymentMethodForm.STRIPE)
+        if not pending or pending.get("payment_method") not in allowed_methods:
             return redirect("dashboard:plan-update")
         if not profile or not profile.is_complete():
             target = reverse("dashboard:plan-purchase-continue")
@@ -1095,6 +1201,8 @@ class PlanPurchaseTermsView(LoginRequiredMixin, PendingPurchaseMixin, FormView):
         self.request.session["pending_plan_purchase"] = pending
         if pending["payment_method"] == PurchasePaymentMethodForm.MANUAL:
             return redirect("dashboard:manual-plan-confirm")
+        if pending["payment_method"] == PurchasePaymentMethodForm.BLIK:
+            return redirect("dashboard:blik-plan-confirm")
         return redirect("dashboard:stripe-plan-confirm")
 
 
@@ -1102,6 +1210,8 @@ class StripePlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
     template_name = "dashboard/stripe_plan_confirm.html"
 
     def dispatch(self, request, *args, **kwargs):
+        if not settings.SUBSCRIPTION_BILLING_ENABLED:
+            return redirect("dashboard:plan-update")
         pending = self.pending_purchase()
         profile = getattr(request.user, "billing_profile", None)
         if (
@@ -1122,6 +1232,254 @@ class StripePlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
         context["billing_profile"] = self.request.user.billing_profile
         context["upgrade"] = bool(pending.get("upgrade"))
         return context
+
+
+class BlikPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateView):
+    template_name = "dashboard/blik_plan_confirm.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        pending = self.pending_purchase()
+        profile = getattr(request.user, "billing_profile", None)
+        if (
+            not settings.BLIK_PAYMENTS_ENABLED
+            or not settings.STRIPE_SECRET_KEY
+            or not pending
+            or pending.get("payment_method") != PurchasePaymentMethodForm.BLIK
+            or not pending.get("terms_accepted")
+            or not profile
+            or not profile.is_complete()
+        ):
+            messages.warning(
+                request,
+                "Dokończ wszystkie kroki zamówienia."
+                if request.LANGUAGE_CODE == "pl"
+                else "Complete every order step first.",
+            )
+            return redirect("dashboard:plan-update")
+        if request.user.manual_plan_orders.filter(
+            status=ManualPlanOrderStatus.PAID,
+            access_until__gt=timezone.now(),
+        ).exists():
+            messages.info(
+                request,
+                "Masz już aktywny plan."
+                if request.LANGUAGE_CODE == "pl"
+                else "You already have an active plan.",
+            )
+            return redirect("dashboard:billing-portal")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        pending = self.pending_purchase()
+        currency = self.request.user.billing_profile.billing_currency()
+        original_amount = manual_plan_amount(pending["tier"], currency)
+        order = self._pending_order(pending)
+        coupon = None
+        if order:
+            original_amount = order.original_amount
+            amount = order.amount
+            coupon = order.discount_coupon
+        else:
+            coupon_code = (pending.get("coupon_code") or "").strip().upper()
+            if coupon_code:
+                coupon = ManualDiscountCoupon.objects.filter(code__iexact=coupon_code).first()
+                if not coupon or not coupon.is_available():
+                    pending.pop("coupon_code", None)
+                    self.request.session["pending_plan_purchase"] = pending
+                    coupon = None
+            amount = amount_after_discount(original_amount, coupon.discount_percent if coupon else 0)
+        context.update({
+            "selected_tier": pending["tier"],
+            "selected_plan_name": UserPlanTier(pending["tier"]).label,
+            "selected_currency": currency,
+            "selected_price_label": format_amount(amount, currency),
+            "selected_net_price_label": format_net_amount_from_gross(amount, currency),
+            "selected_original_price_label": format_amount(original_amount, currency),
+            "coupon_form": ManualCouponApplyForm(initial={"coupon_code": coupon.code if coupon else ""}),
+            "applied_coupon": coupon,
+            "coupon_locked": bool(order),
+        })
+        context["billing_profile"] = self.request.user.billing_profile
+        return context
+
+    def _pending_order(self, pending):
+        order_id = pending.get("blik_order_id")
+        if not order_id:
+            return None
+        return ManualPlanOrder.objects.filter(
+            pk=order_id,
+            user=self.request.user,
+            payment_method=AnnualPlanPaymentMethod.BLIK,
+            status=ManualPlanOrderStatus.AWAITING_PAYMENT,
+        ).first()
+
+    @transaction.atomic
+    def _create_order(self, pending):
+        User.objects.select_for_update().get(pk=self.request.user.pk)
+        existing = self._pending_order(pending)
+        if existing:
+            return existing
+        now = timezone.now()
+        currency = self.request.user.billing_profile.billing_currency()
+        original_amount = manual_plan_amount(pending["tier"], currency)
+        coupon = None
+        coupon_code = (pending.get("coupon_code") or "").strip().upper()
+        if coupon_code:
+            coupon = ManualDiscountCoupon.objects.select_for_update().filter(code__iexact=coupon_code).first()
+            if not coupon or not coupon.is_available(at=now):
+                raise ValueError("This discount coupon is invalid, expired, or has already been used.")
+        discount_percent = coupon.discount_percent if coupon else 0
+        order = ManualPlanOrder.objects.create(
+            user=self.request.user,
+            tier=pending["tier"],
+            discount_coupon=coupon,
+            coupon_code=coupon.code if coupon else "",
+            discount_percent=discount_percent,
+            original_amount=original_amount,
+            amount=amount_after_discount(original_amount, discount_percent),
+            currency=currency,
+            payment_method=AnnualPlanPaymentMethod.BLIK,
+            status=ManualPlanOrderStatus.AWAITING_PAYMENT,
+            payment_reference=build_manual_payment_reference(self.request.user, f"{pending['tier']}-BLIK"),
+            payment_due_at=now + timedelta(hours=1),
+            access_until=now,
+        )
+        pending["blik_order_id"] = order.pk
+        self.request.session["pending_plan_purchase"] = pending
+        return order
+
+    def post(self, request, *args, **kwargs):
+        pending = self.pending_purchase()
+        action = request.POST.get("action", "confirm")
+        existing_order = self._pending_order(pending)
+        if action in {"apply_coupon", "remove_coupon"}:
+            if existing_order:
+                messages.error(
+                    request,
+                    "Kod rabatowy jest już przypisany do rozpoczętej płatności."
+                    if request.LANGUAGE_CODE == "pl"
+                    else "The discount code is already locked to this payment.",
+                )
+                return redirect("dashboard:blik-plan-confirm")
+            if action == "remove_coupon":
+                pending.pop("coupon_code", None)
+                request.session["pending_plan_purchase"] = pending
+                return redirect("dashboard:blik-plan-confirm")
+            form = ManualCouponApplyForm(request.POST)
+            if not form.is_valid():
+                messages.error(
+                    request,
+                    "Wpisz prawidłowy kod rabatowy."
+                    if request.LANGUAGE_CODE == "pl"
+                    else "Enter a valid discount code.",
+                )
+                return redirect("dashboard:blik-plan-confirm")
+            coupon = ManualDiscountCoupon.objects.filter(
+                code__iexact=form.cleaned_data["coupon_code"]
+            ).first()
+            if not coupon or not coupon.is_available():
+                pending.pop("coupon_code", None)
+                request.session["pending_plan_purchase"] = pending
+                messages.error(
+                    request,
+                    "Kod rabatowy jest nieprawidłowy, wygasł lub został już wykorzystany."
+                    if request.LANGUAGE_CODE == "pl"
+                    else "The discount code is invalid, expired, or has already been used.",
+                )
+                return redirect("dashboard:blik-plan-confirm")
+            pending["coupon_code"] = coupon.code
+            request.session["pending_plan_purchase"] = pending
+            messages.success(
+                request,
+                f"Zastosowano rabat {coupon.discount_percent}%."
+                if request.LANGUAGE_CODE == "pl"
+                else f"A {coupon.discount_percent}% discount has been applied.",
+            )
+            return redirect("dashboard:blik-plan-confirm")
+        try:
+            order = self._create_order(pending)
+        except ValueError:
+            pending.pop("coupon_code", None)
+            request.session["pending_plan_purchase"] = pending
+            messages.error(
+                request,
+                "Nie można użyć tego kodu rabatowego. Sprawdź kod lub zastosuj inny."
+                if request.LANGUAGE_CODE == "pl"
+                else "This discount code cannot be used. Check the code or apply another one.",
+            )
+            return redirect("dashboard:blik-plan-confirm")
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+
+        previous_session_id = order.stripe_checkout_session_id or ""
+        if previous_session_id:
+            try:
+                previous = stripe.checkout.Session.retrieve(previous_session_id)
+                if object_get(previous, "status") == "open" and object_get(previous, "url"):
+                    return redirect(object_get(previous, "url"), permanent=False)
+                if object_get(previous, "status") == "complete":
+                    fulfilled = fulfill_blik_checkout(previous)
+                    if fulfilled:
+                        return redirect(
+                            f"{reverse('dashboard:plan-checkout-success')}?session_id={previous_session_id}"
+                        )
+            except Exception:
+                logger.exception("Could not reuse an existing BLIK Checkout Session")
+
+        success_url = (
+            f"{settings.SITE_BASE_URL}"
+            f"{reverse('dashboard:plan-checkout-success')}?session_id={{CHECKOUT_SESSION_ID}}"
+        )
+        cancel_url = f"{settings.SITE_BASE_URL}{reverse('dashboard:plan-checkout-cancel')}"
+        metadata = {
+            "payment_kind": "blik_annual",
+            "annual_order_id": str(order.pk),
+            "user_id": str(request.user.pk),
+            "plan_tier": order.tier,
+        }
+        idempotency_suffix = previous_session_id or "initial"
+        try:
+            checkout = stripe.checkout.Session.create(
+                idempotency_key=f"blik-order:{order.pk}:{idempotency_suffix}",
+                mode="payment",
+                payment_method_types=["blik"],
+                customer_email=request.user.billing_profile.invoice_email,
+                client_reference_id=str(request.user.pk),
+                line_items=[
+                    {
+                        "price_data": {
+                            "currency": order.currency,
+                            "unit_amount": order.amount,
+                            "product_data": {
+                                "name": f"Xoaila {order.get_tier_display()} – plan roczny",
+                            },
+                        },
+                        "quantity": 1,
+                    }
+                ],
+                metadata=metadata,
+                payment_intent_data={"metadata": metadata},
+                success_url=success_url,
+                cancel_url=cancel_url,
+            )
+        except Exception:
+            logger.exception("Could not create BLIK Stripe Checkout Session")
+            messages.error(
+                request,
+                "Nie udało się otworzyć płatności BLIK. Spróbuj ponownie."
+                if request.LANGUAGE_CODE == "pl"
+                else "Could not open the BLIK payment. Try again.",
+            )
+            return redirect("dashboard:blik-plan-confirm")
+
+        session_id = object_get(checkout, "id", "")
+        checkout_url = object_get(checkout, "url", "")
+        if not session_id.startswith("cs_") or not checkout_url:
+            messages.error(request, "Stripe zwrócił nieprawidłową odpowiedź.")
+            return redirect("dashboard:blik-plan-confirm")
+        order.stripe_checkout_session_id = session_id
+        order.save(update_fields=["stripe_checkout_session_id", "updated_at"])
+        return redirect(checkout_url, permanent=False)
 
 
 class BillingProfileView(LoginRequiredMixin, UpdateView):
@@ -1209,10 +1567,15 @@ class ManualPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
         if request.user.manual_plan_orders.filter(
             status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID], access_until__gt=timezone.now()
         ).exists():
-            messages.info(request, "Masz już aktywny plan Manual.")
+            messages.info(request, "Masz już aktywny plan.")
             return redirect("dashboard:plan-update")
         subscription = getattr(request.user, "billing_subscription", None)
-        if subscription and subscription.stripe_subscription_id and subscription.status in {"active", "trialing", "past_due"}:
+        if (
+            settings.SUBSCRIPTION_BILLING_ENABLED
+            and subscription
+            and subscription.stripe_subscription_id
+            and subscription.status in {"active", "trialing", "past_due"}
+        ):
             messages.warning(request, "Nie można zamówić planu Manual przy aktywnej subskrypcji Stripe.")
             return redirect("dashboard:billing-portal")
         if request.user.manual_plan_orders.filter(access_until__gt=timezone.now()).exists():
@@ -1232,7 +1595,7 @@ class ManualPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
         original_amount = manual_plan_amount(tier, currency)
         coupon = None
         coupon_code = (pending.get("coupon_code") or "").strip().upper()
-        if tier == UserPlanTier.PRO and coupon_code:
+        if coupon_code:
             coupon = ManualDiscountCoupon.objects.filter(code__iexact=coupon_code).first()
             if not coupon or not coupon.is_available():
                 pending.pop("coupon_code", None)
@@ -1249,7 +1612,7 @@ class ManualPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
             "manual_original_net_price_label": format_net_amount_from_gross(original_amount, currency),
             "coupon_form": ManualCouponApplyForm(initial={"coupon_code": coupon.code if coupon else ""}),
             "applied_coupon": coupon,
-            "coupon_available": tier == UserPlanTier.PRO,
+            "coupon_available": True,
             "manual_payment_recipient": settings.MANUAL_PAYMENT_RECIPIENT,
             "manual_payment_bank": settings.MANUAL_PAYMENT_BANK,
             "manual_payment_iban": settings.MANUAL_PAYMENT_IBAN_PLN if currency == "pln" else settings.MANUAL_PAYMENT_IBAN_EUR,
@@ -1263,9 +1626,6 @@ class ManualPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
         tier = pending["tier"]
         action = request.POST.get("action", "confirm")
         if action == "apply_coupon":
-            if tier != UserPlanTier.PRO:
-                messages.error(request, "Kupony rabatowe są dostępne wyłącznie dla planu Pro Manual.")
-                return redirect("dashboard:manual-plan-confirm")
             form = ManualCouponApplyForm(request.POST)
             if not form.is_valid():
                 messages.error(request, "Wpisz prawidłowy kod rabatowy.")
@@ -1311,9 +1671,9 @@ class ManualPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
             messages.error(request, str(exc))
             return redirect("dashboard:plan-update")
         if request.LANGUAGE_CODE == "pl":
-            messages.success(request, f"Plan {UserPlanTier(tier).label} Manual został aktywowany. Wykonaj przelew w ciągu 12 dni.")
+            messages.success(request, f"Plan {UserPlanTier(tier).label} został aktywowany. Wykonaj przelew w ciągu 12 dni.")
         else:
-            messages.success(request, f"The {UserPlanTier(tier).label} Manual plan has been activated. Make the bank transfer within 12 days.")
+            messages.success(request, f"The {UserPlanTier(tier).label} plan has been activated. Make the bank transfer within 12 days.")
         request.session.pop("pending_plan_purchase", None)
         return redirect("dashboard:billing-portal")
 
@@ -1321,6 +1681,8 @@ class ManualPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
 @method_decorator(csrf_exempt, name="dispatch")
 class StripeWebhookView(View):
     def post(self, request, *args, **kwargs):
+        if not (settings.SUBSCRIPTION_BILLING_ENABLED or settings.BLIK_PAYMENTS_ENABLED):
+            return HttpResponse(status=404)
         if not settings.STRIPE_WEBHOOK_SECRET:
             return HttpResponse(status=503)
         try:
@@ -1375,12 +1737,35 @@ class StripePriceEditorMixin:
 class BillingPriceManagementView(AdminRequiredMixin, StripePriceEditorMixin, FormView):
     template_name = "dashboard/billing_price_management.html"
 
+    def get_form_class(self):
+        if settings.SUBSCRIPTION_BILLING_ENABLED:
+            return super().get_form_class()
+        return PublicPlanPriceForm
+
+    def form_valid(self, form):
+        if settings.SUBSCRIPTION_BILLING_ENABLED:
+            return super().form_valid(form)
+        from apps.billing.catalog import set_public_plan_price
+        try:
+            price = set_public_plan_price(
+                form.cleaned_data["tier"],
+                form.amount_in_grosz(),
+                actor=self.request.user,
+                notes=form.cleaned_data.get("notes", ""),
+            )
+        except ValueError as error:
+            form.add_error(None, str(error))
+            return self.form_invalid(form)
+        messages.success(self.request, f"Nowa cena planu {price.get_tier_display()}: {price.formatted_amount()} brutto z VAT.")
+        return redirect("dashboard:billing-price-management")
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         prices = BillingPlanPrice.objects.select_related("created_by")
         if not settings.INTERNATIONAL_BILLING_ENABLED:
             prices = prices.filter(currency="pln")
         context["prices"] = prices
+        context["local_price_management"] = not settings.SUBSCRIPTION_BILLING_ENABLED
         return context
 
 
@@ -1388,6 +1773,8 @@ class BillingPriceArchiveView(AdminRequiredMixin, View):
     active = False
 
     def post(self, request, pk, *args, **kwargs):
+        if not settings.SUBSCRIPTION_BILLING_ENABLED:
+            return redirect("dashboard:home")
         from apps.billing.catalog import activate_price, archive_price
         price = get_object_or_404(BillingPlanPrice, pk=pk)
         try:
@@ -1407,6 +1794,11 @@ class BillingPriceActivateView(BillingPriceArchiveView):
 
 class BillingPriceUpdateView(AdminRequiredMixin, StripePriceEditorMixin, FormView):
     template_name = "dashboard/billing_price_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not settings.SUBSCRIPTION_BILLING_ENABLED:
+            return redirect("dashboard:home")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_initial(self):
         price = get_object_or_404(BillingPlanPrice, pk=self.kwargs["pk"])
@@ -1466,6 +1858,8 @@ class BillingOverviewView(AdminRequiredMixin, TemplateView):
                 "plan_name": UserPlanTier(tier).label,
                 "manual_amount": 0,
                 "manual_count": 0,
+                "blik_amount": 0,
+                "blik_count": 0,
                 "stripe_amount": 0,
                 "stripe_count": 0,
             }
@@ -1479,8 +1873,9 @@ class BillingOverviewView(AdminRequiredMixin, TemplateView):
                 and order.access_until > now
                 and order.currency == turnover_currency
             ):
-                turnover_by_plan[order.tier]["manual_amount"] += order.amount
-                turnover_by_plan[order.tier]["manual_count"] += 1
+                method = "blik" if order.payment_method == AnnualPlanPaymentMethod.BLIK else "manual"
+                turnover_by_plan[order.tier][f"{method}_amount"] += order.amount
+                turnover_by_plan[order.tier][f"{method}_count"] += 1
         for subscription in subscription_rows:
             payment = subscription.latest_paid_payment
             if (
@@ -1493,7 +1888,7 @@ class BillingOverviewView(AdminRequiredMixin, TemplateView):
                 turnover_by_plan[subscription.tier]["stripe_count"] += 1
 
         for row in turnover_by_plan.values():
-            for method in ("manual", "stripe"):
+            for method in ("manual", "blik", "stripe"):
                 annual_amount = row[f"{method}_amount"]
                 row[f"{method}_annual_label"] = format_amount(annual_amount, turnover_currency)
                 row[f"{method}_monthly_label"] = format_amount((annual_amount + 6) // 12, turnover_currency)
@@ -1580,19 +1975,37 @@ class BillingOverviewView(AdminRequiredMixin, TemplateView):
             params[param_name] = f"-{key}" if current_sort == key else key
             return f"?{urlencode(params, doseq=True)}"
 
-        context["subscriptions"] = subscription_rows
-        context["payments"] = payments[:25]
+        context["subscriptions"] = subscription_rows if settings.SUBSCRIPTION_BILLING_ENABLED else []
+        context["payments"] = payments[:25] if settings.SUBSCRIPTION_BILLING_ENABLED else []
         context["invoices"] = BillingInvoice.objects.select_related("user", "subscription")[:50]
         manual_paid = ManualPlanOrder.objects.filter(status=ManualPlanOrderStatus.PAID)
-        total_turnover = (payments.filter(status="paid").aggregate(total=models.Sum("amount_paid"))["total"] or 0) + (manual_paid.aggregate(total=models.Sum("amount"))["total"] or 0)
-        year_turnover = (payments.filter(status="paid", paid_at__year=now.year).aggregate(total=models.Sum("amount_paid"))["total"] or 0) + (manual_paid.filter(paid_at__year=now.year).aggregate(total=models.Sum("amount"))["total"] or 0)
-        month_turnover = (payments.filter(status="paid", paid_at__year=now.year, paid_at__month=now.month).aggregate(total=models.Sum("amount_paid"))["total"] or 0) + (manual_paid.filter(paid_at__year=now.year, paid_at__month=now.month).aggregate(total=models.Sum("amount"))["total"] or 0)
+        stripe_total = stripe_year = stripe_month = 0
+        if settings.SUBSCRIPTION_BILLING_ENABLED:
+            stripe_total = payments.filter(status="paid").aggregate(total=models.Sum("amount_paid"))["total"] or 0
+            stripe_year = payments.filter(
+                status="paid", paid_at__year=now.year
+            ).aggregate(total=models.Sum("amount_paid"))["total"] or 0
+            stripe_month = payments.filter(
+                status="paid", paid_at__year=now.year, paid_at__month=now.month
+            ).aggregate(total=models.Sum("amount_paid"))["total"] or 0
+        total_turnover = stripe_total + (manual_paid.aggregate(total=models.Sum("amount"))["total"] or 0)
+        year_turnover = stripe_year + (manual_paid.filter(paid_at__year=now.year).aggregate(total=models.Sum("amount"))["total"] or 0)
+        month_turnover = stripe_month + (manual_paid.filter(paid_at__year=now.year, paid_at__month=now.month).aggregate(total=models.Sum("amount"))["total"] or 0)
         context["total_turnover_label"] = format_amount(total_turnover, settings.STRIPE_CURRENCY)
         context["year_turnover_label"] = format_amount(year_turnover, settings.STRIPE_CURRENCY)
         context["month_turnover_label"] = format_amount(month_turnover, settings.STRIPE_CURRENCY)
-        context["active_subscription_count"] = subscriptions.filter(status__in=["active", "trialing"]).count() + sum(order.status in {ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID} for order in all_manual_orders)
+        context["active_subscription_count"] = subscriptions.filter(status__in=["active", "trialing"]).count() + sum(
+            order.access_until > now and order.status in {ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID}
+            for order in all_manual_orders
+        )
         context["canceling_subscription_count"] = subscriptions.filter(cancel_at_period_end=True).count()
         context["problem_subscription_count"] = subscriptions.filter(status__in=["past_due", "unpaid"]).count() + sum(order.is_overdue for order in all_manual_orders)
+        context["active_manual_plan_count"] = sum(
+            order.status in {ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID}
+            and order.access_until > now
+            for order in all_manual_orders
+        )
+        context["overdue_manual_plan_count"] = sum(order.is_overdue for order in all_manual_orders)
         context["manual_plan_orders"] = manual_orders
         context["billing_search_query"] = search_query
         context["manual_sort"] = manual_sort
@@ -1781,6 +2194,7 @@ class ManualPlanMarkPaidView(AdminRequiredMixin, View):
         order = get_object_or_404(
             ManualPlanOrder.objects.select_for_update().select_related("user"),
             pk=pk,
+            payment_method=AnnualPlanPaymentMethod.BANK_TRANSFER,
             status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.DISABLED],
             termination_acknowledged_at__isnull=True,
         )
@@ -2475,7 +2889,7 @@ class ManualDiscountCouponManagementView(AdminRequiredMixin, FormView):
         coupon.save()
         messages.success(
             self.request,
-            f"Utworzono kupon {coupon.code}: {coupon.discount_percent}% rabatu na Pro Manual.",
+            f"Utworzono kupon {coupon.code}: {coupon.discount_percent}% rabatu na dowolny plan roczny.",
         )
         return super().form_valid(form)
 

@@ -1,4 +1,5 @@
 from apps.accounts.models import USER_PLAN_ORGANIZATION_LIMITS
+from django.conf import settings
 from django.utils import timezone
 
 
@@ -12,6 +13,7 @@ def navbar_account_context(request):
         except Exception:
             active_notification_count = 0
         return {
+            "subscription_billing_enabled": settings.SUBSCRIPTION_BILLING_ENABLED,
             "navbar_show_account_badges": False,
             "navbar_active_notification_count": active_notification_count,
             "navbar_customer_notification_count": 0,
@@ -19,6 +21,7 @@ def navbar_account_context(request):
 
     if not user.is_authenticated or user.is_superuser:
         return {
+            "subscription_billing_enabled": settings.SUBSCRIPTION_BILLING_ENABLED,
             "navbar_show_account_badges": False,
             "navbar_active_notification_count": 0,
             "navbar_customer_notification_count": 0,
@@ -36,7 +39,8 @@ def navbar_account_context(request):
 
     billing_subscription = getattr(user, "billing_subscription", None)
     has_active_billing_subscription = bool(
-        billing_subscription
+        settings.SUBSCRIPTION_BILLING_ENABLED
+        and billing_subscription
         and billing_subscription.status in {"active", "trialing", "past_due"}
         and billing_subscription.current_period_end
         and billing_subscription.current_period_end > timezone.now()
@@ -47,6 +51,7 @@ def navbar_account_context(request):
     ).exists()
 
     return {
+        "subscription_billing_enabled": settings.SUBSCRIPTION_BILLING_ENABLED,
         "navbar_show_account_badges": True,
         "navbar_user_display_name": user.get_full_name() or user.username,
         "navbar_user_plan_tier": user.plan_tier,

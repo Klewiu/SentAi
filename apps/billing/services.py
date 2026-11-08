@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone as datetime_timezone
+from datetime import datetime, timedelta, timezone as datetime_timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
@@ -13,7 +13,16 @@ from django.utils import timezone
 from apps.accounts.models import UserPlanAccessStatus, UserPlanTier
 from apps.subscriptions.models import Subscription
 
-from .models import BillingCurrency, BillingPayment, BillingPaymentStatus, BillingPlanPrice, BillingSubscription
+from .models import (
+    AnnualPlanPaymentMethod,
+    BillingCurrency,
+    BillingPayment,
+    BillingPaymentStatus,
+    BillingPlanPrice,
+    BillingSubscription,
+    ManualPlanOrder,
+    ManualPlanOrderStatus,
+)
 
 
 def format_amount(amount: int, currency: str) -> str:
@@ -122,6 +131,75 @@ def activate_paid_plan(user, tier: str, billing_subscription: BillingSubscriptio
     if billing_subscription and billing_subscription.status in paid_access_statuses():
         billing_subscription.tier = tier
         billing_subscription.save(update_fields=["tier", "updated_at"])
+
+
+@transaction.atomic
+def fulfill_blik_checkout(checkout_session):
+    """Activate an annual plan from a verified paid Stripe Checkout Session."""
+    metadata = object_get(checkout_session, "metadata", {}) or {}
+    if (
+        object_get(checkout_session, "mode") != "payment"
+        or object_get(checkout_session, "payment_status") != "paid"
+        or object_get(metadata, "payment_kind") != "blik_annual"
+    ):
+        return None
+
+    order_id = object_get(metadata, "annual_order_id")
+    user_id = object_get(metadata, "user_id")
+    if not str(order_id).isdigit() or not str(user_id).isdigit():
+        raise ValueError("BLIK checkout metadata is incomplete")
+
+    order = (
+        ManualPlanOrder.objects.select_for_update()
+        .select_related("user")
+        .get(pk=int(order_id), user_id=int(user_id))
+    )
+    if order.payment_method != AnnualPlanPaymentMethod.BLIK:
+        raise ValueError("Checkout does not belong to a BLIK annual order")
+    if object_get(metadata, "plan_tier") != order.tier:
+        raise ValueError("Checkout plan does not match the annual order")
+    if object_get(checkout_session, "amount_total") != order.amount:
+        raise ValueError("Checkout amount does not match the annual order")
+    if (object_get(checkout_session, "currency", "") or "").lower() != order.currency.lower():
+        raise ValueError("Checkout currency does not match the annual order")
+
+    session_id = object_get(checkout_session, "id", "")
+    if not session_id.startswith("cs_"):
+        raise ValueError("Invalid Stripe Checkout Session ID")
+    if order.stripe_checkout_session_id and order.stripe_checkout_session_id != session_id:
+        raise ValueError("Checkout Session ID does not match the annual order")
+    if order.status == ManualPlanOrderStatus.PAID:
+        return order
+    if order.status == ManualPlanOrderStatus.DISABLED:
+        raise ValueError("The annual order has been disabled")
+
+    paid_at = timezone.now()
+    payment_intent = object_get(checkout_session, "payment_intent", "")
+    if not isinstance(payment_intent, str):
+        payment_intent = object_get(payment_intent, "id", "")
+    order.status = ManualPlanOrderStatus.PAID
+    order.paid_at = paid_at
+    order.payment_due_at = paid_at
+    order.access_until = paid_at + timedelta(days=365)
+    order.stripe_checkout_session_id = session_id
+    order.stripe_payment_intent_id = payment_intent or ""
+    order.save(
+        update_fields=[
+            "status",
+            "paid_at",
+            "payment_due_at",
+            "access_until",
+            "stripe_checkout_session_id",
+            "stripe_payment_intent_id",
+            "updated_at",
+        ]
+    )
+    activate_paid_plan(order.user, order.tier)
+
+    from apps.notifications.services import notify_invoice_needed_for_manual_order
+
+    notify_invoice_needed_for_manual_order(order)
+    return order
 
 
 @transaction.atomic

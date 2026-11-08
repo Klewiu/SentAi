@@ -6,6 +6,7 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 STRIPE_SECRET_KEY = ""
 STRIPE_WEBHOOK_SECRET = ""
+SUBSCRIPTION_BILLING_ENABLED = True
 ALLOWED_HOSTS = ["testserver", "localhost"]
 STORAGES = {"default": {"BACKEND": "django.core.files.storage.InMemoryStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}}
 AUTH_RATE_LIMIT = 10000

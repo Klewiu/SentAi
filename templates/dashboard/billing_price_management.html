@@ -1,115 +1,38 @@
 {% extends 'base.html' %}
-
 {% block content %}
 <section class="rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
     <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-            <span class="inline-flex items-center gap-1.5 rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">
-                {% if request.LANGUAGE_CODE == 'pl' %}Ceny{% else %}Prices{% endif %}
-            </span>
-            <h1 class="mt-3 font-display text-3xl font-bold tracking-tight text-[#284b63]">
-                {% if request.LANGUAGE_CODE == 'pl' %}Zarzadzanie cenami planow{% else %}Plan Price Management{% endif %}
-            </h1>
+            <span class="inline-flex rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">{% if request.LANGUAGE_CODE == 'pl' %}Ceny{% else %}Prices{% endif %}</span>
+            <h1 class="mt-3 font-display text-3xl font-bold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Zarządzanie cenami planów{% else %}Plan Price Management{% endif %}</h1>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-[#353535]/60">
-                {% if request.LANGUAGE_CODE == 'pl' %}
-                    Utwórz w Stripe roczną cenę brutto zawierającą VAT, a następnie wklej jej Price ID zaczynające się od <span class="font-mono">price_</span>. Aplikacja pobierze pełną kwotę do zapłaty i wyliczy z niej cenę netto. Nie wpisuj Product ID zaczynającego się od <span class="font-mono">prod_</span>.
-                {% else %}
-                    Create an annual gross price including VAT in Stripe, then paste its Price ID beginning with <span class="font-mono">price_</span>. The application retrieves the full payable amount and derives the net price. Do not enter a Product ID beginning with <span class="font-mono">prod_</span>.
-                {% endif %}
+                {% if local_price_management and request.LANGUAGE_CODE == 'pl' %}Ustaw cenę brutto z VAT dla nowych zakupów BLIK i przelewów bankowych. Zmiana nie wpływa na już opłacone plany. Historia cen pozostaje zachowana. Po obniżce przez 30 dni pokażemy poprzednią cenę oraz najniższą cenę z 30 dni przed obniżką.
+                {% elif local_price_management %}Set the gross VAT-inclusive price for new BLIK and bank-transfer purchases. Existing paid plans are unchanged. Price history is preserved. After a reduction, the previous price and the lowest price from the preceding 30 days are displayed for 30 days.
+                {% elif request.LANGUAGE_CODE == 'pl' %}Wprowadź roczną cenę Stripe brutto zawierającą VAT, używając Price ID zaczynającego się od <span class="font-mono">price_</span>.
+                {% else %}Enter an annual gross Stripe price including VAT using a Price ID beginning with <span class="font-mono">price_</span>.{% endif %}
             </p>
         </div>
-        <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:home' %}">
-            {% if request.LANGUAGE_CODE == 'pl' %}Wroc{% else %}Back{% endif %}
-        </a>
+        <a class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] px-4 py-2 font-mono text-xs" href="{% url 'dashboard:home' %}">{% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}</a>
     </div>
-
     <form method="post" class="mt-6 grid gap-4 rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4 md:grid-cols-2 xl:grid-cols-4">
         {% csrf_token %}
-        {% for field in form %}
-            <label class="{% if field.name == 'notes' %}xl:col-span-2{% endif %}">
-                <span class="mb-1 block font-mono text-[10px] uppercase tracking-widest text-[#353535]/45">{{ field.label }}</span>
-                {{ field }}
-                {% if field.help_text %}
-                    <span class="mt-1 block font-mono text-[10px] leading-relaxed text-[#353535]/45">{{ field.help_text }}</span>
-                {% endif %}
-                {% if field.errors %}
-                    <span class="mt-1 block font-mono text-xs text-rose-500">{{ field.errors|striptags }}</span>
-                {% endif %}
-            </label>
-        {% endfor %}
-        {% if form.non_field_errors %}
-            <p class="md:col-span-2 xl:col-span-4 font-mono text-xs text-rose-500">{{ form.non_field_errors|striptags }}</p>
-        {% endif %}
-        <div class="md:col-span-2 xl:col-span-4">
-            <button class="inline-flex min-h-10 items-center justify-center rounded bg-[#284b63] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]" type="submit">
-                {% if request.LANGUAGE_CODE == 'pl' %}Sprawdź i dodaj cenę{% else %}Verify and add price{% endif %}
-            </button>
-        </div>
+        {% for field in form %}<label class="{% if field.name == 'notes' %}xl:col-span-2{% endif %}"><span class="mb-1 block font-mono text-[10px] uppercase tracking-widest text-[#353535]/45">{{ field.label }}</span>{{ field }}{% if field.help_text %}<span class="mt-1 block font-mono text-[10px] leading-relaxed text-[#353535]/45">{{ field.help_text }}</span>{% endif %}{% if field.errors %}<span class="mt-1 block font-mono text-xs text-rose-500">{{ field.errors|striptags }}</span>{% endif %}</label>{% endfor %}
+        {% if form.non_field_errors %}<p class="md:col-span-2 xl:col-span-4 font-mono text-xs text-rose-500">{{ form.non_field_errors|striptags }}</p>{% endif %}
+        <div class="md:col-span-2 xl:col-span-4"><button class="inline-flex min-h-10 items-center justify-center rounded bg-[#284b63] px-5 py-2.5 text-sm font-semibold text-white" type="submit">{% if local_price_management and request.LANGUAGE_CODE == 'pl' %}Zapisz nową cenę{% elif local_price_management %}Save new price{% elif request.LANGUAGE_CODE == 'pl' %}Sprawdź i dodaj cenę{% else %}Verify and add price{% endif %}</button></div>
     </form>
 </section>
-
 <section class="rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
-    <h2 class="font-display text-2xl font-semibold tracking-tight text-[#284b63]">
-        {% if request.LANGUAGE_CODE == 'pl' %}Historia cen{% else %}Price history{% endif %}
-    </h2>
-    <div class="mt-4 overflow-x-auto">
-        <table class="min-w-full divide-y divide-[#d9d9d9] text-left">
-            <thead>
-                <tr class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
-                    <th class="px-4 py-3">Plan</th>
-                    <th class="px-4 py-3">Price ID</th>
-                    <th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Netto{% else %}Net{% endif %}</th>
-                    <th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Brutto z VAT{% else %}Gross incl. VAT{% endif %}</th>
-                    <th class="px-4 py-3">Currency</th>
-                    <th class="px-4 py-3">Status</th>
-                    <th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Akcja{% else %}Action{% endif %}</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-[#d9d9d9] font-mono text-xs">
-                {% for price in prices %}
-                    <tr>
-                        <td class="px-4 py-3 font-semibold text-[#284b63]">{{ price.tier }}</td>
-                        <td class="px-4 py-3 text-[#353535]/60">{{ price.stripe_price_id }}</td>
-                        <td class="px-4 py-3">{{ price.formatted_net_amount }} / {{ price.interval }}</td>
-                        <td class="px-4 py-3 font-semibold">{{ price.formatted_amount }} / {{ price.interval }}</td>
-                        <td class="px-4 py-3 uppercase">{{ price.currency }}</td>
-                        <td class="px-4 py-3">
-                            {% if price.active_for_new_customers %}
-                                <span class="text-[#5ca197]">active for new customers</span>
-                            {% else %}
-                                <span class="text-[#353535]/40">archived</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-4 py-3">
-                            <div class="flex flex-wrap gap-2">
-                                {% if price.active_for_new_customers %}
-                                    <a class="inline-flex items-center rounded border border-[#d9d9d9] bg-white px-3 py-1.5 text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:billing-price-edit' price.pk %}">
-                                        {% if request.LANGUAGE_CODE == 'pl' %}Zastąp{% else %}Replace{% endif %}
-                                    </a>
-                                    <form method="post" action="{% url 'dashboard:billing-price-archive' price.pk %}">
-                                    {% csrf_token %}
-                                        <button class="rounded border border-[#d9d9d9] bg-white px-3 py-1.5 text-[#353535]/60 transition hover:border-rose-400 hover:text-rose-500" type="submit">
-                                            {% if request.LANGUAGE_CODE == 'pl' %}Archiwizuj{% else %}Archive{% endif %}
-                                        </button>
-                                    </form>
-                                {% else %}
-                                    <form method="post" action="{% url 'dashboard:billing-price-activate' price.pk %}">
-                                        {% csrf_token %}
-                                        <button class="rounded border border-[#5ca197]/40 bg-white px-3 py-1.5 text-[#5ca197] transition hover:border-[#5ca197] hover:bg-[#5ca197] hover:text-white" type="submit">
-                                            {% if request.LANGUAGE_CODE == 'pl' %}Aktywuj{% else %}Activate{% endif %}
-                                        </button>
-                                    </form>
-                                {% endif %}
-                            </div>
-                        </td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td class="px-4 py-6 text-[#353535]/45" colspan="7">No prices configured yet.</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    <h2 class="font-display text-2xl font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Historia cen{% else %}Price history{% endif %}</h2>
+    <div class="mt-4 overflow-x-auto"><table class="min-w-full divide-y divide-[#d9d9d9] text-left">
+        <thead><tr class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40"><th class="px-4 py-3">Plan</th><th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Netto{% else %}Net{% endif %}</th><th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Brutto z VAT{% else %}Gross incl. VAT{% endif %}</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">{% if request.LANGUAGE_CODE == 'pl' %}Obowiązywanie{% else %}Effective period{% endif %}</th>{% if not local_price_management %}<th class="px-4 py-3">Price ID / Action</th>{% endif %}</tr></thead>
+        <tbody class="divide-y divide-[#d9d9d9] font-mono text-xs">
+        {% for price in prices %}<tr>
+            <td class="px-4 py-3 font-semibold text-[#284b63]">{{ price.tier }}</td><td class="px-4 py-3">{{ price.formatted_net_amount }}</td><td class="px-4 py-3 font-semibold">{{ price.formatted_amount }}</td>
+            <td class="px-4 py-3">{% if price.active_for_new_customers %}<span class="text-[#5ca197]">{% if request.LANGUAGE_CODE == 'pl' %}aktualna{% else %}current{% endif %}</span>{% else %}<span class="text-[#353535]/40">{% if request.LANGUAGE_CODE == 'pl' %}historyczna{% else %}historical{% endif %}</span>{% endif %}{% if price.shows_price_reduction %}<span class="mt-1 block text-[9px] text-rose-500">{% if request.LANGUAGE_CODE == 'pl' %}obniżka do {{ price.reduction_display_until|date:"Y-m-d" }}{% else %}reduction until {{ price.reduction_display_until|date:"Y-m-d" }}{% endif %}</span>{% endif %}</td>
+            <td class="px-4 py-3">{{ price.effective_from|date:"Y-m-d H:i" }} – {% if price.effective_until %}{{ price.effective_until|date:"Y-m-d H:i" }}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}obecnie{% else %}now{% endif %}{% endif %}{% if price.notes %}<span class="mt-1 block text-[10px] text-[#353535]/45">{{ price.notes }}</span>{% endif %}</td>
+            {% if not local_price_management %}<td class="px-4 py-3"><span class="block text-[#353535]/50">{{ price.stripe_price_id }}</span>{% if price.active_for_new_customers %}<a class="mt-2 inline-flex rounded border border-[#d9d9d9] px-3 py-1.5" href="{% url 'dashboard:billing-price-edit' price.pk %}">{% if request.LANGUAGE_CODE == 'pl' %}Zastąp{% else %}Replace{% endif %}</a>{% endif %}</td>{% endif %}
+        </tr>{% empty %}<tr><td class="px-4 py-6 text-[#353535]/45" colspan="6">{% if request.LANGUAGE_CODE == 'pl' %}Brak skonfigurowanych cen.{% else %}No prices configured yet.{% endif %}</td></tr>{% endfor %}
+        </tbody>
+    </table></div>
 </section>
 {% endblock %}

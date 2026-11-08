@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="mx-auto max-w-3xl rounded-xl border border-[#d9d9d9] bg-white p-6 lg:p-8">
+    <p class="font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">BLIK · Stripe</p>
+    <h1 class="mt-2 font-display text-3xl font-bold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Potwierdź zamówienie{% else %}Confirm your order{% endif %}</h1>
+    <div class="mt-6 rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-5 text-sm leading-7">
+        <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Plan{% else %}Plan{% endif %}:</strong> {{ selected_plan_name }}</p>
+        <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Okres{% else %}Period{% endif %}:</strong> {% if request.LANGUAGE_CODE == 'pl' %}12 miesięcy{% else %}12 months{% endif %}</p>
+        <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Cena netto{% else %}Net price{% endif %}:</strong> {{ selected_net_price_label }}</p>
+        {% if applied_coupon %}<p class="text-[#353535]/55"><span>{% if request.LANGUAGE_CODE == 'pl' %}Cena przed rabatem{% else %}Price before discount{% endif %}:</span> <span class="line-through">{{ selected_original_price_label }}</span></p>{% endif %}
+        <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Do zapłaty brutto z VAT{% else %}Gross amount including VAT{% endif %}:</strong> {{ selected_price_label }}</p>
+        <p><strong>{% if request.LANGUAGE_CODE == 'pl' %}Firma{% else %}Company{% endif %}:</strong> {{ billing_profile.company_name }}</p>
+        <p><strong>NIP:</strong> {{ billing_profile.tax_id }}</p>
+    </div>
+    <div class="mt-5 rounded-lg border border-[#d9d9d9] bg-white p-5">
+        <h2 class="font-display text-lg font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Kod rabatowy{% else %}Discount code{% endif %}</h2>
+        {% if applied_coupon %}
+            <div class="mt-3 flex flex-col gap-3 rounded-lg border border-[#5ca197]/40 bg-[#CFEAE4] p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="font-mono text-xs font-semibold text-[#284b63]">{{ applied_coupon.code }}</p>
+                    <p class="mt-1 text-sm text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Zastosowano rabat{% else %}Discount applied{% endif %}: <strong>{{ applied_coupon.discount_percent }}%</strong></p>
+                </div>
+                {% if not coupon_locked %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove_coupon"><button class="rounded border border-[#5ca197]/50 bg-white px-3 py-2 font-mono text-xs text-[#397b72]" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Usuń kod{% else %}Remove code{% endif %}</button></form>{% endif %}
+            </div>
+        {% elif not coupon_locked %}
+            <form method="post" class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                {% csrf_token %}<input type="hidden" name="action" value="apply_coupon">
+                <label class="flex-1"><span class="mb-1 block font-mono text-[10px] uppercase tracking-widest text-[#353535]/45">{{ coupon_form.coupon_code.label }}</span>{{ coupon_form.coupon_code }}</label>
+                <button class="min-h-10 rounded border border-[#5ca197] bg-white px-4 py-2 text-sm font-semibold text-[#397b72]" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Zastosuj kod{% else %}Apply code{% endif %}</button>
+            </form>
+        {% endif %}
+    </div>
+    <div class="mt-5 rounded-xl border border-[#5ca197]/40 bg-[#CFEAE4] p-5 text-sm leading-6 text-[#284b63]">
+        {% if request.LANGUAGE_CODE == 'pl' %}
+            <p>Po kliknięciu przycisku opuścisz Xoaila i przejdziesz do bezpiecznej, zewnętrznej bramki Stripe, aby zapłacić BLIK-iem.</p>
+            <p class="mt-2">Plan zostanie aktywowany na 12 miesięcy dopiero po potwierdzeniu płatności przez Stripe. Płatność jest jednorazowa i nie odnawia się automatycznie.</p>
+        {% else %}
+            <p>After clicking the button, you will leave Xoaila and continue to Stripe's secure external payment gateway to pay with BLIK.</p>
+            <p class="mt-2">The plan activates for 12 months only after Stripe confirms payment. This is a one-time payment and does not renew automatically.</p>
+        {% endif %}
+    </div>
+    <div class="mt-6 flex flex-wrap gap-2">
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="confirm">
+            <button class="rounded bg-[#284b63] px-5 py-2.5 text-sm font-semibold text-white" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Przejdź do Stripe i zapłać BLIK-iem{% else %}Continue to Stripe and pay with BLIK{% endif %}</button>
+        </form>
+        <a class="rounded border border-[#d9d9d9] px-5 py-2.5 text-sm" href="{% url 'dashboard:plan-purchase-terms' %}">{% if request.LANGUAGE_CODE == 'pl' %}Wróć{% else %}Back{% endif %}</a>
+    </div>
+</section>
+{% endblock %}

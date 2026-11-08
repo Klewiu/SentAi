@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.core.exceptions import ObjectDoesNotExist
 
 from apps.accounts.models import UserPlanTier
-from apps.billing.models import BillingInvoice, BillingPayment, BillingPaymentStatus, BillingSubscription, ManualPlanOrder, ManualPlanOrderStatus
+from apps.billing.models import AnnualPlanPaymentMethod, BillingInvoice, BillingPayment, BillingPaymentStatus, BillingSubscription, ManualPlanOrder, ManualPlanOrderStatus
 
 from .models import AdminNotification, CustomerNotification, NotificationCategory, NotificationSeverity
 
@@ -152,7 +152,8 @@ def notify_plan_selected(user, plan_tier):
 
 
 def _manual_order_admin_plan_label(order):
-    label = f"{order.get_tier_display()} Manual"
+    method = "BLIK" if order.payment_method == "blik" else "Manual"
+    label = f"{order.get_tier_display()} {method}"
     return f"{label} {order.discount_percent}%" if order.discount_percent else label
 
 
@@ -202,11 +203,15 @@ def notify_invoice_needed_for_manual_order(order):
         created_at__lt=order.created_at,
     ).exclude(pk=order.pk).exists()
     plan_label = _manual_order_admin_plan_label(order)
+    payment_description = "a BLIK annual plan" if order.payment_method == AnnualPlanPaymentMethod.BLIK else "a new annual bank-transfer plan"
+    renewal_description = "another annual BLIK payment" if order.payment_method == AnnualPlanPaymentMethod.BLIK else "another annual bank-transfer payment"
+    payment_description_pl = "roczny plan opłacony BLIK" if order.payment_method == AnnualPlanPaymentMethod.BLIK else "nowy roczny plan opłacany przelewem"
+    renewal_description_pl = "kolejną roczną płatność BLIK" if order.payment_method == AnnualPlanPaymentMethod.BLIK else "kolejną roczną płatność przelewem"
     notify_admin(
         title=f"{plan_label} {'renewal ' if is_renewal else ''}payment needs invoice",
-        message=f"{order.user.email} paid {order.formatted_amount()} for {'a Manual renewal' if is_renewal else 'a new Manual plan'}. Upload and send an invoice.",
+        message=f"{order.user.email} paid {order.formatted_amount()} for {renewal_description if is_renewal else payment_description}. Upload and send an invoice.",
         title_pl=(f"Odnowienie {plan_label} wymaga wystawienia faktury" if is_renewal else f"Płatność {plan_label} wymaga wystawienia faktury"),
-        message_pl=f"{order.user.email} zapłacił {order.formatted_amount()} za {'odnowienie planu Manual' if is_renewal else 'nowy plan Manual'}. Wystaw i wyślij fakturę.",
+        message_pl=f"{order.user.email} zapłacił {order.formatted_amount()} za {renewal_description_pl if is_renewal else payment_description_pl}. Wystaw i wyślij fakturę.",
         category=NotificationCategory.INVOICE,
         severity=NotificationSeverity.WARNING,
         customer=order.user,
@@ -304,15 +309,16 @@ def backfill_admin_notification_translations():
             elif reference.startswith("manual-order:"):
                 order_id = int(reference.split(":", 2)[1])
                 order = ManualPlanOrder.objects.select_related("user").get(pk=order_id)
+                plan_label = _manual_order_admin_plan_label(order)
                 if reference.endswith(":created"):
-                    title_pl = f"Nowe zamówienie {order.get_tier_display()} Manual"
-                    message_pl = f"{order.user.email} aktywował plan {order.get_tier_display()} Manual. Termin płatności: {order.payment_due_at:%Y-%m-%d %H:%M}."
+                    title_pl = f"Nowe zamówienie {plan_label}"
+                    message_pl = f"{order.user.email} aktywował plan {plan_label}. Termin płatności: {order.payment_due_at:%Y-%m-%d %H:%M}."
                 elif reference.endswith(":invoice-needed"):
-                    title_pl = f"Płatność {order.get_tier_display()} Manual wymaga wystawienia faktury"
+                    title_pl = f"Płatność {plan_label} wymaga wystawienia faktury"
                     message_pl = f"{order.user.email} zapłacił {order.formatted_amount()}. Wystaw i wyślij fakturę."
                 elif reference.endswith(":overdue"):
-                    title_pl = f"Przekroczony termin płatności {order.get_tier_display()} Manual"
-                    message_pl = f"{order.user.email} nie opłacił planu {order.get_tier_display()} Manual do {order.payment_due_at:%Y-%m-%d %H:%M}. Sprawdź zamówienie i w razie potrzeby wyłącz plan."
+                    title_pl = f"Przekroczony termin płatności {plan_label}"
+                    message_pl = f"{order.user.email} nie opłacił planu {plan_label} do {order.payment_due_at:%Y-%m-%d %H:%M}. Sprawdź zamówienie i w razie potrzeby wyłącz plan."
             elif reference.startswith("payment:") and reference.endswith(":invoice-needed"):
                 payment_id = int(reference.split(":", 2)[1])
                 payment = BillingPayment.objects.select_related("user").get(pk=payment_id)
@@ -390,10 +396,10 @@ def notify_customer_subscription_payment_issue(subscription):
 def notify_customer_manual_payment_due(order):
     notify_customer(
         user=order.user,
-        title=f"{order.get_tier_display()} Manual payment due",
-        message=f"Your {order.get_tier_display()} Manual bank transfer is due by {order.payment_due_at:%Y-%m-%d}. Use reference: {order.payment_reference}.",
-        title_pl=f"Termin płatności {order.get_tier_display()} Manual",
-        message_pl=f"Przelew za {order.get_tier_display()} Manual należy opłacić do {order.payment_due_at:%Y-%m-%d}. Użyj tytułu przelewu: {order.payment_reference}.",
+        title=f"{order.get_tier_display()} payment due",
+        message=f"Your bank transfer for the {order.get_tier_display()} plan is due by {order.payment_due_at:%Y-%m-%d}. Use reference: {order.payment_reference}.",
+        title_pl=f"Termin płatności za plan {order.get_tier_display()}",
+        message_pl=f"Przelew za plan {order.get_tier_display()} należy opłacić do {order.payment_due_at:%Y-%m-%d}. Użyj tytułu przelewu: {order.payment_reference}.",
         category=NotificationCategory.MANUAL_PLAN,
         severity=NotificationSeverity.WARNING,
         action_url=reverse("dashboard:plan-update"),
@@ -404,10 +410,10 @@ def notify_customer_manual_payment_due(order):
 def notify_customer_manual_renewal(order, days):
     notify_customer(
         user=order.user,
-        title=f"{order.get_tier_display()} Manual ends in {days} days",
-        message=f"Your {order.get_tier_display()} Manual plan ends on {order.access_until:%Y-%m-%d}. Purchase the plan again to keep company profiles published without interruption.",
-        title_pl=f"{order.get_tier_display()} Manual kończy się za {days} dni",
-        message_pl=f"Twój plan {order.get_tier_display()} Manual kończy się {order.access_until:%Y-%m-%d}. Wykup plan ponownie, aby zachować ciągłość publikacji profili firm.",
+        title=f"{order.get_tier_display()} ends in {days} days",
+        message=f"Your {order.get_tier_display()} plan ends on {order.access_until:%Y-%m-%d}. Purchase the plan again to keep company profiles published without interruption.",
+        title_pl=f"Plan {order.get_tier_display()} kończy się za {days} dni",
+        message_pl=f"Twój plan {order.get_tier_display()} kończy się {order.access_until:%Y-%m-%d}. Wykup plan ponownie, aby zachować ciągłość publikacji profili firm.",
         category=NotificationCategory.MANUAL_PLAN,
         severity=NotificationSeverity.URGENT,
         action_url=reverse("dashboard:plan-update"),
@@ -466,7 +472,11 @@ def scan_admin_notifications():
     for order in ManualPlanOrder.objects.filter(status=ManualPlanOrderStatus.PAID).select_related("user").prefetch_related("invoices"):
         if not order.invoices.exists():
             notify_invoice_needed_for_manual_order(order)
-    for order in ManualPlanOrder.objects.filter(status=ManualPlanOrderStatus.AWAITING_PAYMENT, payment_due_at__lt=timezone.now()).select_related("user"):
+    for order in ManualPlanOrder.objects.filter(
+        status=ManualPlanOrderStatus.AWAITING_PAYMENT,
+        payment_method=AnnualPlanPaymentMethod.BANK_TRANSFER,
+        payment_due_at__lt=timezone.now(),
+    ).select_related("user"):
         notify_manual_order_overdue(order)
     for subscription in BillingSubscription.objects.filter(status__in=["past_due", "unpaid"]).select_related("user"):
         notify_subscription_past_due(subscription)
@@ -521,7 +531,11 @@ def scan_customer_notifications(user):
     for invoice in BillingInvoice.objects.filter(user=user):
         notify_customer_invoice_available(invoice)
 
-    for order in ManualPlanOrder.objects.filter(user=user, status=ManualPlanOrderStatus.AWAITING_PAYMENT):
+    for order in ManualPlanOrder.objects.filter(
+        user=user,
+        status=ManualPlanOrderStatus.AWAITING_PAYMENT,
+        payment_method=AnnualPlanPaymentMethod.BANK_TRANSFER,
+    ):
         if now <= order.payment_due_at <= now + timedelta(days=7) or order.payment_due_at < now:
             notify_customer_manual_payment_due(order)
 

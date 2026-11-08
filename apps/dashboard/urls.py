@@ -59,6 +59,7 @@ from .views import (
     BillingInvoicesAdminView,
     StripePaymentInvoiceCreateView,
     BillingCustomerInvoicesDetailView,
+    BlikPlanConfirmView,
 )
 from apps.notifications.views import AdminNotificationCloseView, AdminNotificationListView, CustomerNotificationCloseView, CustomerNotificationListView
 
@@ -72,6 +73,7 @@ urlpatterns = [
     path("plan/continue/", PendingPlanPurchaseView.as_view(), name="plan-purchase-continue"),
     path("plan/terms/", PlanPurchaseTermsView.as_view(), name="plan-purchase-terms"),
     path("plan/stripe/confirm/", StripePlanConfirmView.as_view(), name="stripe-plan-confirm"),
+    path("plan/blik/confirm/", BlikPlanConfirmView.as_view(), name="blik-plan-confirm"),
     path("plan/billing-profile/", BillingProfileView.as_view(), name="billing-profile"),
     path("plan/manual/confirm/", ManualPlanConfirmView.as_view(), name="manual-plan-confirm"),
     path("plan/invoices/", CustomerInvoiceListView.as_view(), name="customer-invoices"),

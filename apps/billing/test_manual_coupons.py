@@ -78,14 +78,24 @@ class ManualDiscountCouponTests(TestCase):
             "PRO MANUAL 10%",
         )
 
-    def test_coupon_cannot_be_used_for_basic_or_plus_manual(self):
-        for tier in (UserPlanTier.BASIC, UserPlanTier.PLUS):
-            with self.subTest(tier=tier), self.assertRaisesMessage(
-                ValueError,
-                "Discount coupons are available only for Pro Manual.",
-            ):
-                create_manual_plan_order(self.user, "pln", tier, coupon_code=self.coupon.code)
-        self.assertFalse(ManualPlanOrder.objects.exists())
+    def test_coupon_can_be_used_for_basic_and_plus_bank_transfer(self):
+        cases = ((UserPlanTier.BASIC, 10000, 9000), (UserPlanTier.PLUS, 20000, 18000))
+        for tier, original_amount, discounted_amount in cases:
+            with self.subTest(tier=tier):
+                user = User.objects.create_user(
+                    username=f"coupon-{tier.lower()}",
+                    email=f"coupon-{tier.lower()}@example.com",
+                )
+                coupon = ManualDiscountCoupon.objects.create(
+                    code=f"{tier}-TEN",
+                    discount_percent=10,
+                    max_redemptions=1,
+                )
+                order = create_manual_plan_order(user, "pln", tier, coupon_code=coupon.code)
+                self.assertEqual(order.original_amount, original_amount)
+                self.assertEqual(order.amount, discounted_amount)
+                self.assertEqual(order.discount_percent, 10)
+                self.assertEqual(order.admin_plan_label, f"{tier} MANUAL 10%")
 
     def test_redemption_limit_is_enforced(self):
         create_manual_plan_order(self.user, "pln", "PRO", coupon_code=self.coupon.code)
@@ -133,10 +143,10 @@ class ManualDiscountCouponTests(TestCase):
             password="Admin-test-password-123!",
         )
         self.client.force_login(admin)
-        self.assertContains(self.client.get(reverse("dashboard:home")), "Pro Manual coupons")
+        self.assertContains(self.client.get(reverse("dashboard:home")), "Discount coupons")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Pro Manual discount coupons")
+        self.assertContains(response, "Plan discount coupons")
         response = self.client.post(
             url,
             {
