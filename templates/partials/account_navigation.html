@@ -24,7 +24,7 @@
                     {% endif %}
                 </a>
             {% endif %}
-            {% if request.user.account_type != 'STAFF' %}
+            {% if request.user.account_type != 'STAFF' and navbar_has_publication_access %}
                 <span class="inline-flex min-h-9 cursor-default items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-2 py-2 font-mono text-xs font-medium text-[#353535]/70 sm:px-3">
                     <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M5 6h14v12H5V6zm2 2v8h10V8H7zm4 1h2v6h-2V9z" fill="currentColor"/>

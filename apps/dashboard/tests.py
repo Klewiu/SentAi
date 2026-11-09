@@ -571,6 +571,12 @@ class DashboardPlanLimitTests(TestCase):
         }
     )
     def test_authenticated_homepage_and_dashboard_show_consistent_navigation(self):
+        BillingSubscription.objects.create(
+            user=self.user,
+            tier=UserPlanTier.BASIC,
+            status="active",
+            current_period_end=timezone.now() + timedelta(days=365),
+        )
         for language_code, ordered_labels in (
             (
                 "en",
@@ -648,8 +654,20 @@ class DashboardPlanLimitTests(TestCase):
         response = self.client.get(reverse("dashboard:home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "+ Add company page", count=1)
+        self.assertNotContains(response, "Your pages")
+        self.assertNotContains(response, "+ Add company page")
         self.assertNotContains(response, "Add another company page")
+
+    def test_dashboard_hides_pages_and_active_page_badge_without_paid_plan(self):
+        Organization.objects.create(owner=self.user, name="Unpublished company")
+
+        response = self.client.get(reverse("dashboard:home"))
+        header = response.content.split(b"<header", 1)[1].split(b"</header>", 1)[0].decode()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Your pages")
+        self.assertNotContains(response, "Unpublished company")
+        self.assertNotIn("Active pages", header)
 
     def test_dashboard_labels_add_button_as_another_page_after_first_page(self):
         self.user.plan_tier = UserPlanTier.PLUS
@@ -666,6 +684,8 @@ class DashboardPlanLimitTests(TestCase):
         response = self.client.get(reverse("dashboard:home"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Your pages")
+        self.assertContains(response, "Active pages")
         self.assertContains(response, "Add another company page")
         self.assertNotContains(response, "+ Add company page")
 

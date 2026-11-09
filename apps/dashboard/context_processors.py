@@ -49,6 +49,9 @@ def navbar_account_context(request):
         status__in=["awaiting_payment", "paid"],
         access_until__gt=timezone.now(),
     ).exists()
+    from apps.billing.access import has_publication_access
+
+    has_plan_access = has_publication_access(user)
 
     return {
         "subscription_billing_enabled": settings.SUBSCRIPTION_BILLING_ENABLED,
@@ -62,4 +65,5 @@ def navbar_account_context(request):
         "navbar_active_notification_count": 0,
         "navbar_customer_notification_count": customer_notification_count,
         "navbar_has_active_billing_subscription": has_active_billing_subscription or has_manual_plan,
+        "navbar_has_publication_access": has_plan_access,
     }
