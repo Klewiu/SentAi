@@ -312,6 +312,8 @@ class BillingInvoiceTrackingTests(TestCase):
         download = self.client.get(reverse("dashboard:customer-invoice-download", args=[invoice.pk]))
 
         self.assertContains(page, "FV/2026/002")
+        self.assertContains(page, 'class="mt-6 space-y-3 md:hidden"')
+        self.assertContains(page, "grid-cols-[minmax(0,1fr)]")
         self.assertEqual(download.status_code, 200)
         self.assertEqual(b"".join(download.streaming_content), b"%PDF-1.4 customer invoice")
 
@@ -327,6 +329,7 @@ class BillingInvoiceTrackingTests(TestCase):
         response = self.client.get(reverse("dashboard:customer-notifications"), {"show": "all", "type": NotificationCategory.INVOICE})
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "grid-cols-[minmax(0,1fr)]")
         self.assertContains(response, "New invoice available")
         self.assertContains(response, invoice.invoice_number)
         self.assertTrue(CustomerNotification.objects.filter(user=self.customer, reference_key=f"customer:{self.customer.pk}:welcome").exists())
@@ -699,6 +702,7 @@ class DashboardPlanLimitTests(TestCase):
         for tier, amount in ((UserPlanTier.BASIC, 10000), (UserPlanTier.PLUS, 20000), (UserPlanTier.PRO, 40000)):
             BillingPlanPrice.objects.create(tier=tier, currency="pln", amount=amount, stripe_price_id=f"price_{tier.lower()}_flow")
         page = self.client.get(reverse("dashboard:plan-update"))
+        self.assertContains(page, "grid-cols-[minmax(0,1fr)]")
         self.assertContains(page, "Basic")
         self.assertContains(page, "Plus")
         self.assertContains(page, "Pro")
@@ -2132,6 +2136,7 @@ class DashboardPlanLimitTests(TestCase):
         response = self.client.get(reverse("dashboard:plan-update"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "grid-cols-[minmax(0,1fr)]")
         self.assertContains(response, 'value="BASIC"')
         self.assertContains(response, 'value="PLUS"')
         self.assertContains(response, 'value="PRO"')
