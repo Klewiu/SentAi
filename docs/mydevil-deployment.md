@@ -2,7 +2,42 @@
 
 Pliki są przygotowane lokalnie. Samo ich wgranie nie instaluje zadania Cron.
 
-Przed uruchomieniem produkcji skonfiguruj i przetestuj SMTP, a następnie ustaw `REGISTRATION_EMAIL_VERIFICATION_REQUIRED=True`. Tymczasowo rejestracja aktywuje konto bez linku; adres nie jest oznaczany jako zweryfikowany. Przełącznik dotyczy nowych rejestracji, nie odblokowuje wcześniej zablokowanych kont ani nie wyłącza potwierdzania zmiany adresu e-mail.
+Produkcja używa SMTP MyDevil (`mail92.mydevil.net`, port `587`, STARTTLS) i nadawcy `kontakt@xoaila.pl`. W produkcyjnym środowisku aplikacji ustaw (wartości z `.env.example` dla lokalnego developmentu trzeba nadpisać):
+
+```dotenv
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=mail92.mydevil.net
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_USE_SSL=False
+EMAIL_HOST_USER=kontakt@xoaila.pl
+EMAIL_HOST_PASSWORD=
+DEFAULT_FROM_EMAIL=kontakt@xoaila.pl
+REGISTRATION_EMAIL_VERIFICATION_REQUIRED=True
+```
+
+Wartość `EMAIL_HOST_PASSWORD` wpisz bezpośrednio w ustawieniach środowiska serwera; nie umieszczaj hasła w repozytorium ani w wiadomości. Produkcyjne ustawienie `REGISTRATION_EMAIL_VERIFICATION_REQUIRED` domyślnie włącza potwierdzenie adresu; rejestracja nie aktywuje konta, dopóki użytkownik nie kliknie linku z wiadomości. Port i szyfrowanie można zmienić przez `EMAIL_PORT`, `EMAIL_USE_TLS` i `EMAIL_USE_SSL`.
+
+### Lokalny test SMTP
+
+W lokalnym, ignorowanym przez Git pliku `.env` zastąp wartości `EMAIL_*` i `DEFAULT_FROM_EMAIL` zmiennymi SMTP z przykładu powyżej (nie dopisuj drugich wpisów tych samych kluczy) i ustaw:
+
+```dotenv
+SITE_BASE_URL=http://127.0.0.1:8000
+REGISTRATION_EMAIL_VERIFICATION_REQUIRED=True
+```
+
+Wpisz prawdziwe hasło skrzynki wyłącznie w lokalnym `.env`. Uruchom aplikację ponownie po zmianie `.env`; wiadomość testowa będzie wysyłana przez MyDevil do adresu podanego w formularzu. Link potwierdzający będzie prowadził do lokalnego serwera, więc kliknij go w przeglądarce, w której lokalna aplikacja działa.
+
+Wiadomość potwierdzająca korzysta z szablonów `templates/emails/verification_email.html` i `templates/emails/verification_email.txt`. Język wybierany jest na podstawie języka formularza. Nagłówek wiadomości używa tego samego wordmarku co menu aplikacji: `xoaila` z zieloną kropką.
+
+Jeśli `31.186.84.37` jest przypisanym w DevilWEB wychodzącym adresem IP poczty, dodaj go również do rekordu SPF domeny, zachowując istniejące mechanizmy, na przykład:
+
+```text
+v=spf1 mx a ip4:31.186.84.37/32 include:mail92.mydevil.net -all
+```
+
+Włącz też DKIM w DevilWEB i opublikuj wygenerowany rekord DNS. Szczegóły: [dokumentacja poczty MyDevil](https://pomoc.mydevil.net/Poczta/).
 
 ## Aplikacja
 

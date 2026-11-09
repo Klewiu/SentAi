@@ -1,5 +1,10 @@
+from django import forms
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.contrib.auth.models import AnonymousUser
+from django.core import signing
+from django.template.loader import render_to_string
+from django.test import RequestFactory, TestCase, override_settings
+from django.utils import translation
 from django.urls import reverse
 from unittest.mock import patch
 
@@ -29,6 +34,21 @@ class RegistrationCountryValidationTests(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("country", form.errors)
+        self.assertIn("Wybierz kraj.", form.errors["country"])
+
+    def test_registration_country_is_a_select_with_only_poland(self):
+        for language_code, option_label, placeholder in (
+            ("pl", "Polska", "Wybierz kraj"),
+            ("en", "Poland", "Select a country"),
+        ):
+            form = UserRegistrationForm(language_code=language_code)
+            country_field = form.fields["country"]
+
+            self.assertIsInstance(country_field.widget, forms.Select)
+            self.assertEqual(
+                list(country_field.choices),
+                [("", placeholder), ("Poland", option_label)],
+            )
 
     def test_rejects_non_polish_company_with_localized_message(self):
         polish_form = UserRegistrationForm(
@@ -42,22 +62,22 @@ class RegistrationCountryValidationTests(TestCase):
 
         self.assertFalse(polish_form.is_valid())
         self.assertIn(
-            "Aplikacja jest dostępna jedynie dla firm z Polski.",
+            "Wybierz kraj z dostępnej listy.",
             polish_form.errors["country"],
         )
         self.assertFalse(english_form.is_valid())
         self.assertIn(
-            "The application is available only to companies from Poland.",
+            "Select a country from the available options.",
             english_form.errors["country"],
         )
 
-    def test_accepts_polish_and_english_country_names_case_insensitively(self):
+    def test_selected_country_is_saved_in_the_current_language(self):
         polish_form = UserRegistrationForm(
-            data=self.form_data("  POLSKA  "),
+            data=self.form_data("Poland"),
             language_code="pl",
         )
         english_form = UserRegistrationForm(
-            data=self.form_data("poland"),
+            data=self.form_data("Poland"),
             language_code="en",
         )
 
@@ -68,6 +88,68 @@ class RegistrationCountryValidationTests(TestCase):
 
 
 class RegistrationFlowTests(TestCase):
+    def test_verification_notice_is_localized_and_includes_resend_form(self):
+        request = RequestFactory().get("/accounts/verify-email/")
+        request.user = AnonymousUser()
+
+        for language_code, heading, other_heading, resend_label in (
+            ("pl", "Sprawdź swoją pocztę", "Check your inbox", "Wyślij ponownie"),
+            ("en", "Check your inbox", "Sprawdź swoją pocztę", "Resend email"),
+        ):
+            request.LANGUAGE_CODE = language_code
+            rendered = render_to_string(
+                "registration/verify_notice.html",
+                {"request": request},
+                request=request,
+            )
+            self.assertIn(heading, rendered)
+            self.assertNotIn(other_heading, rendered)
+            self.assertIn(resend_label, rendered)
+            self.assertIn('action="/accounts/resend-verification/"', rendered)
+            self.assertIn('name="csrfmiddlewaretoken"', rendered)
+
+    def test_email_confirmation_success_message_uses_selected_language(self):
+        for language_code, username, message, other_message in (
+            (
+                "pl",
+                "confirmed-polish",
+                "Adres e-mail został potwierdzony. Możesz się zalogować.",
+                "Email confirmed. You can sign in.",
+            ),
+            (
+                "en",
+                "confirmed-english",
+                "Email confirmed. You can sign in.",
+                "Adres e-mail został potwierdzony. Możesz się zalogować.",
+            ),
+        ):
+            user = User.objects.create_user(
+                username=username,
+                email=f"{username}@example.com",
+                company_name="Example Company",
+                is_active=False,
+                registration_pending=True,
+                password="StrongPass123!",
+            )
+            token = signing.dumps(
+                {
+                    "user": user.pk,
+                    "email": user.email,
+                    "password": user.get_session_auth_hash(),
+                },
+                salt="email-verification",
+                compress=True,
+            )
+
+            with translation.override(language_code):
+                response = self.client.get(
+                    reverse("accounts:verify-email", args=[token]),
+                    follow=True,
+                )
+
+            self.assertContains(response, message)
+            self.assertNotContains(response, other_message)
+
     @override_settings(REGISTRATION_EMAIL_VERIFICATION_REQUIRED=False)
     def test_registration_without_confirmation_activates_account_without_email(self):
         with patch("apps.accounts.verification.send_verification") as send:

@@ -8,6 +8,30 @@ from .forms import ProfilePasswordChangeForm
 
 
 class AccountSecurityTests(TestCase):
+    @override_settings(DEFAULT_FROM_EMAIL="kontakt@xoaila.pl")
+    def test_verification_email_uses_configured_sender(self):
+        from .verification import send_verification
+
+        send_verification(self.user, "pl")
+
+        self.assertEqual(mail.outbox[-1].from_email, "kontakt@xoaila.pl")
+        self.assertEqual(mail.outbox[-1].to, ["audit@example.com"])
+        self.assertEqual(mail.outbox[-1].subject, "Potwierdź swój adres e-mail")
+        self.assertIn("Potwierdź adres e-mail", mail.outbox[-1].body)
+        html_body = mail.outbox[-1].alternatives[0][0]
+        self.assertIn(">xoaila</span>", html_body)
+        self.assertIn("background:#5ca197", html_body)
+        self.assertNotIn("cid:xoaila-logo", html_body)
+
+    def test_verification_email_supports_english(self):
+        from .verification import send_verification
+
+        send_verification(self.user, "en")
+
+        self.assertEqual(mail.outbox[-1].subject, "Confirm your email address")
+        self.assertIn("Confirm your email address", mail.outbox[-1].body)
+        self.assertIn(">xoaila</span>", mail.outbox[-1].alternatives[0][0])
+
     def test_disabled_account_cannot_be_reactivated_by_email_change(self):
         from .verification import send_verification
         self.user.pending_email = "replacement@example.com"

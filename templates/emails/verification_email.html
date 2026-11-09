@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="{% if language_code == 'pl' %}pl{% else %}en{% endif %}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% if language_code == 'pl' %}Potwierdź swój adres e-mail{% else %}Confirm your email address{% endif %}</title>
+</head>
+<body style="margin:0;padding:32px 16px;background-color:#f4f7f8;font-family:Arial,Helvetica,sans-serif;color:#353535;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e1e7e9;border-radius:16px;">
+        <tr>
+            <td style="padding:32px 32px 24px;text-align:center;border-bottom:1px solid #edf0f1;">
+                <span style="font-family:Arial,Helvetica,sans-serif;font-size:32px;line-height:1;font-weight:700;letter-spacing:-1px;color:#284b63;">xoaila</span><span style="display:inline-block;width:10px;height:10px;margin-left:6px;border-radius:50%;background:#5ca197;vertical-align:baseline;"></span>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding:32px;">
+                {% if language_code == 'pl' %}
+                    <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#284b63;">Potwierdź swój adres e-mail</h1>
+                    <p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#535d62;">Dziękujemy za rejestrację w Xoaila. Kliknij przycisk poniżej, aby potwierdzić adres e-mail i aktywować konto.</p>
+                    <p style="margin:0 0 24px;text-align:center;">
+                        <a href="{{ verification_url }}" style="display:inline-block;padding:14px 24px;border-radius:8px;background:#284b63;color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;">Potwierdź adres e-mail</a>
+                    </p>
+                    <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#68747a;">Link jest ważny przez 24 godziny. Jeśli nie zakładałeś(-aś) konta, zignoruj tę wiadomość.</p>
+                    <p style="margin:0;font-size:12px;line-height:1.6;color:#879196;word-break:break-all;">Jeśli przycisk nie działa, otwórz ten adres:<br>{{ verification_url }}</p>
+                {% else %}
+                    <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#284b63;">Confirm your email address</h1>
+                    <p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#535d62;">Thanks for signing up with Xoaila. Click the button below to confirm your email address and activate your account.</p>
+                    <p style="margin:0 0 24px;text-align:center;">
+                        <a href="{{ verification_url }}" style="display:inline-block;padding:14px 24px;border-radius:8px;background:#284b63;color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;">Confirm email address</a>
+                    </p>
+                    <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#68747a;">This link expires in 24 hours. If you did not create an account, you can ignore this message.</p>
+                    <p style="margin:0;font-size:12px;line-height:1.6;color:#879196;word-break:break-all;">If the button does not work, open this link:<br>{{ verification_url }}</p>
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td style="padding:16px 32px;border-top:1px solid #edf0f1;text-align:center;font-size:11px;line-height:1.5;color:#879196;">
+                xoaila · AI-native data publishing
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

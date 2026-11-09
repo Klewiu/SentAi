@@ -1,11 +1,89 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Check your email</h1>
-<p>Confirm your email address using the link we send you. Links expire after 24 hours.</p>
-<form method="post" action="{% url 'accounts:resend-verification' %}">
-    {% csrf_token %}
-    <label for="email">Email address</label>
-    <input id="email" type="email" name="email" required>
-    <button type="submit">Send another confirmation link</button>
-</form>
+<section class="mx-auto w-full max-w-2xl overflow-hidden rounded-2xl border border-[#d9d9d9] bg-white shadow-xl shadow-[#284b63]/5">
+    <div class="h-1.5 bg-gradient-to-r from-[#284b63] via-[#3a6b6a] to-[#5ca197]"></div>
+    <div class="px-6 py-10 sm:px-12 sm:py-14">
+        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-[#5ca197]/20 bg-[#5ca197]/10 text-[#5ca197] shadow-sm">
+            <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75A2.25 2.25 0 0 1 6 4.5h12a2.25 2.25 0 0 1 2.25 2.25v10.5A2.25 2.25 0 0 1 18 19.5H6a2.25 2.25 0 0 1-2.25-2.25V6.75Z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 6 6.26 5.01a2 2 0 0 0 2.5 0L19.5 6"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m15.5 16 1.5 1.5 3-3"/>
+            </svg>
+        </div>
+
+        <div class="mt-6 text-center">
+            <span class="inline-flex items-center gap-2 rounded-full border border-[#5ca197]/20 bg-[#5ca197]/5 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#5ca197]">
+                <span class="h-1.5 w-1.5 rounded-full bg-[#5ca197]"></span>
+                {% if request.LANGUAGE_CODE == 'pl' %}Jeszcze jeden krok{% else %}One more step{% endif %}
+            </span>
+            <h1 class="mt-4 font-display text-3xl font-bold tracking-tight text-[#284b63] sm:text-4xl">
+                {% if request.LANGUAGE_CODE == 'pl' %}Sprawdź swoją pocztę{% else %}Check your inbox{% endif %}
+            </h1>
+            <p class="mx-auto mt-4 max-w-lg text-base leading-relaxed text-[#353535]/70">
+                {% if request.LANGUAGE_CODE == 'pl' %}
+                    Wysłaliśmy wiadomość z linkiem potwierdzającym. Kliknij go, aby potwierdzić adres e-mail i aktywować konto SentAi.
+                {% else %}
+                    We sent you an email with a confirmation link. Click it to verify your email address and activate your SentAi account.
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="mt-8 rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-4 sm:p-5">
+            <div class="flex gap-3">
+                <svg class="mt-0.5 h-5 w-5 shrink-0 text-[#284b63]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 11v5m0-8h.01"/>
+                </svg>
+                <p class="text-sm leading-relaxed text-[#353535]/70">
+                    {% if request.LANGUAGE_CODE == 'pl' %}
+                        Nie widzisz wiadomości? Sprawdź folder spam. Link jest ważny przez 24 godziny.
+                    {% else %}
+                        Can't find the email? Check your spam folder. The confirmation link is valid for 24 hours.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="mt-8 border-t border-[#d9d9d9] pt-7">
+            <h2 class="font-display text-lg font-semibold text-[#284b63]">
+                {% if request.LANGUAGE_CODE == 'pl' %}Wyślij link ponownie{% else %}Send a new confirmation link{% endif %}
+            </h2>
+            <p class="mt-1 text-sm leading-relaxed text-[#353535]/60">
+                {% if request.LANGUAGE_CODE == 'pl' %}
+                    Jeśli wiadomość nie dotarła, wpisz adres użyty podczas rejestracji.
+                {% else %}
+                    If the email didn't arrive, enter the address you used to register.
+                {% endif %}
+            </p>
+            <form method="post" action="{% url 'accounts:resend-verification' %}" class="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+                {% csrf_token %}
+                <label class="sr-only" for="verification-email">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Adres e-mail{% else %}Email address{% endif %}
+                </label>
+                <input
+                    id="verification-email"
+                    class="min-h-12 rounded-lg border border-[#d9d9d9] bg-white px-4 font-sans text-sm text-[#353535] placeholder:text-[#353535]/40 focus:border-[#5ca197] focus:ring-[#5ca197]/20"
+                    type="email"
+                    name="email"
+                    autocomplete="email"
+                    required
+                    placeholder="{% if request.LANGUAGE_CODE == 'pl' %}Adres e-mail{% else %}Email address{% endif %}"
+                >
+                <button type="submit" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#284b63] px-5 font-sans text-sm font-semibold text-white shadow-sm transition hover:bg-[#1e3a4f] focus:outline-none focus:ring-2 focus:ring-[#5ca197]/40 focus:ring-offset-2">
+                    {% if request.LANGUAGE_CODE == 'pl' %}Wyślij ponownie{% else %}Resend email{% endif %}
+                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path d="M3.4 3.2a.75.75 0 0 0-.98.9l1.48 4.45 6.1 1.45-6.1 1.45-1.48 4.45a.75.75 0 0 0 .98.9l13.5-6a.75.75 0 0 0 0-1.37l-13.5-6.23Z"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+
+        <p class="mt-7 text-center text-sm text-[#353535]/55">
+            {% if request.LANGUAGE_CODE == 'pl' %}Masz już konto?{% else %}Already have an account?{% endif %}
+            <a href="{% url 'login' %}" class="font-semibold text-[#5ca197] underline-offset-4 hover:text-[#2e5558] hover:underline">
+                {% if request.LANGUAGE_CODE == 'pl' %}Zaloguj się{% else %}Sign in{% endif %}
+            </a>
+        </p>
+    </div>
+</section>
 {% endblock %}

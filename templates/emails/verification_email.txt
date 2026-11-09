@@ -1,0 +1,16 @@
+{% if language_code == 'pl' %}Potwierdź swój adres e-mail
+
+Dziękujemy za rejestrację w Xoaila. Potwierdź adres e-mail i aktywuj konto, otwierając ten link:
+{{ verification_url }}
+
+Link jest ważny przez 24 godziny. Jeśli nie zakładałeś(-aś) konta, zignoruj tę wiadomość.
+
+xoaila · AI-native data publishing
+{% else %}Confirm your email address
+
+Thanks for signing up with Xoaila. Confirm your email address and activate your account by opening this link:
+{{ verification_url }}
+
+This link expires in 24 hours. If you did not create an account, you can ignore this message.
+
+xoaila · AI-native data publishing{% endif %}

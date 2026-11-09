@@ -3,9 +3,8 @@
     <div class="relative space-y-6 lg:grid lg:grid-cols-5 lg:gap-6 lg:space-y-0">
         <div class="pointer-events-none absolute left-[10%] right-[10%] top-5 hidden h-0.5 bg-[#d9d9d9] lg:block"></div>
         <!-- Step 1 -->
-        <div class="relative pl-16 lg:pl-0 lg:pt-16 lg:text-center">
-            <a href="{% url 'register' %}" class="absolute left-0 top-0 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#5ca197] bg-[#5ca197] font-display text-base font-bold text-white transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#5ca197]/30 lg:left-1/2 lg:-translate-x-1/2" aria-label="{% if request.LANGUAGE_CODE == 'pl' %}Przejdź do rejestracji{% else %}Go to registration{% endif %}">1</a>
-            <div class="absolute bottom-[-1.5rem] left-5 top-10 w-0.5 bg-[#d9d9d9] lg:hidden"></div>
+        <div class="relative flex flex-col items-center text-center lg:block lg:pl-0 lg:pt-16">
+            <a href="{% url 'register' %}" class="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#5ca197] bg-[#5ca197] font-display text-base font-bold text-white transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#5ca197]/30 lg:absolute lg:left-1/2 lg:top-0 lg:mb-0 lg:-translate-x-1/2" aria-label="{% if request.LANGUAGE_CODE == 'pl' %}Przejdź do rejestracji{% else %}Go to registration{% endif %}">1</a>
             <h3 class="mb-2 font-display text-base font-semibold text-[#284b63]">
                 {% if request.LANGUAGE_CODE == 'pl' %}Zarejestruj się{% else %}Register{% endif %}
             </h3>
@@ -15,9 +14,8 @@
         </div>
 
         <!-- Step 2 -->
-        <div class="relative pl-16 lg:pl-0 lg:pt-16 lg:text-center">
-            <div class="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#284b63] bg-white font-display text-base font-bold text-[#284b63] lg:left-1/2 lg:-translate-x-1/2">2</div>
-            <div class="absolute bottom-[-1.5rem] left-5 top-10 w-0.5 bg-[#d9d9d9] lg:hidden"></div>
+        <div class="relative flex flex-col items-center text-center lg:block lg:pl-0 lg:pt-16">
+            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#284b63] bg-white font-display text-base font-bold text-[#284b63] lg:absolute lg:left-1/2 lg:top-0 lg:mb-0 lg:-translate-x-1/2">2</div>
             <h3 class="mb-2 font-display text-base font-semibold text-[#284b63]">
                 {% if request.LANGUAGE_CODE == 'pl' %}Wybierz jeden z trzech planów{% else %}Choose one of three plans{% endif %}
             </h3>
@@ -27,9 +25,8 @@
         </div>
 
         <!-- Step 3 -->
-        <div class="relative pl-16 lg:pl-0 lg:pt-16 lg:text-center">
-            <div class="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#284b63] bg-white font-display text-base font-bold text-[#284b63] lg:left-1/2 lg:-translate-x-1/2">3</div>
-            <div class="absolute bottom-[-1.5rem] left-5 top-10 w-0.5 bg-[#d9d9d9] lg:hidden"></div>
+        <div class="relative flex flex-col items-center text-center lg:block lg:pl-0 lg:pt-16">
+            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#284b63] bg-white font-display text-base font-bold text-[#284b63] lg:absolute lg:left-1/2 lg:top-0 lg:mb-0 lg:-translate-x-1/2">3</div>
             <h3 class="mb-2 font-display text-base font-semibold text-[#284b63]">
                 {% if request.LANGUAGE_CODE == 'pl' %}Wprowadź dane swojego biznesu{% else %}Enter your business data{% endif %}
             </h3>
@@ -39,9 +36,8 @@
         </div>
 
         <!-- Step 4 -->
-        <div class="relative pl-16 lg:pl-0 lg:pt-16 lg:text-center">
-            <div class="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#284b63] bg-white font-display text-base font-bold text-[#284b63] lg:left-1/2 lg:-translate-x-1/2">4</div>
-            <div class="absolute bottom-[-1.5rem] left-5 top-10 w-0.5 bg-[#d9d9d9] lg:hidden"></div>
+        <div class="relative flex flex-col items-center text-center lg:block lg:pl-0 lg:pt-16">
+            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#284b63] bg-white font-display text-base font-bold text-[#284b63] lg:absolute lg:left-1/2 lg:top-0 lg:mb-0 lg:-translate-x-1/2">4</div>
             <h3 class="mb-2 font-display text-base font-semibold text-[#284b63]">
                 {% if request.LANGUAGE_CODE == 'pl' %}Xoaila generuje dane AI-ready{% else %}Xoaila generates AI-ready data{% endif %}
             </h3>
@@ -51,8 +47,8 @@
         </div>
 
         <!-- Step 5 -->
-        <div class="relative pl-16 lg:pl-0 lg:pt-16 lg:text-center">
-            <div class="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#284b63] bg-white font-display text-base font-bold text-[#284b63] lg:left-1/2 lg:-translate-x-1/2">5</div>
+        <div class="relative flex flex-col items-center text-center lg:block lg:pl-0 lg:pt-16">
+            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#284b63] bg-white font-display text-base font-bold text-[#284b63] lg:absolute lg:left-1/2 lg:top-0 lg:mb-0 lg:-translate-x-1/2">5</div>
             <h3 class="mb-2 font-display text-base font-semibold text-[#284b63]">
                 {% if request.LANGUAGE_CODE == 'pl' %}AI widzi Twoją firmę{% else %}AI sees your company{% endif %}
             </h3>

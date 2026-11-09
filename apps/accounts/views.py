@@ -95,7 +95,7 @@ class RegisterView(FormView):
         user.save()
         from .verification import send_verification
         try:
-            send_verification(user)
+            send_verification(user, self.request.LANGUAGE_CODE)
         except Exception:
             logger.exception("Registration verification delivery failed")
             messages.warning(self.request, "Email could not be delivered. Please request another confirmation link.")
@@ -162,7 +162,7 @@ class ProfileView(LoginRequiredMixin, FormView):
             user.save()
             from .verification import send_verification
             try:
-                send_verification(user)
+                send_verification(user, self.request.LANGUAGE_CODE)
                 messages.info(self.request, "Confirm your new email address before it replaces your current address.")
             except Exception:
                 logger.exception("Email change verification delivery failed")
@@ -312,7 +312,10 @@ class VerifyEmailView(View):
             user.registration_pending = False
             user.is_active = True
             user.save()
-            messages.success(request, "Email confirmed. You can sign in.")
+            if request.LANGUAGE_CODE == "pl":
+                messages.success(request, "Adres e-mail został potwierdzony. Możesz się zalogować.")
+            else:
+                messages.success(request, "Email confirmed. You can sign in.")
             return redirect("login")
         except (signing.BadSignature, User.DoesNotExist, KeyError, ValueError, IntegrityError):
             messages.error(request, "This confirmation link is invalid or expired. Request another link.")
@@ -328,7 +331,7 @@ class ResendVerificationView(View):
         user = User.objects.filter(Q(email__iexact=email, is_active=False, registration_pending=True) | Q(pending_email__iexact=email, is_active=True)).first() if email else None
         if user:
             try:
-                send_verification(user)
+                send_verification(user, request.LANGUAGE_CODE)
             except Exception:
                 logger.exception("Verification resend failed")
         messages.info(request, "If this address needs confirmation, we have sent a link.")

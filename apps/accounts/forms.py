@@ -18,6 +18,8 @@ def validate_polish_company_country(value, language_code):
 
 
 class UserRegistrationForm(UserCreationForm):
+    country = forms.ChoiceField(required=True)
+
     class Meta(UserCreationForm.Meta):
         model = User
         fields = ("username", "company_name", "email", "country", "password1", "password2")
@@ -29,6 +31,18 @@ class UserRegistrationForm(UserCreationForm):
 
         self.fields["company_name"].required = True
         self.fields["country"].required = True
+        self.fields["country"].choices = [
+            ("", "Wybierz kraj" if language_code == "pl" else "Select a country"),
+            ("Poland", "Polska" if language_code == "pl" else "Poland"),
+        ]
+        self.fields["country"].error_messages.update({
+            "required": "Wybierz kraj." if language_code == "pl" else "Select a country.",
+            "invalid_choice": (
+                "Wybierz kraj z dostępnej listy."
+                if language_code == "pl"
+                else "Select a country from the available options."
+            ),
+        })
 
         if language_code == "pl":
             self.fields["username"].label = "Nazwa użytkownika"
@@ -43,7 +57,6 @@ class UserRegistrationForm(UserCreationForm):
         self.fields["username"].widget.attrs.update({"autocomplete": "username"})
         self.fields["company_name"].widget.attrs.update({"autocomplete": "organization"})
         self.fields["email"].widget.attrs.update({"autocomplete": "email"})
-        self.fields["country"].widget.attrs.update({"autocomplete": "country-name"})
         self.fields["password1"].widget.attrs.update({"autocomplete": "new-password"})
         self.fields["password2"].widget.attrs.update({"autocomplete": "new-password"})
 

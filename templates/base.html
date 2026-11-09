@@ -62,29 +62,50 @@
             }
         }
     </style>
+    <style>
+        @media (max-width: 639px) {
+            #mobile-nav-menu {
+                gap: 0.75rem;
+            }
+
+            #mobile-nav-menu .grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            #mobile-nav-menu a,
+            #mobile-nav-menu button,
+            #mobile-nav-menu > div > span {
+                min-height: 3.5rem;
+                padding-top: 0.75rem;
+                padding-bottom: 0.75rem;
+                font-size: 1rem;
+                line-height: 1.35;
+            }
+        }
+    </style>
 </head>
 <body class="min-h-screen bg-[#f8fafa] text-[#353535] font-sans antialiased">
     {% get_media_prefix as media_prefix %}
 
     <!-- Top navigation bar -->
-    <header class="sticky top-0 z-40 bg-white border-b border-[#d9d9d9] shadow-sm">
-        <div class="mx-auto max-w-7xl px-3 sm:flex sm:min-h-14 sm:items-center sm:justify-between sm:gap-3 sm:px-6 lg:px-8">
-            <div class="flex min-h-14 items-center justify-between gap-3 py-2 sm:min-h-0 sm:py-0">
+    <header class="sticky top-0 z-40 border-b border-[#d9d9d9]/70 bg-white/95 shadow-md shadow-[#284b63]/10 backdrop-blur-md">
+        <div class="mx-auto max-w-7xl px-3 sm:flex sm:min-h-20 sm:items-center sm:justify-between sm:gap-3 sm:px-6 lg:px-8">
+            <div class="flex min-h-16 items-center justify-between gap-3 py-2 sm:min-h-20 sm:py-0">
                 <!-- Logo -->
                 <a class="inline-flex items-end gap-1 shrink-0" href="{% url 'landing' %}">
-                    <span class="font-display text-2xl font-bold tracking-tight text-[#284b63]">xoaila</span>
-                    <span class="mb-0.5 h-2 w-2 rounded-full bg-[#5ca197] shrink-0"></span>
+                    <span class="font-display text-[2rem] font-bold tracking-tight text-[#284b63] drop-shadow-[0_2px_3px_rgba(40,75,99,0.2)] sm:text-[2.65rem]">xoaila</span>
+                    <span class="mb-2 h-3 w-3 rounded-full bg-[#5ca197] shrink-0"></span>
                 </a>
 
                 <button
                     id="mobile-menu-toggle"
                     type="button"
-                    class="inline-flex min-h-9 min-w-9 items-center justify-center rounded border border-[#d9d9d9] bg-white px-2 text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:hidden"
+                    class="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-white text-[#353535]/70 shadow-sm transition hover:border-[#5ca197] hover:text-[#5ca197] sm:hidden"
                     aria-label="Toggle navigation menu"
                     aria-expanded="false"
                     aria-controls="mobile-nav-menu"
                 >
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h16"></path>
                     </svg>
                 </button>
@@ -188,6 +209,13 @@
                                 {% if request.LANGUAGE_CODE == 'pl' %}Wyloguj{% else %}Logout{% endif %}
                             </button>
                         </form>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="inline-flex min-h-9 w-full items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Zaloguj się{% else %}Log in{% endif %}
+                        </a>
+                        <a href="{% url 'register' %}" class="inline-flex min-h-9 w-full items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Zarejestruj się{% else %}Get started{% endif %}
+                        </a>
                     {% endif %}
                 </div>
             </div>
