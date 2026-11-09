@@ -562,6 +562,70 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("dashboard:organization-create"))
 
+    @override_settings(
+        STORAGES={
+            "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+            "staticfiles": {
+                "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+            },
+        }
+    )
+    def test_authenticated_homepage_and_dashboard_show_consistent_navigation(self):
+        for language_code, ordered_labels in (
+            (
+                "en",
+                (
+                    "Client dashboard",
+                    "Plans",
+                    "Invoices",
+                    "Notifications",
+                    "Active pages",
+                    "User",
+                    "Log out",
+                    "Language: Polish",
+                ),
+            ),
+            (
+                "pl",
+                (
+                    "Panel klienta",
+                    "Plany",
+                    "Faktury",
+                    "Powiadomienia",
+                    "Aktywne strony",
+                    "Użytkownik",
+                    "Wyloguj",
+                    "Język: English",
+                ),
+            ),
+        ):
+            with override(language_code):
+                plan_url = reverse("dashboard:plan-update")
+                invoice_url = reverse("dashboard:customer-invoices")
+                notifications_url = reverse("dashboard:customer-notifications")
+                profile_url = reverse("accounts:profile")
+                dashboard_url = reverse("dashboard:home")
+                responses = (
+                    self.client.get(reverse("landing")),
+                    self.client.get(reverse("dashboard:home")),
+                )
+            for response in responses:
+                header = response.content.split(b"<header", 1)[1].split(b"</header>", 1)[0].decode()
+
+                self.assertIn(plan_url, header)
+                self.assertIn(invoice_url, header)
+                self.assertIn(notifications_url, header)
+                self.assertIn(profile_url, header)
+                self.assertIn(f'href="{dashboard_url}"', header)
+                self.assertIn("grid w-full grid-cols-1 gap-2 xl:flex xl:w-auto", header)
+                self.assertIn("grid-template-columns: minmax(0, 1fr)", response.content.decode())
+                self.assertIn("max-width: 1279px", response.content.decode())
+                self.assertIn("window.innerWidth >= 1280", response.content.decode())
+                self.assertIn("0/1", header)
+                self.assertNotIn(">G&#322;&#243;wna<", header)
+                label_positions = [header.index(label) for label in ordered_labels]
+                self.assertEqual(label_positions, sorted(label_positions))
+
     def test_inactive_plan_notice_does_not_show_hard_coded_price(self):
         with override("pl"):
             polish = self.client.get(reverse("dashboard:home"))

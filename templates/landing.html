@@ -27,13 +27,19 @@
     </script>
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
     <style>
-        @media (max-width: 639px) {
+        @media (max-width: 1279px) {
             #landing-mobile-nav-menu {
                 gap: 0.75rem;
             }
 
+            #landing-mobile-nav-menu .grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
             #landing-mobile-nav-menu a,
-            #landing-mobile-nav-menu button {
+            #landing-mobile-nav-menu button,
+            #landing-mobile-nav-menu .grid > span {
+                width: 100%;
                 min-height: 3.5rem;
                 padding-top: 0.75rem;
                 padding-bottom: 0.75rem;
@@ -41,6 +47,12 @@
                 line-height: 1.35;
             }
 
+            #landing-mobile-nav-menu form {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 639px) {
             .landing-main {
                 text-align: center;
             }
@@ -66,8 +78,8 @@
      NAVIGATION
      ============================================================ -->
 <header class="sticky top-0 z-50 border-b border-[#d9d9d9]/70 bg-white/95 shadow-md shadow-[#284b63]/10 backdrop-blur-md">
-    <div class="mx-auto max-w-7xl px-4 sm:flex sm:min-h-20 sm:items-center sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
-        <div class="flex min-h-16 items-center justify-between gap-4 py-2 sm:min-h-20 sm:py-0">
+    <div class="mx-auto max-w-7xl px-4 xl:flex xl:min-h-20 xl:items-center xl:justify-between xl:gap-4 sm:px-6 lg:px-8">
+        <div class="flex min-h-16 items-center justify-between gap-4 py-2 xl:min-h-20 xl:py-0">
 
             <!-- Logo -->
             <a href="{% url 'landing' %}" class="inline-flex items-end gap-1 shrink-0">
@@ -78,7 +90,7 @@
             <button
                 id="landing-mobile-menu-toggle"
                 type="button"
-                class="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-white text-[#353535]/70 shadow-sm transition hover:border-[#5ca197] hover:text-[#5ca197] sm:hidden"
+                class="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-white text-[#353535]/70 shadow-sm transition hover:border-[#5ca197] hover:text-[#5ca197] xl:hidden"
                 aria-label="Toggle navigation menu"
                 aria-expanded="false"
                 aria-controls="landing-mobile-nav-menu"
@@ -90,8 +102,9 @@
         </div>
 
         <!-- Right side -->
-        <div id="landing-mobile-nav-menu" class="hidden border-t border-[#d9d9d9] pb-3 pt-3 sm:block sm:flex-1 sm:border-t-0 sm:py-0">
-            <div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+        <div id="landing-mobile-nav-menu" class="hidden border-t border-[#d9d9d9] pb-3 pt-3 xl:block xl:flex-1 xl:border-t-0 xl:py-0">
+            <div class="flex w-full flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center xl:justify-end">
+                {% include 'partials/account_navigation.html' %}
                 <!-- Language switcher -->
                 <form action="{% url 'set_language_localized' %}" method="post" class="w-full sm:w-auto">
                     {% csrf_token %}
@@ -101,51 +114,17 @@
                             <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                 <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm7.93 9h-3.08a15.7 15.7 0 0 0-1.1-5A8.02 8.02 0 0 1 19.93 11ZM12 4c.94 1.2 1.7 3.1 2 5H10c.3-1.9 1.06-3.8 2-5ZM8.25 6a15.7 15.7 0 0 0-1.1 5H4.07A8.02 8.02 0 0 1 8.25 6ZM4.07 13h3.08a15.7 15.7 0 0 0 1.1 5A8.02 8.02 0 0 1 4.07 13ZM12 20c-.94-1.2-1.7-3.1-2-5h4c-.3 1.9-1.06 3.8-2 5Zm3.75-2a15.7 15.7 0 0 0 1.1-5h3.08A8.02 8.02 0 0 1 15.75 18ZM9 13a13.6 13.6 0 0 1 0-2h6a13.6 13.6 0 0 1 0 2Z" fill="currentColor"/>
                             </svg>
-                            <span>EN</span>
+                            <span>Język: English</span>
                         </button>
                     {% else %}
                         <button type="submit" name="language" value="pl" class="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto">
                             <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                 <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm7.93 9h-3.08a15.7 15.7 0 0 0-1.1-5A8.02 8.02 0 0 1 19.93 11ZM12 4c.94 1.2 1.7 3.1 2 5H10c.3-1.9 1.06-3.8 2-5ZM8.25 6a15.7 15.7 0 0 0-1.1 5H4.07A8.02 8.02 0 0 1 8.25 6ZM4.07 13h3.08a15.7 15.7 0 0 0 1.1 5A8.02 8.02 0 0 1 4.07 13ZM12 20c-.94-1.2-1.7-3.1-2-5h4c-.3 1.9-1.06 3.8-2 5Zm3.75-2a15.7 15.7 0 0 0 1.1-5h3.08A8.02 8.02 0 0 1 15.75 18ZM9 13a13.6 13.6 0 0 1 0-2h6a13.6 13.6 0 0 1 0 2Z" fill="currentColor"/>
                             </svg>
-                            <span>PL</span>
+                            <span>Language: Polish</span>
                         </button>
                     {% endif %}
                 </form>
-
-                {% if request.user.is_authenticated %}
-                    <a href="{% url 'accounts:profile' %}" class="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto">
-                        <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                            <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.3 0-6 1.8-6 4v1h12v-1c0-2.2-2.7-4-6-4z" fill="currentColor"/>
-                        </svg>
-                        <span class="max-w-[160px] truncate">
-                            {% if request.user.get_full_name %}
-                                {{ request.user.get_full_name|capfirst }}
-                            {% else %}
-                                {{ request.user.username|capfirst }}
-                            {% endif %}
-                        </span>
-                    </a>
-                    <a href="{% url 'dashboard:home' %}" class="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto">
-                        <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                            <path d="M4 5h7v7H4V5zm9 0h7v4h-7V5zM4 14h7v5H4v-5zm9-3h7v8h-7v-8z" fill="currentColor"/>
-                        </svg>
-                        <span>{% if request.LANGUAGE_CODE == 'pl' %}Panel{% else %}Dashboard{% endif %}</span>
-                    </a>
-                    <form action="{% url 'logout' %}" method="post" class="w-full sm:w-auto">
-                        {% csrf_token %}
-                        <button type="submit" class="inline-flex min-h-9 w-full items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-rose-400 hover:text-rose-500 sm:w-auto">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Wyloguj{% else %}Logout{% endif %}
-                        </button>
-                    </form>
-                {% else %}
-                    <a href="{% url 'login' %}" class="inline-flex min-h-9 w-full items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto">
-                        {% if request.LANGUAGE_CODE == 'pl' %}Zaloguj się{% else %}Log in{% endif %}
-                    </a>
-                    <a href="{% url 'register' %}" class="inline-flex min-h-9 w-full items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto">
-                        {% if request.LANGUAGE_CODE == 'pl' %}Zarejestruj się{% else %}Get started{% endif %}
-                    </a>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -178,7 +157,7 @@
         });
 
         window.addEventListener("resize", () => {
-            if (window.innerWidth >= 640) {
+            if (window.innerWidth >= 1280) {
                 mobileMenu.classList.remove("hidden");
                 toggleButton.setAttribute("aria-expanded", "false");
             } else {
@@ -188,7 +167,7 @@
         });
 
         document.addEventListener("keydown", (event) => {
-            if (event.key === "Escape" && window.innerWidth < 640) {
+            if (event.key === "Escape" && window.innerWidth < 1280) {
                 closeMenu();
             }
         });
