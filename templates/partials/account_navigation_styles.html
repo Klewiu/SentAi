@@ -1,0 +1,70 @@
+<style>
+    .account-nav-link {
+        display: inline-flex;
+        min-height: 2.5rem;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        border: 1px solid #dce6e8;
+        border-radius: 0.75rem;
+        background: #fff;
+        padding: 0.5rem 0.75rem;
+        color: #284b63;
+        font-family: Inter, sans-serif;
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.25rem;
+        text-decoration: none;
+        box-shadow: 0 1px 2px rgb(40 75 99 / 0.08);
+        transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    }
+
+    .account-nav-link:hover {
+        transform: translateY(-1px);
+        border-color: #284b63;
+        background: #284b63;
+        color: #fff;
+        box-shadow: 0 4px 10px rgb(40 75 99 / 0.18);
+    }
+
+    .account-nav-link-danger:hover {
+        border-color: #b42332;
+        background: #b42332;
+        color: #fff;
+        box-shadow: 0 4px 10px rgb(180 35 50 / 0.2);
+    }
+
+    .account-nav-link:focus-visible {
+        outline: 2px solid #5ca197;
+        outline-offset: 2px;
+    }
+
+    .account-nav-link-danger:focus-visible {
+        outline-color: #b42332;
+    }
+
+    .account-nav-link[aria-current="page"],
+    .account-nav-link[aria-current="page"]:hover {
+        border-color: #284b63;
+        background: #284b63;
+        color: #fff;
+        box-shadow: 0 2px 6px rgb(40 75 99 / 0.16);
+    }
+
+    .account-nav-static {
+        display: inline-flex;
+        min-height: 2.5rem;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        border: 1px solid #dce6e8;
+        border-radius: 0.75rem;
+        background: #f5f8f8;
+        padding: 0.5rem 0.75rem;
+        color: #284b63;
+        font-family: Inter, sans-serif;
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.25rem;
+    }
+</style>

@@ -1,5 +1,6 @@
+{% with current_view=request.resolver_match.view_name %}
 {% if request.user.is_authenticated %}
-    <a class="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto" href="{% url 'dashboard:home' %}">
+    <a class="account-nav-link" href="{% url 'dashboard:home' %}" {% if current_view == 'dashboard:home' %}aria-current="page"{% endif %}>
         <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M4 5h7v7H4V5zm9 0h7v4h-7V5zM4 14h7v5H4v-5zm9-3h7v8h-7v-8z" fill="currentColor"/>
         </svg>
@@ -8,31 +9,31 @@
     {% if navbar_show_account_badges %}
         <div class="grid w-full grid-cols-1 gap-2 xl:flex xl:w-auto">
             {% if request.user.account_type != 'STAFF' %}
-                <a class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-2 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:px-3" href="{% if navbar_has_active_billing_subscription %}{% url 'dashboard:billing-portal' %}{% else %}{% url 'dashboard:plan-update' %}{% endif %}">
+                <a class="account-nav-link" href="{% if navbar_has_active_billing_subscription %}{% url 'dashboard:billing-portal' %}{% else %}{% url 'dashboard:plan-update' %}{% endif %}" {% if current_view == 'dashboard:plan-update' or current_view == 'dashboard:billing-portal' or current_view == 'dashboard:plan-payment-method' or current_view == 'dashboard:plan-purchase-continue' or current_view == 'dashboard:plan-purchase-terms' or current_view == 'dashboard:stripe-plan-confirm' or current_view == 'dashboard:blik-plan-confirm' or current_view == 'dashboard:billing-profile' or current_view == 'dashboard:manual-plan-confirm' or current_view == 'dashboard:stripe-customer-portal' or current_view == 'dashboard:billing-subscription-cancel' or current_view == 'dashboard:billing-subscription-cancel-renewal' or current_view == 'dashboard:billing-subscription-reactivate' or current_view == 'dashboard:plan-checkout-success' or current_view == 'dashboard:plan-checkout-cancel' %}aria-current="page"{% endif %}>
                     <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M4 7h16l-2 11H6L4 7zm4-3h8v2H8V4z" fill="currentColor"/>
                     </svg>
                     <span class="truncate">{% if request.LANGUAGE_CODE == 'pl' %}Plany{% else %}Plans{% endif %}</span>
                 </a>
-                <a class="inline-flex min-h-9 items-center justify-center rounded border border-[#d9d9d9] bg-white px-2 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:px-3" href="{% url 'dashboard:customer-invoices' %}">
+                <a class="account-nav-link" href="{% url 'dashboard:customer-invoices' %}" {% if current_view == 'dashboard:customer-invoices' or current_view == 'dashboard:customer-invoice-download' %}aria-current="page"{% endif %}>
                     {% if request.LANGUAGE_CODE == 'pl' %}Faktury{% else %}Invoices{% endif %}
                 </a>
-                <a class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-2 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:px-3" href="{% url 'dashboard:customer-notifications' %}">
+                <a class="account-nav-link" href="{% url 'dashboard:customer-notifications' %}" {% if current_view == 'dashboard:customer-notifications' or current_view == 'dashboard:customer-notification-close' %}aria-current="page"{% endif %}>
                     <span>{% if request.LANGUAGE_CODE == 'pl' %}Powiadomienia{% else %}Notifications{% endif %}</span>
                     {% if navbar_customer_notification_count %}
-                        <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">{{ navbar_customer_notification_count }}</span>
+                        <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ navbar_customer_notification_count }}</span>
                     {% endif %}
                 </a>
             {% endif %}
             {% if request.user.account_type != 'STAFF' and navbar_has_publication_access %}
-                <span class="inline-flex min-h-9 cursor-default items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-2 py-2 font-mono text-xs font-medium text-[#353535]/70 sm:px-3">
+                <span class="account-nav-static cursor-default">
                     <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M5 6h14v12H5V6zm2 2v8h10V8H7zm4 1h2v6h-2V9z" fill="currentColor"/>
                     </svg>
                     <span>{% if request.LANGUAGE_CODE == 'pl' %}Aktywne strony{% else %}Active pages{% endif %}: {{ navbar_organization_count }}/{{ navbar_organization_limit }}</span>
                 </span>
             {% endif %}
-            <a href="{% url 'accounts:profile' %}" class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-2 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:px-3">
+            <a class="account-nav-link" href="{% url 'accounts:profile' %}" {% if current_view == 'accounts:profile' or current_view == 'accounts:profile-password' or current_view == 'accounts:close-account' %}aria-current="page"{% endif %}>
                 <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.3 0-6 1.8-6 4v1h12v-1c0-2.2-2.7-4-6-4z" fill="currentColor"/>
                 </svg>
@@ -41,7 +42,7 @@
         </div>
     {% endif %}
     {% if request.user.is_superuser %}
-        <span class="inline-flex min-h-9 w-full cursor-default items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/70 sm:w-auto">
+        <span class="account-nav-static w-full sm:w-auto">
             <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.3 0-6 1.8-6 4v1h12v-1c0-2.2-2.7-4-6-4z" fill="currentColor"/>
             </svg>
@@ -49,26 +50,21 @@
         </span>
     {% endif %}
     {% if request.user.is_superuser %}
-        <a class="inline-flex min-h-9 w-full items-center justify-center gap-2 rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto" href="{% url 'dashboard:notifications' %}">
+        <a class="account-nav-link w-full sm:w-auto" href="{% url 'dashboard:notifications' %}" {% if current_view == 'dashboard:notifications' or current_view == 'dashboard:notification-close' %}aria-current="page"{% endif %}>
             <span>{% if request.LANGUAGE_CODE == 'pl' %}Powiadomienia{% else %}Notifications{% endif %}</span>
             {% if navbar_active_notification_count %}
-                <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">{{ navbar_active_notification_count }}</span>
+                <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ navbar_active_notification_count }}</span>
             {% endif %}
         </a>
-        <a class="inline-flex min-h-9 w-full items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto" href="{% url 'admin:index' %}">Admin</a>
-        <a class="inline-flex min-h-9 w-full items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto" href="{% url 'companies_api:organization-list' %}">API</a>
+        <a class="account-nav-link w-full sm:w-auto" href="{% url 'admin:index' %}" {% if 'admin:' in current_view %}aria-current="page"{% endif %}>Admin</a>
+        <a class="account-nav-link w-full sm:w-auto" href="{% url 'companies_api:organization-list' %}" {% if current_view == 'companies_api:organization-list' %}aria-current="page"{% endif %}>API</a>
     {% endif %}
-    <form action="{% url 'logout' %}" method="post" class="w-full sm:w-auto" data-logout-form>
-        {% csrf_token %}
-        <button class="inline-flex min-h-9 w-full items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-rose-400 hover:text-rose-500 sm:w-auto" type="submit">
-            {% if request.LANGUAGE_CODE == 'pl' %}Wyloguj{% else %}Log out{% endif %}
-        </button>
-    </form>
 {% else %}
-    <a href="{% url 'login' %}" class="inline-flex min-h-9 w-full items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto">
+    <a href="{% url 'login' %}" class="account-nav-link w-full sm:w-auto" {% if current_view == 'login' %}aria-current="page"{% endif %}>
         {% if request.LANGUAGE_CODE == 'pl' %}Zaloguj się{% else %}Log in{% endif %}
     </a>
-    <a href="{% url 'register' %}" class="inline-flex min-h-9 w-full items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto">
+    <a href="{% url 'register' %}" class="account-nav-link w-full sm:w-auto" {% if current_view == 'register' %}aria-current="page"{% endif %}>
         {% if request.LANGUAGE_CODE == 'pl' %}Zarejestruj się{% else %}Get started{% endif %}
     </a>
 {% endif %}
+{% endwith %}

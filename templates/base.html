@@ -88,6 +88,7 @@
             }
         }
     </style>
+    {% include 'partials/account_navigation_styles.html' %}
 </head>
 <body class="min-h-screen bg-[#f8fafa] text-[#353535] font-sans antialiased">
     {% get_media_prefix as media_prefix %}
@@ -105,7 +106,7 @@
                 <button
                     id="mobile-menu-toggle"
                     type="button"
-                    class="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[#d9d9d9] bg-white text-[#353535]/70 shadow-sm transition hover:border-[#5ca197] hover:text-[#5ca197] xl:hidden"
+                    class="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[#dce6e8] bg-white text-[#284b63] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[#284b63] hover:bg-[#284b63] hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5ca197] focus-visible:ring-offset-2 xl:hidden"
                     aria-label="Toggle navigation menu"
                     aria-expanded="false"
                     aria-controls="mobile-nav-menu"
@@ -124,14 +125,14 @@
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{{ request.get_full_path }}">
                         {% if request.LANGUAGE_CODE == 'pl' %}
-                            <button class="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto" type="submit" name="language" value="en">
+                            <button class="account-nav-link w-full sm:w-auto" type="submit" name="language" value="en">
                                 <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                     <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm7.93 9h-3.08a15.7 15.7 0 0 0-1.1-5A8.02 8.02 0 0 1 19.93 11ZM12 4c.94 1.2 1.7 3.1 2 5H10c.3-1.9 1.06-3.8 2-5ZM8.25 6a15.7 15.7 0 0 0-1.1 5H4.07A8.02 8.02 0 0 1 8.25 6ZM4.07 13h3.08a15.7 15.7 0 0 0 1.1 5A8.02 8.02 0 0 1 4.07 13ZM12 20c-.94-1.2-1.7-3.1-2-5h4c-.3 1.9-1.06 3.8-2 5Zm3.75-2a15.7 15.7 0 0 0 1.1-5h3.08A8.02 8.02 0 0 1 15.75 18ZM9 13a13.6 13.6 0 0 1 0-2h6a13.6 13.6 0 0 1 0 2Z" fill="currentColor"/>
                                 </svg>
                                 <span>Język: English</span>
                             </button>
                         {% else %}
-                            <button class="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/60 transition hover:border-[#5ca197] hover:text-[#5ca197] sm:w-auto" type="submit" name="language" value="pl">
+                            <button class="account-nav-link w-full sm:w-auto" type="submit" name="language" value="pl">
                                 <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                     <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm7.93 9h-3.08a15.7 15.7 0 0 0-1.1-5A8.02 8.02 0 0 1 19.93 11ZM12 4c.94 1.2 1.7 3.1 2 5H10c.3-1.9 1.06-3.8 2-5ZM8.25 6a15.7 15.7 0 0 0-1.1 5H4.07A8.02 8.02 0 0 1 8.25 6ZM4.07 13h3.08a15.7 15.7 0 0 0 1.1 5A8.02 8.02 0 0 1 4.07 13ZM12 20c-.94-1.2-1.7-3.1-2-5h4c-.3 1.9-1.06 3.8-2 5Zm3.75-2a15.7 15.7 0 0 0 1.1-5h3.08A8.02 8.02 0 0 1 15.75 18ZM9 13a13.6 13.6 0 0 1 0-2h6a13.6 13.6 0 0 1 0 2Z" fill="currentColor"/>
                                 </svg>
@@ -139,6 +140,14 @@
                             </button>
                         {% endif %}
                     </form>
+                    {% if request.user.is_authenticated %}
+                        <form action="{% url 'logout' %}" method="post" class="w-full sm:w-auto" data-logout-form>
+                            {% csrf_token %}
+                            <button class="account-nav-link account-nav-link-danger w-full sm:w-auto" type="submit">
+                                {% if request.LANGUAGE_CODE == 'pl' %}Wyloguj{% else %}Log out{% endif %}
+                            </button>
+                        </form>
+                    {% endif %}
                 </div>
             </div>
         </div>
