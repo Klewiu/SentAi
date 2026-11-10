@@ -2,11 +2,22 @@
 {% block content %}
 <style>
 .plan-tier-radio{position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none}
-.plan-tier-radio-mark{position:relative;display:inline-flex;width:1.125rem;height:1.125rem;flex:0 0 1.125rem;align-items:center;justify-content:center;border:1px solid rgba(40,75,99,.55);border-radius:9999px;background:#fff;cursor:pointer}
+.plan-tier-card{position:relative;isolation:isolate;min-height:12.5rem;overflow:hidden;border:1px solid #dce6e8;border-radius:1.25rem;background:linear-gradient(145deg,#fff 0%,#f7fafb 100%);padding:1.5rem;box-shadow:0 2px 6px rgba(40,75,99,.06);transition:border-color 180ms ease,box-shadow 180ms ease,transform 180ms ease}
+.plan-tier-card::before{position:absolute;inset:0 0 auto;height:4px;background:#b8cddd;content:""}
+.plan-tier-card-plus::before{background:#5ca197}
+.plan-tier-card-pro::before{background:#284b63}
+.plan-tier-card:hover{transform:translateY(-3px);border-color:#9bb6c5;box-shadow:0 14px 28px rgba(40,75,99,.12)}
+.plan-tier-card-plus{background:linear-gradient(145deg,#fff 0%,#f3faf8 100%)}
+.plan-tier-card-pro{background:linear-gradient(145deg,#fff 0%,#f2f6fa 100%)}
+.plan-tier-card:has(.plan-tier-radio:checked){transform:translateY(-3px);border-color:#284b63;box-shadow:0 0 0 3px rgba(40,75,99,.12),0 14px 28px rgba(40,75,99,.14)}
+.plan-tier-card:has(.plan-tier-radio:focus-visible){outline:3px solid rgba(92,161,151,.55);outline-offset:3px}
+.plan-tier-radio-mark{position:absolute;top:1.5rem;right:1.5rem;display:inline-flex;width:1.375rem;height:1.375rem;align-items:center;justify-content:center;border:1.5px solid rgba(40,75,99,.4);border-radius:9999px;background:#fff;cursor:pointer}
 .plan-tier-radio-mark::after{content:"";width:.5rem;height:.5rem;border-radius:9999px;background:#5ca197;transform:scale(0);transition:transform 120ms ease}
 .plan-tier-radio:checked + .plan-tier-radio-mark::after{transform:scale(1)}
-.plan-tier-radio:focus-visible + .plan-tier-radio-mark{border-color:#5ca197;box-shadow:0 0 0 3px rgba(92,161,151,.2)}
+.plan-tier-radio:checked + .plan-tier-radio-mark{border-color:#284b63}
 .plan-tier-radio:disabled + .plan-tier-radio-mark{cursor:not-allowed;opacity:.45}
+.plan-tier-selected{display:none}
+.plan-tier-card:has(.plan-tier-radio:checked) .plan-tier-selected{display:inline-flex}
 </style>
 <section class="min-w-0 w-full rounded-xl border border-[#d9d9d9] bg-white p-4 sm:p-6 lg:p-8">
     <span class="inline-flex rounded-full border border-[#5ca197]/25 bg-[#5ca197]/8 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">Plan</span>
@@ -16,12 +27,15 @@
         {% csrf_token %}{{ form.billing_currency }}
         <div class="grid gap-4 md:grid-cols-3">
         {% for radio in form.plan_tier %}{% with tier=radio.data.value %}{% if tier in visible_plan_tiers %}
-            <label class="flex cursor-pointer flex-col gap-3 rounded-2xl border {% if tier == 'PLUS' %}border-[#a8d5cb] bg-[#CFEAE4] hover:border-[#5ca197]{% elif tier == 'PRO' %}border-[#b8cddd] bg-[#e7eef5] hover:border-[#284b63]{% else %}border-[#d9d9d9] bg-[#f8fafa] hover:border-[#284b63]{% endif %} p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+            <label class="plan-tier-card {% if tier == 'PLUS' %}plan-tier-card-plus{% elif tier == 'PRO' %}plan-tier-card-pro{% endif %} flex cursor-pointer flex-col gap-3">
                 {{ radio.tag }}
                 <span class="plan-tier-radio-mark" aria-hidden="true"></span>
-                <span class="font-display text-2xl font-bold text-[#284b63]">{% if tier == 'PLUS' %}Plus{% elif tier == 'PRO' %}Pro{% else %}Basic{% endif %}</span>
-                <span class="text-2xl font-bold text-[#284b63]">{% if tier == 'BASIC' %}{{ basic_price_net_label|default:'-' }}{% elif tier == 'PLUS' %}{{ plus_price_net_label|default:'-' }}{% else %}{{ pro_price_net_label|default:'-' }}{% endif %} <small class="text-xs font-normal text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}netto / rok{% else %}net / year{% endif %}</small></span>
-                <span class="font-mono text-xs text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}brutto z VAT:{% else %}gross incl. VAT:{% endif %} {% if tier == 'BASIC' %}{{ basic_price_label|default:'-' }}{% elif tier == 'PLUS' %}{{ plus_price_label|default:'-' }}{% else %}{{ pro_price_label|default:'-' }}{% endif %}</span>
+                <span class="flex items-center gap-2 pr-8 font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[#5b7180]">
+                    {% if tier == 'PLUS' %}Plus{% elif tier == 'PRO' %}Pro{% else %}Basic{% endif %}
+                    <span class="plan-tier-selected rounded-full bg-[#284b63] px-2 py-0.5 text-[9px] tracking-wide text-white">{% if request.LANGUAGE_CODE == 'pl' %}Wybrany{% else %}Selected{% endif %}</span>
+                </span>
+                <span class="font-display text-3xl font-bold tracking-tight text-[#284b63]">{% if tier == 'BASIC' %}{{ basic_price_net_label|default:'-' }}{% elif tier == 'PLUS' %}{{ plus_price_net_label|default:'-' }}{% else %}{{ pro_price_net_label|default:'-' }}{% endif %} <small class="font-sans text-xs font-medium text-[#353535]/55">{% if request.LANGUAGE_CODE == 'pl' %}netto / rok{% else %}net / year{% endif %}</small></span>
+                <span class="font-mono text-xs text-[#353535]/60">{% if request.LANGUAGE_CODE == 'pl' %}Brutto z VAT:{% else %}Gross incl. VAT:{% endif %} {% if tier == 'BASIC' %}{{ basic_price_label|default:'-' }}{% elif tier == 'PLUS' %}{{ plus_price_label|default:'-' }}{% else %}{{ pro_price_label|default:'-' }}{% endif %}</span>
             </label>
         {% endif %}{% endwith %}{% endfor %}
         </div>
