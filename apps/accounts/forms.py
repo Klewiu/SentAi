@@ -41,13 +41,30 @@ class UsernameOrEmailLoginMixin:
             ),
         })
 
+    wrong_password = False
+
     def clean(self):
-        login = self.cleaned_data.get("username", "")
-        if "@" in login:
+        login = (self.cleaned_data.get("username") or "").strip()
+        if login:
             user = User.objects.filter(email__iexact=login).first()
-            if user:
+            if user is None:
+                user = User.objects.filter(username__iexact=login).first()
+            if user is None:
+                language_code = getattr(self.request, "LANGUAGE_CODE", "en")
+                raise forms.ValidationError(
+                    "Podany login lub e-mail nie istnieje."
+                    if language_code == "pl"
+                    else "The username or email does not exist.",
+                    code="unknown_account",
+                )
+            if "@" in login:
                 self.cleaned_data["username"] = user.get_username()
-        return super().clean()
+        try:
+            return super().clean()
+        except forms.ValidationError as error:
+            if getattr(error, "code", None) == "invalid_login":
+                self.wrong_password = True
+            raise
 
 
 class UsernameOrEmailAuthenticationForm(UsernameOrEmailLoginMixin, AuthenticationForm):

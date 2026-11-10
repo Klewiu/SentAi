@@ -32,6 +32,30 @@ class AccountSecurityTests(TestCase):
         self.assertIn("Confirm your email address", mail.outbox[-1].body)
         self.assertIn(">xoaila</span>", mail.outbox[-1].alternatives[0][0])
 
+    def test_unknown_login_shows_missing_account_message_without_reset_button(self):
+        from django.utils.translation import override
+
+        with override("pl"):
+            response = self.client.post(
+                reverse("login"),
+                {"username": "nobody@example.com", "password": "whatever"},
+            )
+
+        self.assertContains(response, "Podany login lub e-mail nie istnieje")
+        self.assertNotContains(response, "Zresetuj hasło")
+
+    def test_wrong_password_for_existing_account_shows_only_password_error(self):
+        from django.utils.translation import override
+
+        with override("pl"):
+            response = self.client.post(
+                reverse("login"),
+                {"username": self.user.email.upper(), "password": "incorrect-password"},
+            )
+
+        self.assertNotContains(response, "nie istnieje")
+        self.assertContains(response, "Zresetuj hasło")
+
     def test_failed_login_offers_password_reset_and_email_link_changes_password(self):
         from django.utils.translation import override
 
