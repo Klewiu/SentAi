@@ -55,7 +55,7 @@
             <table class="w-full text-left text-sm">
                 <thead>
                     <tr class="border-b border-[#d9d9d9] bg-[#f8fafa]">
-                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/40">
+                        <th class="min-w-[14rem] px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/40">
                             <a class="hover:text-[#5ca197]" href="{{ sort_urls.company }}">{% if request.LANGUAGE_CODE == 'pl' %}Nazwa firmy{% else %}Company name{% endif %}</a>
                         </th>
                         <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/40">
@@ -73,12 +73,7 @@
                         <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/40">
                             <a class="hover:text-[#5ca197]" href="{{ sort_urls.verified }}">{% if request.LANGUAGE_CODE == 'pl' %}Weryfikacja{% else %}Verification{% endif %}</a>
                         </th>
-                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/40">
-                            <a class="hover:text-[#5ca197]" href="{{ sort_urls.seller }}">{% if request.LANGUAGE_CODE == 'pl' %}Handlowiec{% else %}Sales rep{% endif %}</a>
-                        </th>
-                        <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/40">
-                            <a class="hover:text-[#5ca197]" href="{{ sort_urls.country }}">{% if request.LANGUAGE_CODE == 'pl' %}Kraj{% else %}Country{% endif %}</a>
-                        </th>
+                        {# Kolumny Handlowiec i Kraj tymczasowo ukryte #}
                         <th class="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/40">
                             <a class="hover:text-[#5ca197]" href="{{ sort_urls.pages }}">{% if request.LANGUAGE_CODE == 'pl' %}Strony{% else %}Pages{% endif %}</a>
                         </th>
@@ -100,7 +95,7 @@
                 <tbody class="divide-y divide-[#d9d9d9]">
                     {% for client in clients %}
                     <tr class="transition hover:bg-[#f8fafa]{% if client.closed_at %} bg-slate-50 opacity-75{% endif %}">
-                        <td class="px-4 py-3 font-medium text-[#353535]">
+                        <td class="min-w-[14rem] px-4 py-3 font-medium text-[#353535]">
                             {% if client.closed_at %}
                                 {{ client.closed_display_name|default:"-" }}
                                 <div class="mt-1 font-mono text-[10px] font-normal text-[#353535]/40">#{{ client.pk }}</div>
@@ -162,7 +157,7 @@
                         <td class="px-4 py-3">
                             {% if client.organization_count == 0 %}
                                 <span class="inline-flex items-center rounded-full border border-[#d9d9d9] bg-[#f5f5f5] px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/50">
-                                    {% if request.LANGUAGE_CODE == 'pl' %}Brak strony{% else %}No page{% endif %}
+                                    {% if request.LANGUAGE_CODE == 'pl' %}Brak{% else %}None{% endif %}
                                 </span>
                             {% elif client.verified_organization_count == client.organization_count %}
                                 <span class="inline-flex items-center rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">
@@ -177,12 +172,6 @@
                                     {% endif %}
                                 </a>
                             {% endif %}
-                        </td>
-                        <td class="px-4 py-3 font-mono text-[#353535]/60">
-                            {{ client.linked_seller_username|default:"-" }}
-                        </td>
-                        <td class="px-4 py-3 text-[#353535]/60">
-                            {{ client.country|default:"-" }}
                         </td>
                         <td class="px-4 py-3 font-mono text-[#353535]/50">
                             {{ client.organization_count }}
@@ -220,7 +209,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="14" class="px-4 py-8 text-center font-mono text-sm text-[#353535]/40">
+                        <td colspan="12" class="px-4 py-8 text-center font-mono text-sm text-[#353535]/40">
                             {% if request.LANGUAGE_CODE == 'pl' %}Brak klient&#xF3;w.{% else %}No clients yet.{% endif %}
                         </td>
                     </tr>
