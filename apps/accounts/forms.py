@@ -1,6 +1,11 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, UserCreationForm
+from django.contrib.auth.forms import (
+    AuthenticationForm,
+    PasswordChangeForm,
+    PasswordResetForm,
+    UserCreationForm,
+)
 from django_otp.forms import OTPAuthenticationForm
 
 
@@ -51,6 +56,21 @@ class UsernameOrEmailAuthenticationForm(UsernameOrEmailLoginMixin, Authenticatio
 
 class UsernameOrEmailOTPAuthenticationForm(UsernameOrEmailLoginMixin, OTPAuthenticationForm):
     pass
+
+
+class UsernameOrEmailPasswordResetForm(PasswordResetForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"] = forms.CharField(max_length=254)
+
+    def clean_email(self):
+        identifier = self.cleaned_data["email"].strip()
+        user = User.objects.filter(email__iexact=identifier).first()
+        if user is None:
+            user = User.objects.filter(username__iexact=identifier).first()
+        if user is not None:
+            return user.email
+        return identifier if "@" in identifier else ""
 
 
 class UserRegistrationForm(UserCreationForm):

@@ -32,6 +32,73 @@ class AccountSecurityTests(TestCase):
         self.assertIn("Confirm your email address", mail.outbox[-1].body)
         self.assertIn(">xoaila</span>", mail.outbox[-1].alternatives[0][0])
 
+    def test_failed_login_offers_password_reset_and_email_link_changes_password(self):
+        from django.utils.translation import override
+
+        with override("pl"):
+            failed_login = self.client.post(
+                reverse("login"),
+                {"username": self.user.username, "password": "incorrect-password"},
+            )
+            self.assertContains(failed_login, "Zresetuj hasło")
+            self.assertEqual(len(mail.outbox), 0)
+
+            reset_response = self.client.post(
+                reverse("password_reset"),
+                {"email": self.user.username},
+            )
+
+        self.assertEqual(reset_response.status_code, 302)
+        self.assertTrue(reset_response.url.endswith("/accounts/password_reset/done/"))
+        self.assertEqual(len(mail.outbox), 1)
+        reset_email = mail.outbox[0]
+        self.assertEqual(reset_email.to, [self.user.email])
+        self.assertEqual(reset_email.subject, "Reset hasła do konta Xoaila")
+        self.assertIn("zresetowanie", reset_email.body)
+        self.assertIn(">Zresetuj", reset_email.alternatives[0][0])
+
+        reset_path = re.search(
+            r"https?://testserver(?P<path>/(?:pl/)?accounts/reset/[^\s]+)",
+            reset_email.body,
+        ).group("path")
+        confirm_response = self.client.get(reset_path)
+        self.assertEqual(confirm_response.status_code, 302)
+        confirm_path = confirm_response.url
+        confirm_page = self.client.get(confirm_path)
+        self.assertContains(confirm_page, "Ustaw nowe hasło")
+
+        complete_response = self.client.post(
+            confirm_path,
+            {
+                "new_password1": "Replacement-password-456",
+                "new_password2": "Replacement-password-456",
+            },
+        )
+        self.assertEqual(complete_response.status_code, 302)
+        self.assertTrue(complete_response.url.endswith("/accounts/reset/done/"))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("Replacement-password-456"))
+
+    def test_password_reset_does_not_disclose_unknown_accounts(self):
+        response = self.client.post(
+            reverse("password_reset"),
+            {"email": "unknown-account"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.endswith("/accounts/password_reset/done/"))
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_password_reset_accepts_case_insensitive_email(self):
+        response = self.client.post(
+            reverse("password_reset"),
+            {"email": "AUDIT@EXAMPLE.COM"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.user.email])
+
     def test_disabled_account_cannot_be_reactivated_by_email_change(self):
         from .verification import send_verification
         self.user.pending_email = "replacement@example.com"
