@@ -34,12 +34,12 @@
             <span class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
                 {% if request.LANGUAGE_CODE == 'pl' %}Aktywny plan{% else %}Active plan{% endif %}
             </span>
-            {% if request.user.plan_tier == 'PRO' %}
+            {% if profile_has_active_plan and request.user.plan_tier == 'PRO' %}
                 <span class="inline-flex items-center rounded-full border border-[#284b63]/30 bg-[#284b63]/10 px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#284b63]">PRO</span>
-            {% elif request.user.plan_tier == 'PLUS' %}
+            {% elif profile_has_active_plan and request.user.plan_tier == 'PLUS' %}
                 <span class="inline-flex items-center rounded-full border border-[#5ca197]/30 bg-[#5ca197]/10 px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#5ca197]">PLUS</span>
             {% else %}
-                <span class="inline-flex items-center rounded-full border border-[#d9d9d9] bg-[#f5f5f5] px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/60">BASIC</span>
+                <span class="inline-flex items-center rounded-full border border-[#d9d9d9] bg-[#f5f5f5] px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-widest text-[#353535]/60">{% if profile_has_active_plan %}BASIC{% else %}{% if request.LANGUAGE_CODE == 'pl' %}BRAK{% else %}NONE{% endif %}{% endif %}</span>
             {% endif %}
             <a href="{% if navbar_has_active_billing_subscription %}{% url 'dashboard:billing-portal' %}{% else %}{% url 'dashboard:plan-update' %}{% endif %}" class="font-mono text-[10px] text-[#5ca197] hover:underline">
                 {% if navbar_has_active_billing_subscription %}

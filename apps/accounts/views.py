@@ -23,7 +23,12 @@ from rest_framework.views import APIView
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 
-from .forms import ProfileForm, ProfilePasswordChangeForm, UserRegistrationForm
+from .forms import (
+    ProfileForm,
+    ProfilePasswordChangeForm,
+    UserRegistrationForm,
+    UsernameOrEmailOTPAuthenticationForm,
+)
 from .serializers import CurrentUserSerializer, TokenLoginSerializer
 
 
@@ -182,6 +187,9 @@ class ProfileView(LoginRequiredMixin, FormView):
                 language_code=self.request.LANGUAGE_CODE,
             )
         context["profile_completion_required"] = self._requires_business_details()
+        from apps.billing.access import has_publication_access
+
+        context["profile_has_active_plan"] = has_publication_access(self.request.user)
         return context
 
 
@@ -339,11 +347,10 @@ class ResendVerificationView(View):
 
 
 from django.contrib.auth.views import LoginView
-from django_otp.forms import OTPAuthenticationForm
 
 
 class MFALoginView(LoginView):
-    authentication_form = OTPAuthenticationForm
+    authentication_form = UsernameOrEmailOTPAuthenticationForm
     template_name = "registration/mfa_login.html"
 
     def form_valid(self, form):

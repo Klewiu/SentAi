@@ -2514,10 +2514,20 @@ class ClientListView(AdminRequiredMixin, TemplateView):
             except BillingSubscription.DoesNotExist:
                 subscription = None
 
+            has_no_plan_history = (
+                not client.has_selected_plan()
+                and client.plan_tier == UserPlanTier.BASIC
+                and not manual_orders
+                and subscription is None
+            )
             client.admin_plan_label = (
                 manual_order.admin_plan_label
                 if client.uses_manual_plan and manual_order
-                else client.plan_tier
+                else (
+                    ("BRAK" if self.request.LANGUAGE_CODE == "pl" else "NONE")
+                    if has_no_plan_history
+                    else client.plan_tier
+                )
             )
 
             if client.closed_at:
@@ -2814,10 +2824,20 @@ class ClientDetailView(AdminRequiredMixin, TemplateView):
                 or latest_manual_order.created_at > subscription_period_start
             )
         )
+        has_no_plan_history = (
+            not client.has_selected_plan()
+            and client.plan_tier == UserPlanTier.BASIC
+            and latest_manual_order is None
+            and billing_subscription is None
+        )
         client.admin_plan_label = (
             latest_manual_order.admin_plan_label
             if client.uses_manual_plan and latest_manual_order
-            else client.plan_tier
+            else (
+                ("BRAK" if self.request.LANGUAGE_CODE == "pl" else "NONE")
+                if has_no_plan_history
+                else client.plan_tier
+            )
         )
         settlement = getattr(client, "seller_settlement", None)
         attributed_prospect = getattr(client, "attributed_prospect", None)
@@ -3506,4 +3526,3 @@ class ProspectActivityAddView(SellerOrAdminRequiredMixin, FormView):
         else:
             messages.success(self.request, "Activity added.")
         return redirect("dashboard:prospect-detail", pk=prospect.pk)
-

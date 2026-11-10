@@ -2822,6 +2822,7 @@ class SellerManagementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.seller.username)
 
+    @override_settings(ADMIN_MFA_REQUIRED=False)
     def test_admin_sees_expired_plan_without_losing_historical_tier(self):
         client_user = User.objects.create_user(
             username="expired-pro-client",
@@ -2833,8 +2834,11 @@ class SellerManagementTests(TestCase):
         )
         self.client.force_login(self.admin)
 
-        list_response = self.client.get(reverse("dashboard:client-list"))
-        detail_response = self.client.get(reverse("dashboard:client-detail", args=[client_user.pk]))
+        with override("pl"):
+            list_response = self.client.get(reverse("dashboard:client-list"))
+            detail_response = self.client.get(
+                reverse("dashboard:client-detail", args=[client_user.pk])
+            )
 
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(detail_response.status_code, 200)
@@ -2848,6 +2852,34 @@ class SellerManagementTests(TestCase):
             "Payment required" in detail_response.content.decode()
             or "Brak p&#322;atno&#347;ci" in detail_response.content.decode()
         )
+
+    @override_settings(ADMIN_MFA_REQUIRED=False)
+    def test_admin_shows_no_plan_for_client_without_plan_history(self):
+        client_user = User.objects.create_user(
+            username="no-plan-client",
+            email="no-plan-client@example.com",
+            password="Example-password-123!",
+            account_type=AccountType.CLIENT,
+        )
+        self.client.force_login(self.admin)
+
+        with override("pl"):
+            list_response = self.client.get(reverse("dashboard:client-list"))
+            detail_response = self.client.get(
+                reverse("dashboard:client-detail", args=[client_user.pk])
+            )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(detail_response.status_code, 200)
+        listed_client = next(
+            client
+            for client in list_response.context["clients"]
+            if client.pk == client_user.pk
+        )
+        self.assertEqual(listed_client.admin_plan_label, "BRAK")
+        self.assertEqual(detail_response.context["client"].admin_plan_label, "BRAK")
+        self.assertContains(list_response, "BRAK")
+        self.assertContains(detail_response, "BRAK")
 
     def test_admin_can_sort_clients_by_plan_status_and_see_lifecycle_states(self):
         now = timezone.now()

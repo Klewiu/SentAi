@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import PasswordChangeForm, UserCreationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, UserCreationForm
+from django_otp.forms import OTPAuthenticationForm
 
 
 User = get_user_model()
@@ -15,6 +16,41 @@ def validate_polish_company_country(value, language_code):
             else "The application is available only to companies from Poland."
         )
     return "Polska" if language_code == "pl" else "Poland"
+
+
+class UsernameOrEmailLoginMixin:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        language_code = getattr(self.request, "LANGUAGE_CODE", "en")
+        self.fields["username"].label = (
+            "Nazwa użytkownika lub e-mail"
+            if language_code == "pl"
+            else "Username or email"
+        )
+        self.fields["username"].widget.attrs.update({
+            "autocomplete": "username",
+            "placeholder": (
+                "Nazwa użytkownika lub e-mail"
+                if language_code == "pl"
+                else "Username or email"
+            ),
+        })
+
+    def clean(self):
+        login = self.cleaned_data.get("username", "")
+        if "@" in login:
+            user = User.objects.filter(email__iexact=login).first()
+            if user:
+                self.cleaned_data["username"] = user.get_username()
+        return super().clean()
+
+
+class UsernameOrEmailAuthenticationForm(UsernameOrEmailLoginMixin, AuthenticationForm):
+    pass
+
+
+class UsernameOrEmailOTPAuthenticationForm(UsernameOrEmailLoginMixin, OTPAuthenticationForm):
+    pass
 
 
 class UserRegistrationForm(UserCreationForm):

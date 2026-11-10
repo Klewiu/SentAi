@@ -55,7 +55,7 @@ urlpatterns = [
 
 urlpatterns += i18n_patterns(
     path("accounts/register/", RegisterView.as_view(), name="register"),
-    path("accounts/", include("django.contrib.auth.urls")),
+    path("accounts/", include("apps.accounts.auth_urls")),
         path("accounts/", include(("apps.accounts.urls", "accounts"), namespace="accounts")),
     path("set-language/", set_language, name="set_language_localized"),
     path("admin/", admin.site.urls),

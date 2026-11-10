@@ -1,3 +1,4 @@
+from datetime import timedelta
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
@@ -5,6 +6,7 @@ from django.core import signing
 from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import translation
+from django.utils import timezone
 from django.urls import reverse
 from unittest.mock import patch
 
@@ -208,6 +210,25 @@ class RegistrationFlowTests(TestCase):
         user = User.objects.get(username="newclient")
         self.assertIsNotNone(user.last_login)
 
+    def test_login_accepts_username_or_email_in_the_same_field(self):
+        user = User.objects.create_user(
+            username="login-choice",
+            email="login-choice@example.com",
+            password="StrongPass123!",
+        )
+        login_page = self.client.get(reverse("login"))
+        self.assertContains(login_page, 'placeholder="Username or email"')
+
+        for identifier in ("login-choice", "LOGIN-CHOICE@example.com"):
+            with self.subTest(identifier=identifier):
+                response = self.client.post(
+                    reverse("login"),
+                    {"username": identifier, "password": "StrongPass123!"},
+                )
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(int(self.client.session["_auth_user_id"]), user.pk)
+                self.client.logout()
+
     def test_profile_shows_close_account_action(self):
         user = User.objects.create_user(
             username="client",
@@ -216,11 +237,35 @@ class RegistrationFlowTests(TestCase):
         )
         self.client.force_login(user)
 
-        response = self.client.get(reverse("accounts:profile"))
+        with translation.override("pl"):
+            response = self.client.get(reverse("accounts:profile"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("accounts:close-account"))
-        self.assertContains(response, "Remove account")
+        self.assertContains(response, "Usuń konto")
+        self.assertContains(response, "BRAK")
+        self.assertNotContains(response, "BASIC")
+
+    def test_profile_shows_basic_when_basic_subscription_is_active(self):
+        user = User.objects.create_user(
+            username="active-basic-client",
+            email="active-basic@example.com",
+            password="StrongPass123!",
+        )
+        BillingSubscription.objects.create(
+            user=user,
+            tier=UserPlanTier.BASIC,
+            status="active",
+            current_period_end=timezone.now() + timedelta(days=30),
+        )
+        self.client.force_login(user)
+
+        with translation.override("pl"):
+            response = self.client.get(reverse("accounts:profile"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "BASIC")
+        self.assertNotContains(response, "BRAK")
 
     def test_close_account_soft_deletes_basic_user(self):
         user = User.objects.create_user(

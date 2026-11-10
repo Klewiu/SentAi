@@ -53,7 +53,7 @@ class AccountSecurityTests(TestCase):
         self.user.save()
         device = TOTPDevice.objects.create(user=self.user, name="test", confirmed=True)
         token = totp(device.bin_key, step=device.step, t0=device.t0, digits=device.digits)
-        response = self.client.post(reverse("accounts:mfa"), {"username": self.user.username, "password": "Original-password-123", "otp_device": device.persistent_id, "otp_token": str(token).zfill(device.digits)})
+        response = self.client.post(reverse("accounts:mfa"), {"username": "AUDIT@example.com", "password": "Original-password-123", "otp_device": device.persistent_id, "otp_token": str(token).zfill(device.digits)})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.client.get(reverse("dashboard:home")).status_code, 200)
 
