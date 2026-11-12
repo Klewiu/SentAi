@@ -587,8 +587,8 @@ class DashboardPlanLimitTests(TestCase):
                     "Notifications",
                     "Active pages",
                     "User",
-                    "Log out",
                     "Language: Polish",
+                    "Log out",
                 ),
             ),
             (
@@ -600,8 +600,8 @@ class DashboardPlanLimitTests(TestCase):
                     "Powiadomienia",
                     "Aktywne strony",
                     "Użytkownik",
-                    "Wyloguj",
                     "Język: English",
+                    "Wyloguj",
                 ),
             ),
         ):
@@ -733,14 +733,14 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("dashboard:home"))
 
-    def test_navbar_shows_plan_user_and_counter(self):
+    def test_navbar_shows_plan_and_user_links_for_inactive_plan(self):
         response = self.client.get(reverse("dashboard:home"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("dashboard:plan-update"))
-        self.assertContains(response, "PLANS")
+        self.assertContains(response, "Plans")
         self.assertContains(response, reverse("accounts:profile"))
-        self.assertContains(response, "0/1")
+        self.assertNotContains(response, "0/1")
 
     @override_settings(
         STRIPE_SECRET_KEY="sk_test_dummy",
@@ -2800,7 +2800,7 @@ class SellerManagementTests(TestCase):
         self.assertEqual(prospect.seller, self.seller)
         self.assertEqual(prospect.registered_client, client_user)
 
-    def test_admin_client_list_shows_linked_seller_username(self):
+    def test_admin_client_list_hides_linked_seller_username(self):
         client_user = User.objects.create_user(
             username="client-for-admin-list",
             email="client-for-admin-list@example.com",
@@ -2820,7 +2820,7 @@ class SellerManagementTests(TestCase):
         response = self.client.get(reverse("dashboard:client-list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, self.seller.username)
+        self.assertNotContains(response, self.seller.username)
 
     @override_settings(ADMIN_MFA_REQUIRED=False)
     def test_admin_sees_expired_plan_without_losing_historical_tier(self):
@@ -2981,6 +2981,39 @@ class SellerManagementTests(TestCase):
         self.assertIn("sort=-plan_status", response.content.decode())
         ranks = [client.plan_status_rank for client in response.context["clients"]]
         self.assertEqual(ranks, sorted(ranks))
+
+    def test_pending_blik_is_awaiting_payment_instead_of_expired(self):
+        now = timezone.now()
+        pending_blik_client = User.objects.create_user(
+            username="pending-blik-client",
+            email="pending-blik-client@example.com",
+            password="strong-pass-123",
+            account_type=AccountType.CLIENT,
+            plan_tier=UserPlanTier.PRO,
+            plan_access_status="PAYMENT_REQUIRED",
+        )
+        ManualPlanOrder.objects.create(
+            user=pending_blik_client,
+            tier=UserPlanTier.PRO,
+            amount=40000,
+            currency="pln",
+            payment_method="blik",
+            status=ManualPlanOrderStatus.AWAITING_PAYMENT,
+            payment_reference="PRO-BLIK-PENDING",
+            payment_due_at=now + timedelta(hours=1),
+            access_until=now,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse("dashboard:client-list"))
+
+        self.assertEqual(response.status_code, 200)
+        pending_blik_row = next(
+            client
+            for client in response.context["clients"]
+            if client.pk == pending_blik_client.pk
+        )
+        self.assertEqual(pending_blik_row.plan_status_label_en, "Awaiting payment")
 
     @override_settings(ADMIN_MFA_REQUIRED=False)
     def test_admin_distinguishes_pro_manual_from_stripe_pro(self):

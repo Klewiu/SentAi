@@ -2540,10 +2540,10 @@ class ClientListView(AdminRequiredMixin, TemplateView):
                     and manual_order.payment_due_at < now
                 ):
                     key = "payment_overdue"
-                elif manual_order.access_until <= now:
-                    key = "expired"
                 elif manual_order.status == ManualPlanOrderStatus.AWAITING_PAYMENT:
                     key = "awaiting_payment"
+                elif manual_order.access_until <= now:
+                    key = "expired"
                 elif manual_order.status == ManualPlanOrderStatus.PAID and (
                     len(manual_orders) > 1
                     or bool(
