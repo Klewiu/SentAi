@@ -53,11 +53,11 @@
         <div class="grid gap-6 lg:grid-cols-2">
 
             <!-- Profile data form -->
-            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-5">
+            <div class="flex h-full flex-col rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-5">
                 <h2 class="mb-4 font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
                     {% if request.LANGUAGE_CODE == 'pl' %}Dane konta{% else %}Account details{% endif %}
                 </h2>
-                <form method="post" action="{% url 'accounts:profile' %}" class="grid gap-4">
+                <form method="post" action="{% url 'accounts:profile' %}" class="flex flex-1 flex-col gap-4">
                     {% csrf_token %}
                     {% for field in form %}
                         <label class="block space-y-1.5">
@@ -72,19 +72,19 @@
                         <div class="font-mono text-xs font-semibold text-rose-500">{{ form.non_field_errors|striptags }}</div>
                     {% endif %}
                     <button type="submit"
-                            class="mt-1 inline-flex min-h-10 w-full items-center justify-center rounded bg-[#284b63] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]">
+                            class="mt-auto inline-flex min-h-10 w-full items-center justify-center rounded bg-[#284b63] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]">
                         {% if request.LANGUAGE_CODE == 'pl' %}Zapisz zmiany{% else %}Save changes{% endif %}
                     </button>
                 </form>
             </div>
 
             <!-- Password change form -->
-            <div class="rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-5">
+            <div class="flex h-full flex-col rounded-xl border border-[#d9d9d9] bg-[#f8fafa] p-5">
                 <h2 class="mb-4 font-mono text-[10px] uppercase tracking-widest text-[#353535]/40">
                     {% if request.LANGUAGE_CODE == 'pl' %}Zmiana hasła{% else %}Change password{% endif %}
                 </h2>
                 {% if request.user.has_usable_password %}
-                <form method="post" action="{% url 'accounts:profile-password' %}" class="grid gap-4">
+                <form method="post" action="{% url 'accounts:profile-password' %}" class="flex flex-1 flex-col gap-4">
                     {% csrf_token %}
                     {% for field in password_form %}
                         <label class="block space-y-1.5">
@@ -98,8 +98,18 @@
                     {% if password_form.non_field_errors %}
                         <div class="font-mono text-xs font-semibold text-rose-500">{{ password_form.non_field_errors|striptags }}</div>
                     {% endif %}
+                    <div class="mt-auto flex min-h-[62px] items-center justify-center gap-3 rounded-lg border border-[#5ca197]/20 bg-white/70 px-4 text-[#5ca197]" aria-hidden="true">
+                        <svg class="h-7 w-7 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 3 5.5 5.7v5.1c0 4.4 2.6 8.1 6.5 10.2 3.9-2.1 6.5-5.8 6.5-10.2V5.7L12 3Z" />
+                            <rect x="9" y="10.5" width="6" height="5" rx="1" />
+                            <path d="M10.5 10.5V9a1.5 1.5 0 0 1 3 0v1.5" />
+                        </svg>
+                        <span class="font-mono text-[10px] font-medium uppercase tracking-widest">
+                            {% if request.LANGUAGE_CODE == 'pl' %}Bezpieczna zmiana hasła{% else %}Secure password update{% endif %}
+                        </span>
+                    </div>
                     <button type="submit"
-                            class="mt-1 inline-flex min-h-10 w-full items-center justify-center rounded bg-[#284b63] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]">
+                            class="inline-flex min-h-10 w-full items-center justify-center rounded bg-[#284b63] px-5 py-2.5 font-sans text-sm font-semibold text-white shadow transition hover:bg-[#1e3a4f]">
                         {% if request.LANGUAGE_CODE == 'pl' %}Zmień hasło{% else %}Change password{% endif %}
                     </button>
                 </form>
@@ -155,11 +165,17 @@
                 <span class="font-mono text-lg font-semibold text-[#284b63]"><span id="close-account-countdown">5</span>s</span>
             </div>
         </div>
+        <label class="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-[#d9d9d9] bg-white p-4 text-sm leading-6 text-[#353535]/70">
+            <input id="close-account-acknowledgement" name="account_removal_ack" value="on" type="checkbox" form="close-account-form" required class="mt-0.5 h-5 w-5 shrink-0 rounded border-[#9ca3af] text-[#5ca197] accent-[#5ca197] focus:ring-[#5ca197]/25">
+            <span>
+                {% if request.LANGUAGE_CODE == 'pl' %}Potwierdzam, że całkowicie usuwam swoje konto z usługi Xoaila.{% else %}I confirm that I am completely removing my account from the Xoaila service.{% endif %}
+            </span>
+        </label>
         <div class="mt-6 flex flex-wrap justify-end gap-2">
             <button id="close-account-cancel" type="button" class="inline-flex min-h-10 items-center justify-center rounded border border-[#d9d9d9] bg-white px-4 py-2 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]">
                 {% if request.LANGUAGE_CODE == 'pl' %}Wroc{% else %}Back{% endif %}
             </button>
-            <form method="post" action="{% url 'accounts:close-account' %}">
+            <form id="close-account-form" method="post" action="{% url 'accounts:close-account' %}">
                 {% csrf_token %}
                 <button id="close-account-confirm" disabled class="inline-flex min-h-10 items-center justify-center rounded border border-rose-200 bg-rose-50 px-4 py-2 font-mono text-xs font-medium text-rose-300 transition enabled:border-rose-500 enabled:bg-rose-500 enabled:text-white enabled:hover:bg-rose-600 disabled:cursor-not-allowed" type="submit">
                     {% if request.LANGUAGE_CODE == 'pl' %}Potwierdź usunięcie konta{% else %}Confirm account removal{% endif %}
@@ -176,20 +192,31 @@
         const cancelButton = document.getElementById("close-account-cancel");
         const confirmButton = document.getElementById("close-account-confirm");
         const countdown = document.getElementById("close-account-countdown");
+        const acknowledgement = document.getElementById("close-account-acknowledgement");
         let timer = null;
+        let countdownFinished = false;
 
-        if (!openButton || !modal || !cancelButton || !confirmButton || !countdown) return;
+        if (!openButton || !modal || !cancelButton || !confirmButton || !countdown || !acknowledgement) return;
+
+        const updateConfirmState = () => {
+            confirmButton.disabled = !countdownFinished || !acknowledgement.checked;
+        };
 
         const closeModal = () => {
             modal.classList.add("hidden");
             modal.classList.remove("flex");
             clearInterval(timer);
+            acknowledgement.checked = false;
+            countdownFinished = false;
+            updateConfirmState();
         };
 
         openButton.addEventListener("click", () => {
             let remaining = 5;
             countdown.textContent = remaining;
-            confirmButton.disabled = true;
+            acknowledgement.checked = false;
+            countdownFinished = false;
+            updateConfirmState();
             modal.classList.remove("hidden");
             modal.classList.add("flex");
             clearInterval(timer);
@@ -198,11 +225,13 @@
                 countdown.textContent = Math.max(remaining, 0);
                 if (remaining <= 0) {
                     clearInterval(timer);
-                    confirmButton.disabled = false;
+                    countdownFinished = true;
+                    updateConfirmState();
                 }
             }, 1000);
         });
 
+        acknowledgement.addEventListener("change", updateConfirmState);
         cancelButton.addEventListener("click", closeModal);
         modal.addEventListener("click", (event) => {
             if (event.target === modal) closeModal();

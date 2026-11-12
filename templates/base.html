@@ -7,9 +7,10 @@
     <title>{% block title %}xoaila{% endblock %}</title>
     <meta name="description" content="{% block meta_description %}xoaila publishes company data in formats that are easy for AI systems, crawlers, and developers to read.{% endblock %}">
     {% block extra_head %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'css/app-shell.css' %}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
     <script>
         window.tailwind = window.tailwind || {};
         window.tailwind.config = {
@@ -17,7 +18,7 @@
                 extend: {
                     fontFamily: {
                         sans: ["Inter", "sans-serif"],
-                        display: ["Space Grotesk", "sans-serif"],
+                        display: ["Sora", "sans-serif"],
                         mono: ["IBM Plex Mono", "monospace"],
                     },
                 },
@@ -153,7 +154,7 @@
         </div>
     </header>
 
-    <div class="mx-auto w-full max-w-7xl px-3 pb-16 pt-6 sm:px-6 lg:px-8">
+    <div class="app-content-shell mx-auto w-full max-w-7xl px-3 pb-16 pt-6 sm:px-6 lg:px-8">
         <main class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
             {% if messages %}
                 <section class="grid gap-2">

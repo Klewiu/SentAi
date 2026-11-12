@@ -53,25 +53,25 @@
 
     <div class="mt-5 space-y-3">
         {% for notification in notifications %}
-            <article class="rounded-lg border {% if notification.closed_at %}border-[#d9d9d9] bg-[#f8fafa]{% elif notification.severity == 'urgent' %}border-rose-300 bg-rose-50{% elif notification.severity == 'warning' %}border-[#a8d5cb] bg-[#CFEAE4]{% else %}border-[#d9d9d9] bg-white{% endif %} p-4">
+            <article class="rounded-lg border p-4 transition {% if notification.closed_at %}border-[#d9d9d9] bg-[#f8fafa]{% else %}border-[#4f9188] bg-[#5ca197] shadow-sm{% endif %}">
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-2">
-                            <span class="rounded-full border border-[#d9d9d9] bg-white px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[#353535]/55">{{ notification.get_category_display }}</span>
-                            <span class="rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest {% if notification.severity == 'urgent' %}bg-rose-100 text-rose-700{% elif notification.severity == 'warning' %}bg-white/65 text-[#284b63]{% else %}bg-[#5ca197]/10 text-[#397b72]{% endif %}">{{ notification.get_severity_display }}</span>
+                            <span class="rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest {% if notification.closed_at %}border-[#d9d9d9] bg-white text-[#353535]/55{% else %}border-white/35 bg-white/10 text-white/90{% endif %}">{{ notification.get_category_display }}</span>
+                            <span class="rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest {% if notification.closed_at %}{% if notification.severity == 'urgent' %}bg-rose-100 text-rose-700{% elif notification.severity == 'warning' %}bg-white text-[#284b63]{% else %}bg-[#5ca197]/10 text-[#397b72]{% endif %}{% else %}bg-white/15 text-white{% endif %}">{{ notification.get_severity_display }}</span>
                             {% if notification.closed_at %}<span class="font-mono text-[10px] text-[#353535]/45">{% if request.LANGUAGE_CODE == 'pl' %}Zamknięte{% else %}Closed{% endif %}: {{ notification.closed_at|date:"Y-m-d H:i" }}</span>{% endif %}
                         </div>
-                        <h2 class="mt-2 break-words font-display text-xl font-semibold text-[#284b63] [overflow-wrap:anywhere]">{{ notification.display_title }}</h2>
-                        <p class="mt-1 break-words text-sm leading-6 text-[#353535]/65 [overflow-wrap:anywhere]">{{ notification.display_message }}</p>
-                        <p class="mt-2 font-mono text-[11px] text-[#353535]/45">{{ notification.created_at|date:"Y-m-d H:i" }}</p>
+                        <h2 class="mt-2 break-words font-display text-xl font-semibold {% if notification.closed_at %}text-[#284b63]{% else %}text-white{% endif %} [overflow-wrap:anywhere]">{{ notification.display_title }}</h2>
+                        <p class="mt-1 break-words text-sm leading-6 {% if notification.closed_at %}text-[#353535]/65{% else %}text-white/90{% endif %} [overflow-wrap:anywhere]">{{ notification.display_message }}</p>
+                        <p class="mt-2 font-mono text-[11px] {% if notification.closed_at %}text-[#353535]/45{% else %}text-white/65{% endif %}">{{ notification.created_at|date:"Y-m-d H:i" }}</p>
                     </div>
                     <div class="flex shrink-0 flex-wrap gap-2">
-                        {% if notification.action_url %}<a class="rounded border border-[#5ca197]/30 bg-white px-3 py-2 font-mono text-xs text-[#5ca197]" href="{{ notification.action_url }}">{% if request.LANGUAGE_CODE == 'pl' %}Otwórz{% else %}Open{% endif %}</a>{% endif %}
+                        {% if notification.action_url %}<a class="rounded border bg-white px-3 py-2 font-mono text-xs {% if notification.closed_at %}border-[#5ca197]/30 text-[#5ca197]{% else %}border-white text-[#397b72] hover:bg-white/90{% endif %}" href="{{ notification.action_url }}">{% if request.LANGUAGE_CODE == 'pl' %}Otwórz{% else %}Open{% endif %}</a>{% endif %}
                         {% if not notification.closed_at %}
                             <form method="post" action="{% url 'dashboard:customer-notification-close' notification.pk %}">
                                 {% csrf_token %}
                                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                <button class="rounded border border-[#d9d9d9] bg-white px-3 py-2 font-mono text-xs text-[#353535]/65" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Zamknij{% else %}Close{% endif %}</button>
+                                <button class="rounded border border-white/55 bg-transparent px-3 py-2 font-mono text-xs text-white transition hover:bg-white/10" type="submit">{% if request.LANGUAGE_CODE == 'pl' %}Zamknij{% else %}Close{% endif %}</button>
                             </form>
                         {% endif %}
                     </div>

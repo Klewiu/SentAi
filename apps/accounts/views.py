@@ -228,6 +228,13 @@ class ProfilePasswordChangeView(LoginRequiredMixin, FormView):
 
 class AccountCloseView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
+        if request.POST.get("account_removal_ack") != "on":
+            if request.LANGUAGE_CODE == "pl":
+                messages.error(request, "Potwierdź całkowite usunięcie konta, aby kontynuować.")
+            else:
+                messages.error(request, "Confirm complete account removal to continue.")
+            return redirect("accounts:profile")
+
         user = request.user
         billing_subscription = getattr(user, "billing_subscription", None)
         subscription_id = getattr(billing_subscription, "stripe_subscription_id", "") if billing_subscription else ""
