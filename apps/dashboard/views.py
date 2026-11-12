@@ -1578,7 +1578,10 @@ class ManualPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
         ):
             messages.warning(request, "Nie można zamówić planu Manual przy aktywnej subskrypcji Stripe.")
             return redirect("dashboard:billing-portal")
-        if request.user.manual_plan_orders.filter(access_until__gt=timezone.now()).exists():
+        if request.user.manual_plan_orders.filter(
+            access_until__gt=timezone.now(),
+            termination_acknowledged_at__isnull=True,
+        ).exists():
             messages.warning(request, "Nie można ponownie uruchomić planu Manual przed końcem pierwotnego roku zamówienia.")
             return redirect("dashboard:plan-update")
         if not pending.get("payment_reference"):

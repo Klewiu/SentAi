@@ -1533,6 +1533,26 @@ class DashboardPlanLimitTests(TestCase):
         overview = self.client.get(reverse("dashboard:billing-overview"))
         self.assertNotContains(overview, reverse("dashboard:manual-plan-mark-paid", args=[order.pk]))
 
+        self.client.force_login(self.user)
+        self.create_billing_profile()
+        BillingPlanPrice.objects.create(
+            tier=UserPlanTier.PRO,
+            currency="pln",
+            amount=40000,
+            stripe_price_id="price_pro_after_manual_termination",
+        )
+        self.prime_purchase(UserPlanTier.PRO, method="manual")
+
+        confirmation = self.client.get(reverse("dashboard:manual-plan-confirm"))
+        self.assertEqual(confirmation.status_code, 200)
+        purchase = self.client.post(reverse("dashboard:manual-plan-confirm"))
+
+        self.assertRedirects(purchase, reverse("dashboard:billing-portal"))
+        replacement = self.user.manual_plan_orders.exclude(pk=order.pk).get()
+        self.assertEqual(replacement.tier, UserPlanTier.PRO)
+        self.assertEqual(replacement.status, ManualPlanOrderStatus.AWAITING_PAYMENT)
+        self.assertGreater(replacement.access_until, original_access_until)
+
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
     @patch("apps.dashboard.views.stripe.Subscription.modify")
     def test_user_can_reactivate_subscription_renewal(self, mock_subscription_modify):
