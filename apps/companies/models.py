@@ -114,6 +114,7 @@ class Organization(models.Model):
     allow_ai_indexing = models.BooleanField(default=True)
     crawler_analytics_enabled = models.BooleanField(default=False)
     crawler_analytics_shared = models.BooleanField(default=False)
+    crawler_analytics_last_notification_sent_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

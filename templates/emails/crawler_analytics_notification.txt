@@ -1,0 +1,50 @@
+{% if language_code == 'pl' %}{% if is_shared %}Raporty botów AI dla {{ organization.name }} są dostępne
+
+Twoja strona może zyskiwać coraz większą widoczność w ekosystemie AI. W nowej zakładce Raporty zobaczysz, które boty odwiedzają publiczne pliki witryny i jak często je pobierają.
+
+Skrócony raport:
+Ostatnie 7 dni: {{ report.last_7_days }}
+Ostatnie 30 dni: {{ report.last_30_days }}
+Ostatnie 365 dni: {{ report.last_365_days }}
+Łącznie: {{ report.all_time }}
+
+Pobrania według pliku (ostatnie 30 dni):
+{% for row in report.resource_rows %}{{ row.label }}: {{ row.total }}
+{% endfor %}
+{% if top_bot_rows %}Najczęściej pobierane pliki według bota:
+{% for row in top_bot_rows %}{{ row.bot_name }} — {{ row.resource_label }}: {{ row.total }}
+{% endfor %}{% endif %}
+Otwórz raporty: {{ reports_url }}
+{% else %}Udostępnianie raportów dla {{ organization.name }} zostało cofnięte
+
+Administrator wyłączył udostępnianie raportów dla witryny {{ organization.name }}. Raport tej witryny nie będzie już widoczny w panelu klienta.
+
+Ta zmiana dotyczy dostępu do raportu. Nie wyłącza zbierania danych dla witryny.
+{% endif %}
+
+xoaila · AI-native data publishing
+{% else %}{% if is_shared %}AI bot reports for {{ organization.name }} are available
+
+Your website can build more visibility across the AI ecosystem. The new Reports area shows which bots visit your public site files and how often they request them.
+
+Quick report:
+Last 7 days: {{ report.last_7_days }}
+Last 30 days: {{ report.last_30_days }}
+Last 365 days: {{ report.last_365_days }}
+All time: {{ report.all_time }}
+
+Requests by file (last 30 days):
+{% for row in report.resource_rows %}{{ row.label }}: {{ row.total }}
+{% endfor %}
+{% if top_bot_rows %}Most requested files by bot:
+{% for row in top_bot_rows %}{{ row.bot_name }} — {{ row.resource_label }}: {{ row.total }}
+{% endfor %}{% endif %}
+Open reports: {{ reports_url }}
+{% else %}Report sharing for {{ organization.name }} has been revoked
+
+Your administrator has turned off report sharing for {{ organization.name }}. This website's report will no longer be visible in your client dashboard.
+
+This changes access to the report. It does not turn off data collection for the website.
+{% endif %}
+
+xoaila · AI-native data publishing{% endif %}

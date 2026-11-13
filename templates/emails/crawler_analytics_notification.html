@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="{% if language_code == 'pl' %}pl{% else %}en{% endif %}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% if is_shared %}{% if language_code == 'pl' %}Raporty AI są dostępne{% else %}AI reports are available{% endif %}{% else %}{% if language_code == 'pl' %}Udostępnianie raportu cofnięte{% else %}Report sharing revoked{% endif %}{% endif %}</title>
+</head>
+<body style="margin:0;padding:32px 16px;background-color:#f4f7f8;font-family:Arial,Helvetica,sans-serif;color:#353535;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e1e7e9;border-radius:16px;">
+        <tr>
+            <td style="padding:32px 32px 24px;text-align:center;border-bottom:1px solid #edf0f1;">
+                <span style="font-family:Arial,Helvetica,sans-serif;font-size:32px;line-height:1;font-weight:700;letter-spacing:-1px;color:#284b63;">xoaila</span><span style="display:inline-block;width:10px;height:10px;margin-left:6px;border-radius:50%;background:#5ca197;vertical-align:baseline;"></span>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding:32px;">
+                {% if is_shared %}
+                    {% if language_code == 'pl' %}
+                        <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#284b63;">Raporty AI dla {{ organization.name }} są dostępne</h1>
+                        <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#535d62;">Twoja strona może zyskiwać coraz większą widoczność w ekosystemie AI. W nowej zakładce Raporty zobaczysz, które boty odwiedzają publiczne pliki witryny i jak często je pobierają.</p>
+                        <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#535d62;">Administrator udostępnił Ci raporty dla tej strony. Poniżej znajdziesz ich skrócone podsumowanie.</p>
+                    {% else %}
+                        <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#284b63;">AI reports for {{ organization.name }} are available</h1>
+                        <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#535d62;">Your website can build more visibility across the AI ecosystem. The new Reports area shows which bots visit your public site files and how often they request them.</p>
+                        <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#535d62;">Your administrator has shared reports for this website. Here is a short summary.</p>
+                    {% endif %}
+
+                    <h2 style="margin:0 0 12px;font-size:18px;color:#284b63;">{% if language_code == 'pl' %}Liczba pobrań{% else %}Request totals{% endif %}</h2>
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;border-collapse:collapse;font-size:14px;">
+                        <tr><td style="padding:8px;border-bottom:1px solid #edf0f1;">{% if language_code == 'pl' %}Ostatnie 7 dni{% else %}Last 7 days{% endif %}</td><td style="padding:8px;border-bottom:1px solid #edf0f1;text-align:right;font-weight:bold;">{{ report.last_7_days }}</td></tr>
+                        <tr><td style="padding:8px;border-bottom:1px solid #edf0f1;">{% if language_code == 'pl' %}Ostatnie 30 dni{% else %}Last 30 days{% endif %}</td><td style="padding:8px;border-bottom:1px solid #edf0f1;text-align:right;font-weight:bold;">{{ report.last_30_days }}</td></tr>
+                        <tr><td style="padding:8px;border-bottom:1px solid #edf0f1;">{% if language_code == 'pl' %}Ostatnie 365 dni{% else %}Last 365 days{% endif %}</td><td style="padding:8px;border-bottom:1px solid #edf0f1;text-align:right;font-weight:bold;">{{ report.last_365_days }}</td></tr>
+                        <tr><td style="padding:8px;border-bottom:1px solid #edf0f1;">{% if language_code == 'pl' %}Łącznie{% else %}All time{% endif %}</td><td style="padding:8px;border-bottom:1px solid #edf0f1;text-align:right;font-weight:bold;">{{ report.all_time }}</td></tr>
+                    </table>
+
+                    <h2 style="margin:0 0 12px;font-size:18px;color:#284b63;">{% if language_code == 'pl' %}Pobrania według pliku — ostatnie 30 dni{% else %}Requests by file — last 30 days{% endif %}</h2>
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;border-collapse:collapse;font-size:14px;">
+                        {% for row in report.resource_rows %}
+                            <tr><td style="padding:8px;border-bottom:1px solid #edf0f1;font-family:monospace;">{{ row.label }}</td><td style="padding:8px;border-bottom:1px solid #edf0f1;text-align:right;font-weight:bold;">{{ row.total }}</td></tr>
+                        {% endfor %}
+                    </table>
+
+                    {% if top_bot_rows %}
+                        <h2 style="margin:0 0 12px;font-size:18px;color:#284b63;">{% if language_code == 'pl' %}Boty i pobrane pliki — łącznie{% else %}Bots and requested files — all time{% endif %}</h2>
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;border-collapse:collapse;font-size:13px;">
+                            {% for row in top_bot_rows %}
+                                <tr><td style="padding:8px;border-bottom:1px solid #edf0f1;">{{ row.bot_name }} — {{ row.resource_label }}</td><td style="padding:8px;border-bottom:1px solid #edf0f1;text-align:right;font-weight:bold;">{{ row.total }}</td></tr>
+                            {% endfor %}
+                        </table>
+                    {% endif %}
+
+                    <p style="margin:0 0 24px;text-align:center;">
+                        <a href="{{ reports_url }}" style="display:inline-block;padding:14px 24px;border-radius:8px;background:#284b63;color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;">{% if language_code == 'pl' %}Otwórz raporty{% else %}Open reports{% endif %}</a>
+                    </p>
+                {% else %}
+                    {% if language_code == 'pl' %}
+                        <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#284b63;">Udostępnianie raportów zostało cofnięte</h1>
+                        <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#535d62;">Administrator wyłączył udostępnianie raportów dla witryny <strong>{{ organization.name }}</strong>. Raport tej strony nie będzie już widoczny w panelu klienta.</p>
+                        <p style="margin:0;font-size:14px;line-height:1.6;color:#68747a;">Ta zmiana dotyczy dostępu do raportu. Nie wyłącza zbierania danych dla witryny.</p>
+                    {% else %}
+                        <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;color:#284b63;">Report sharing has been revoked</h1>
+                        <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#535d62;">Your administrator turned off report sharing for <strong>{{ organization.name }}</strong>. This website's report will no longer be visible in your client dashboard.</p>
+                        <p style="margin:0;font-size:14px;line-height:1.6;color:#68747a;">This changes access to the report. It does not turn off data collection for the website.</p>
+                    {% endif %}
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td style="padding:16px 32px;border-top:1px solid #edf0f1;text-align:center;font-size:11px;line-height:1.5;color:#879196;">
+                xoaila · AI-native data publishing
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

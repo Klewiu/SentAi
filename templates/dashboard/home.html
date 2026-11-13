@@ -115,6 +115,13 @@
                     </span>
                 {% endif %}
 
+                {% if organization.crawler_analytics_shared %}
+                    <a class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded border border-[#5ca197] bg-[#5ca197] px-3 py-1.5 font-mono text-xs font-medium text-white transition hover:border-[#3d7d78] hover:bg-[#3d7d78]" href="{% url 'dashboard:crawler-analytics-customer-organization' organization.pk %}">
+                        <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 19h16v2H2V3h2v16zm3-2V9h3v8H7zm5 0V5h3v12h-3zm5 0v-5h3v5h-3z" fill="currentColor"/></svg>
+                        {% if request.LANGUAGE_CODE == 'pl' %}Raporty{% else %}Reports{% endif %}
+                    </a>
+                {% endif %}
+
                 <a class="inline-flex min-h-9 items-center justify-center rounded border border-[#d9d9d9] bg-white px-3 py-1.5 font-mono text-xs font-medium text-[#353535]/70 transition hover:border-[#5ca197] hover:text-[#5ca197]" href="{% url 'dashboard:organization-edit' organization.pk %}">
                     {% if request.LANGUAGE_CODE == 'pl' %}Edytuj{% else %}Edit{% endif %}
                 </a>

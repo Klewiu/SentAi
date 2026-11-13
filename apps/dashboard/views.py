@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+import smtplib
 import uuid
 import logging
 from django.db import transaction
@@ -53,6 +54,10 @@ from apps.billing.services import (
 )
 from apps.companies.forms import OrganizationForm
 from apps.companies.crawler_analytics import build_crawler_analytics_report
+from apps.companies.emails import (
+    CrawlerAnalyticsNotificationError,
+    send_crawler_analytics_notification,
+)
 from apps.companies.models import (
     CrawlerAnalyticsDailyStat,
     Organization,
@@ -1746,13 +1751,21 @@ class CrawlerAnalyticsAdminView(AdminRequiredMixin, TemplateView):
 
 class CrawlerAnalyticsAdminSettingsView(AdminRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        organization = get_object_or_404(Organization, pk=self.kwargs["pk"])
         action = request.POST.get("action")
         is_polish = request.LANGUAGE_CODE == "pl"
 
         if action == "toggle_collection":
-            organization.crawler_analytics_enabled = not organization.crawler_analytics_enabled
-            organization.save(update_fields=["crawler_analytics_enabled", "updated_at"])
+            with transaction.atomic():
+                organization = get_object_or_404(
+                    Organization.objects.select_for_update().select_related("owner"),
+                    pk=self.kwargs["pk"],
+                )
+                organization.crawler_analytics_enabled = not organization.crawler_analytics_enabled
+                organization.save(update_fields=["crawler_analytics_enabled", "updated_at"])
+                if organization.crawler_analytics_enabled:
+                    from apps.notifications.services import notify_crawler_analytics_collection_enabled
+
+                    notify_crawler_analytics_collection_enabled(organization)
             message = (
                 (
                     "Zbieranie danych zostało włączone."
@@ -1768,7 +1781,61 @@ class CrawlerAnalyticsAdminSettingsView(AdminRequiredMixin, View):
             )
             messages.success(request, message)
         elif action == "toggle_sharing":
-            if not CrawlerAnalyticsDailyStat.objects.filter(organization=organization).exists():
+            no_report_data = False
+            email_sent = False
+            try:
+                with transaction.atomic():
+                    organization = get_object_or_404(
+                        Organization.objects.select_for_update().select_related("owner"),
+                        pk=self.kwargs["pk"],
+                    )
+                    new_shared_state = not organization.crawler_analytics_shared
+                    if new_shared_state and not CrawlerAnalyticsDailyStat.objects.filter(
+                        organization=organization,
+                        request_count__gt=0,
+                    ).exists():
+                        no_report_data = True
+                    else:
+                        from apps.notifications.services import notify_crawler_analytics_report_sharing_changed
+
+                        now = timezone.now()
+                        last_notification = organization.crawler_analytics_last_notification_sent_at
+                        email_sent = (
+                            last_notification is None
+                            or last_notification <= now - timedelta(days=7)
+                        )
+                        organization.crawler_analytics_shared = new_shared_state
+                        notify_crawler_analytics_report_sharing_changed(
+                            organization,
+                            is_shared=new_shared_state,
+                        )
+                        if email_sent:
+                            send_crawler_analytics_notification(
+                                organization,
+                                is_shared=new_shared_state,
+                            )
+                            organization.crawler_analytics_last_notification_sent_at = timezone.now()
+                        organization.save(
+                            update_fields=[
+                                "crawler_analytics_shared",
+                                "crawler_analytics_last_notification_sent_at",
+                                "updated_at",
+                            ]
+                        )
+            except (CrawlerAnalyticsNotificationError, smtplib.SMTPException, OSError):
+                logger.exception(
+                    "Could not notify organization owner about crawler report sharing for organization %s",
+                    self.kwargs["pk"],
+                )
+                messages.error(
+                    request,
+                    "Nie udało się wysłać wiadomości. Ustawienie udostępniania nie zostało zmienione."
+                    if is_polish
+                    else "The email could not be sent. The report sharing setting was not changed.",
+                )
+                return redirect("dashboard:crawler-analytics-admin", pk=self.kwargs["pk"])
+
+            if no_report_data:
                 messages.error(
                     request,
                     "Raport można udostępnić po zebraniu pierwszych danych."
@@ -1776,23 +1843,37 @@ class CrawlerAnalyticsAdminSettingsView(AdminRequiredMixin, View):
                     else "The report can be shared after the first data has been collected.",
                 )
             else:
-                organization.crawler_analytics_shared = not organization.crawler_analytics_shared
-                organization.save(update_fields=["crawler_analytics_shared", "updated_at"])
-                message = (
-                    (
-                        "Raport został udostępniony klientowi."
-                        if organization.crawler_analytics_shared
-                        else "Udostępnianie raportu klientowi zostało wyłączone."
+                if email_sent:
+                    message = (
+                        (
+                            "Raport został udostępniony klientowi. Wysłaliśmy wiadomość e-mail."
+                            if organization.crawler_analytics_shared
+                            else "Udostępnianie raportu zostało cofnięte. Wysłaliśmy wiadomość e-mail."
+                        )
+                        if is_polish
+                        else (
+                            "The report has been shared with the customer. An email was sent."
+                            if organization.crawler_analytics_shared
+                            else "Report sharing has been revoked. An email was sent."
+                        )
                     )
-                    if is_polish
-                    else (
-                        "The report has been shared with the customer."
-                        if organization.crawler_analytics_shared
-                        else "Sharing the report with the customer has been disabled."
+                else:
+                    message = (
+                        (
+                            "Ustawienie raportu zostało zmienione. Nie wysłaliśmy kolejnego e-maila, ponieważ powiadomienie dla tej strony zostało wysłane w ciągu ostatnich 7 dni."
+                            if organization.crawler_analytics_shared
+                            else "Udostępnianie raportu zostało cofnięte. Nie wysłaliśmy kolejnego e-maila, ponieważ powiadomienie dla tej strony zostało wysłane w ciągu ostatnich 7 dni."
+                        )
+                        if is_polish
+                        else (
+                            "The report setting was changed. No email was sent because a notification for this website was sent within the last 7 days."
+                            if organization.crawler_analytics_shared
+                            else "Report sharing has been revoked. No email was sent because a notification for this website was sent within the last 7 days."
+                        )
                     )
-                )
                 messages.success(request, message)
         else:
+            organization = get_object_or_404(Organization, pk=self.kwargs["pk"])
             messages.error(
                 request,
                 "Nieznana operacja ustawień raportu."
@@ -1815,10 +1896,7 @@ class CustomerCrawlerAnalyticsView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        organizations = Organization.objects.filter(
-            owner=self.request.user,
-            crawler_analytics_shared=True,
-        ).order_by("name")
+        organizations = self.get_organizations()
         context["reports"] = [
             {
                 "organization": organization,
@@ -1827,6 +1905,23 @@ class CustomerCrawlerAnalyticsView(LoginRequiredMixin, TemplateView):
             for organization in organizations
         ]
         return context
+
+    def get_organizations(self):
+        return Organization.objects.filter(
+            owner=self.request.user,
+            crawler_analytics_shared=True,
+        ).order_by("name")
+
+
+class CustomerCrawlerAnalyticsOrganizationView(CustomerCrawlerAnalyticsView):
+    def get_organizations(self):
+        organization = get_object_or_404(
+            Organization,
+            pk=self.kwargs["pk"],
+            owner=self.request.user,
+            crawler_analytics_shared=True,
+        )
+        return [organization]
 
 
 class StripePriceEditorMixin:

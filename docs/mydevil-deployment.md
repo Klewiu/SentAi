@@ -71,7 +71,7 @@ Po pierwszym zaplanowanym wykonaniu sprawdź log: powinien zawierać zakończeni
 
 ### Analityka crawlerów
 
-Zbieranie żądań plików publicznych jest domyślnie wyłączone dla każdej strony. Administrator może je włączyć w raporcie firmy. Zdarzenia trafiają do kolejki w bazie, a harmonogram Cron agreguje je do dziennych statystyk; aplikacja nie wymaga Redis ani Celery. Zaplanuj osobne uruchomienie co minutę:
+Zbieranie żądań plików publicznych jest domyślnie wyłączone dla każdej strony. Administrator może je włączyć w raporcie firmy. Udostępnienie lub cofnięcie klientowi dostępu do raportu wysyła powiadomienie na jego adres rejestracyjny, z użyciem tego samego `DEFAULT_FROM_EMAIL` co pozostałe wiadomości; dla jednej strony e-mail jest wysyłany maksymalnie raz na 7 dni. Zbieranie danych i dostęp klienta do raportu to niezależne ustawienia. Zdarzenia trafiają do kolejki w bazie, a harmonogram Cron agreguje je do dziennych statystyk; aplikacja nie wymaga Redis ani Celery. Zaplanuj osobne uruchomienie co minutę:
 
 ```cron
 * * * * * /usr/home/LOGIN/VENV/bin/python /usr/home/LOGIN/domains/DOMENA/public_python/tools/run_crawler_analytics.py >> /usr/home/LOGIN/domains/DOMENA/public_python/logs/crawler-analytics.log 2>&1

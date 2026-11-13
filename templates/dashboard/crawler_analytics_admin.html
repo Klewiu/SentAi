@@ -14,7 +14,7 @@
     <div class="grid gap-4 lg:grid-cols-2">
         <section class="rounded-xl border border-[#d9d9d9] bg-white p-4 sm:p-5">
             <h2 class="font-display text-lg font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Zbieranie danych{% else %}Data collection{% endif %}</h2>
-            <p class="mt-1 text-sm leading-6 text-[#353535]/65">{% if request.LANGUAGE_CODE == 'pl' %}Dotyczy wyłącznie tej strony. Wyłączenie zatrzymuje nowe zapisy, ale nie usuwa zebranej historii.{% else %}Applies only to this page. Turning collection off stops new events but keeps existing history.{% endif %}</p>
+            <p class="mt-1 text-sm leading-6 text-[#353535]/65">{% if request.LANGUAGE_CODE == 'pl' %}Dotyczy wyłącznie tej strony. Wyłączenie zatrzymuje nowe zapisy, ale nie usuwa historii ani nie odbiera klientowi dostępu do już udostępnionego raportu.{% else %}Applies only to this page. Turning collection off stops new events but keeps existing history and does not revoke the customer's access to an already shared report.{% endif %}</p>
             <form class="mt-4" method="post" action="{% url 'dashboard:crawler-analytics-admin-settings' organization.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="toggle_collection">
@@ -27,7 +27,7 @@
 
         <section class="rounded-xl border border-[#d9d9d9] bg-white p-4 sm:p-5">
             <h2 class="font-display text-lg font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Udostępnianie klientowi{% else %}Share with customer{% endif %}</h2>
-            <p class="mt-1 text-sm leading-6 text-[#353535]/65">{% if request.LANGUAGE_CODE == 'pl' %}To ustawienie jest niezależne od zbierania danych. Raport można udostępnić dopiero po agregacji pierwszych zdarzeń.{% else %}This setting is independent of collection. The report can be shared after the first events have been aggregated.{% endif %}</p>
+            <p class="mt-1 text-sm leading-6 text-[#353535]/65">{% if request.LANGUAGE_CODE == 'pl' %}Po udostępnieniu lub cofnięciu dostępu klient otrzyma wiadomość e-mail. Dla tej strony wysyłamy maksymalnie jedną wiadomość na 7 dni. Udostępnianie jest niezależne od zbierania danych; raport można udostępnić po agregacji pierwszych zdarzeń.{% else %}The customer receives an email when sharing is enabled or revoked. At most one email per website is sent every 7 days. Sharing is independent of data collection; the report can be shared after the first events have been aggregated.{% endif %}</p>
             <form class="mt-4" method="post" action="{% url 'dashboard:crawler-analytics-admin-settings' organization.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="toggle_sharing">

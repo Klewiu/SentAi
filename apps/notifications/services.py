@@ -359,6 +359,66 @@ def notify_organization_verification_needed(organization):
     )
 
 
+def notify_crawler_analytics_collection_enabled(organization):
+    notify_admin(
+        title="Crawler analytics collection enabled",
+        message=f"Crawler analytics collection was enabled for {organization.name}.",
+        title_pl="Włączono zbieranie danych crawlerów",
+        message_pl=f"Włączono zbieranie danych crawlerów dla witryny {organization.name}.",
+        category=NotificationCategory.CUSTOMER,
+        severity=NotificationSeverity.SUCCESS,
+        customer=organization.owner,
+        action_url=reverse("dashboard:crawler-analytics-admin", args=[organization.pk]),
+    )
+
+
+def notify_crawler_analytics_report_sharing_changed(organization, *, is_shared):
+    if is_shared:
+        admin_title = "Crawler analytics report shared"
+        admin_message = f"The crawler analytics report for {organization.name} was shared with {organization.owner.email}."
+        admin_title_pl = "Udostępniono raport crawlerów klientowi"
+        admin_message_pl = f"Raport crawlerów dla witryny {organization.name} udostępniono klientowi {organization.owner.email}."
+        customer_title = "New crawler analytics report"
+        customer_message = f"The crawler analytics report for {organization.name} is now available in your dashboard."
+        customer_title_pl = "Nowy raport crawlerów"
+        customer_message_pl = f"Raport crawlerów dla witryny {organization.name} jest już dostępny w Twoim panelu."
+        customer_action_url = reverse(
+            "dashboard:crawler-analytics-customer-organization",
+            args=[organization.pk],
+        )
+    else:
+        admin_title = "Crawler analytics report sharing revoked"
+        admin_message = f"Report sharing for {organization.name} was revoked for {organization.owner.email}."
+        admin_title_pl = "Cofnięto udostępnianie raportu crawlerów"
+        admin_message_pl = f"Cofnięto klientowi {organization.owner.email} dostęp do raportu crawlerów dla witryny {organization.name}."
+        customer_title = "Crawler analytics report access revoked"
+        customer_message = f"Your access to the crawler analytics report for {organization.name} has been revoked."
+        customer_title_pl = "Cofnięto dostęp do raportu crawlerów"
+        customer_message_pl = f"Cofnięto dostęp do raportu crawlerów dla witryny {organization.name}."
+        customer_action_url = ""
+
+    notify_admin(
+        title=admin_title,
+        message=admin_message,
+        title_pl=admin_title_pl,
+        message_pl=admin_message_pl,
+        category=NotificationCategory.CUSTOMER,
+        severity=NotificationSeverity.SUCCESS,
+        customer=organization.owner,
+        action_url=reverse("dashboard:crawler-analytics-admin", args=[organization.pk]),
+    )
+    notify_customer(
+        user=organization.owner,
+        title=customer_title,
+        message=customer_message,
+        title_pl=customer_title_pl,
+        message_pl=customer_message_pl,
+        category=NotificationCategory.CUSTOMER,
+        severity=NotificationSeverity.SUCCESS,
+        action_url=customer_action_url,
+    )
+
+
 def close_organization_verification_needed(organization):
     close_notification(f"organization:{organization.pk}:verification-needed")
 
