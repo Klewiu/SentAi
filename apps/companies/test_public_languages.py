@@ -531,3 +531,9 @@ class PublicLanguageTests(TestCase):
                 self.assertContains(directory, self.org.name)
                 self.assertEqual(catalog.status_code, 200)
                 self.assertEqual(catalog.json()["results"][0]["slug"], self.org.slug)
+
+    def test_company_directory_has_rounded_translucent_frame_with_spacing(self):
+        response = self.client.get(reverse("public-company-directory"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'rounded-2xl border border-white/70 bg-white/35 p-4 sm:p-6 lg:p-8')
