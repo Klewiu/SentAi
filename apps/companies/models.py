@@ -44,6 +44,19 @@ class VerificationStatus(models.TextChoices):
     HUMAN_ADMIN_VERIFIED = "human_admin_verified", "Human admin verified"
 
 
+class CrawlerAnalyticsCategory(models.TextChoices):
+    AI_SEARCH = "ai_search", "AI search"
+    AI_TRAINING = "ai_training", "AI training"
+    TRADITIONAL_SEO = "traditional_seo", "Traditional search"
+
+
+class CrawlerAnalyticsResource(models.TextChoices):
+    COMPANY_JSON = "company_json", "company.json"
+    COMPANY_JSONLD = "company_jsonld", "company.jsonld"
+    COMPANY_MD = "company_md", "company.md"
+    LLMS_TXT = "llms_txt", "llms.txt"
+
+
 class Organization(models.Model):
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     owner = models.ForeignKey(
@@ -99,6 +112,8 @@ class Organization(models.Model):
     long_description_pl = models.TextField(blank=True)
     public = models.BooleanField(default=True)
     allow_ai_indexing = models.BooleanField(default=True)
+    crawler_analytics_enabled = models.BooleanField(default=False)
+    crawler_analytics_shared = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -173,6 +188,53 @@ class Organization(models.Model):
         primary_value = getattr(self, f"{field_prefix}_{language}", "")
         fallback_value = getattr(self, f"{field_prefix}_{fallback}", "")
         return primary_value or fallback_value or ""
+
+
+class CrawlerAnalyticsQueueEvent(models.Model):
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="crawler_analytics_queue",
+    )
+    observed_minute = models.DateTimeField()
+    ip_hash = models.CharField(max_length=64)
+    bot_key = models.CharField(max_length=64)
+    bot_name = models.CharField(max_length=100)
+    bot_category = models.CharField(max_length=32, choices=CrawlerAnalyticsCategory.choices)
+    resource = models.CharField(max_length=24, choices=CrawlerAnalyticsResource.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "observed_minute", "bot_key", "resource", "ip_hash"],
+                name="company_crawler_event_dedupe",
+            )
+        ]
+
+
+class CrawlerAnalyticsDailyStat(models.Model):
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="crawler_analytics_stats",
+    )
+    date = models.DateField()
+    bot_key = models.CharField(max_length=64)
+    bot_name = models.CharField(max_length=100)
+    bot_category = models.CharField(max_length=32, choices=CrawlerAnalyticsCategory.choices)
+    resource = models.CharField(max_length=24, choices=CrawlerAnalyticsResource.choices)
+    request_count = models.PositiveBigIntegerField(default=0)
+
+    class Meta:
+        ordering = ["date", "bot_name", "resource"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "date", "bot_key", "resource"],
+                name="company_crawler_daily_unique",
+            )
+        ]
 
 
 class SocialNetwork(models.TextChoices):

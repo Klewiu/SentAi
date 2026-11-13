@@ -1,12 +1,13 @@
 import datetime
 import hashlib
 import json
+import logging
 from xml.sax.saxutils import escape
 
 from django.conf import settings
 from django.http import Http404, HttpResponse, StreamingHttpResponse
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.db.models import Q, TextField
 from django.db.models.functions import Cast
 from django.shortcuts import get_object_or_404, render, redirect
@@ -46,6 +47,10 @@ from .services import (
     public_profile_url,
     public_resources,
 )
+from .crawler_analytics import RESOURCE_ROUTE_NAMES, enqueue_crawler_request
+
+
+logger = logging.getLogger(__name__)
 
 
 PROFILE_COPY = {
@@ -286,10 +291,23 @@ class PublicOrganizationMixin:
             "products",
             "content_entries",
         )
-        return get_object_or_404(
+        organization = get_object_or_404(
             queryset,
             slug=self.kwargs["slug"],
         )
+        self._crawler_organization = organization
+        return organization
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        organization = getattr(self, "_crawler_organization", None)
+        resource = RESOURCE_ROUTE_NAMES.get(getattr(request.resolver_match, "url_name", ""))
+        if organization and resource and response.status_code == 200 and request.method == "GET":
+            try:
+                enqueue_crawler_request(request, organization, resource)
+            except DatabaseError:
+                logger.exception("Could not enqueue crawler analytics for organization %s", organization.pk)
+        return response
 
     def get_public_language(self, organization, *, default_to_primary=False):
         language_code = self.kwargs.get("language_code")

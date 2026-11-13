@@ -67,4 +67,41 @@
         font-weight: 600;
         line-height: 1.25rem;
     }
+
+    @media (min-width: 1280px) {
+        .account-nav-menu-compact > div {
+            flex-wrap: nowrap;
+            gap: 0.25rem;
+            min-width: 0;
+        }
+
+        .account-nav-menu-compact > div > .account-nav-link,
+        .account-nav-menu-compact > div > form,
+        .account-nav-menu-compact .account-nav-group {
+            flex: 0 1 auto;
+            min-width: 0;
+        }
+
+        .account-nav-menu-compact .account-nav-group {
+            gap: 0.25rem;
+        }
+
+        .account-nav-menu-compact .account-nav-link,
+        .account-nav-menu-compact .account-nav-static {
+            gap: 0.25rem;
+            min-width: 0;
+            padding-right: 0.5rem;
+            padding-left: 0.5rem;
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+
+        .account-nav-menu-compact .account-nav-link > span:not(.rounded-full),
+        .account-nav-menu-compact .account-nav-static > span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
 </style>

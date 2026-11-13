@@ -120,7 +120,7 @@
             </div>
 
             <!-- Nav right -->
-            <div id="mobile-nav-menu" class="hidden border-t border-[#d9d9d9] pb-3 pt-3 xl:block xl:flex-1 xl:border-t-0 xl:py-0">
+            <div id="mobile-nav-menu" class="hidden border-t border-[#d9d9d9] pb-3 pt-3 xl:block xl:flex-1 xl:min-w-0 xl:border-t-0 xl:py-0 {% if navbar_has_shared_crawler_reports %}account-nav-menu-compact{% endif %}">
                 <div class="flex w-full flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center xl:justify-end xl:w-auto">
                     {% include 'partials/account_navigation.html' %}
                     <form action="{% url 'set_language_localized' %}" method="post" class="w-full sm:w-auto">

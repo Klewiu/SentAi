@@ -52,7 +52,12 @@ from apps.billing.services import (
     supported_billing_currencies,
 )
 from apps.companies.forms import OrganizationForm
-from apps.companies.models import Organization, VerificationStatus
+from apps.companies.crawler_analytics import build_crawler_analytics_report
+from apps.companies.models import (
+    CrawlerAnalyticsDailyStat,
+    Organization,
+    VerificationStatus,
+)
 from apps.companies.services import public_feed_urls
 from apps.subscriptions.models import Subscription
 
@@ -1721,6 +1726,107 @@ class AdminRequiredMixin(LoginRequiredMixin):
         if not request.user.is_superuser:
             return redirect("dashboard:home")
         return super().dispatch(request, *args, **kwargs)
+
+
+class CrawlerAnalyticsAdminView(AdminRequiredMixin, TemplateView):
+    template_name = "dashboard/crawler_analytics_admin.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        organization = get_object_or_404(Organization, pk=self.kwargs["pk"])
+        context.update(
+            {
+                "organization": organization,
+                "report": build_crawler_analytics_report(organization),
+                "pending_events": organization.crawler_analytics_queue.count(),
+            }
+        )
+        return context
+
+
+class CrawlerAnalyticsAdminSettingsView(AdminRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        organization = get_object_or_404(Organization, pk=self.kwargs["pk"])
+        action = request.POST.get("action")
+        is_polish = request.LANGUAGE_CODE == "pl"
+
+        if action == "toggle_collection":
+            organization.crawler_analytics_enabled = not organization.crawler_analytics_enabled
+            organization.save(update_fields=["crawler_analytics_enabled", "updated_at"])
+            message = (
+                (
+                    "Zbieranie danych zostało włączone."
+                    if organization.crawler_analytics_enabled
+                    else "Zbieranie danych zostało wyłączone. Zapisana historia pozostaje dostępna."
+                )
+                if is_polish
+                else (
+                    "Data collection has been enabled."
+                    if organization.crawler_analytics_enabled
+                    else "Data collection has been disabled. Existing history is preserved."
+                )
+            )
+            messages.success(request, message)
+        elif action == "toggle_sharing":
+            if not CrawlerAnalyticsDailyStat.objects.filter(organization=organization).exists():
+                messages.error(
+                    request,
+                    "Raport można udostępnić po zebraniu pierwszych danych."
+                    if is_polish
+                    else "The report can be shared after the first data has been collected.",
+                )
+            else:
+                organization.crawler_analytics_shared = not organization.crawler_analytics_shared
+                organization.save(update_fields=["crawler_analytics_shared", "updated_at"])
+                message = (
+                    (
+                        "Raport został udostępniony klientowi."
+                        if organization.crawler_analytics_shared
+                        else "Udostępnianie raportu klientowi zostało wyłączone."
+                    )
+                    if is_polish
+                    else (
+                        "The report has been shared with the customer."
+                        if organization.crawler_analytics_shared
+                        else "Sharing the report with the customer has been disabled."
+                    )
+                )
+                messages.success(request, message)
+        else:
+            messages.error(
+                request,
+                "Nieznana operacja ustawień raportu."
+                if is_polish
+                else "Unknown report settings action.",
+            )
+
+        return redirect("dashboard:crawler-analytics-admin", pk=organization.pk)
+
+
+class CustomerCrawlerAnalyticsView(LoginRequiredMixin, TemplateView):
+    template_name = "dashboard/crawler_analytics_customer.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and (
+            request.user.is_superuser or request.user.account_type == AccountType.STAFF
+        ):
+            return redirect("dashboard:home")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        organizations = Organization.objects.filter(
+            owner=self.request.user,
+            crawler_analytics_shared=True,
+        ).order_by("name")
+        context["reports"] = [
+            {
+                "organization": organization,
+                "report": build_crawler_analytics_report(organization),
+            }
+            for organization in organizations
+        ]
+        return context
 
 
 class StripePriceEditorMixin:

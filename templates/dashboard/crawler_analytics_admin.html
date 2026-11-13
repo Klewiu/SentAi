@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="space-y-6 rounded-2xl border border-white/70 bg-white/35 p-4 sm:p-6 lg:p-8">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+            <p class="font-mono text-[10px] uppercase tracking-widest text-[#5ca197]">{% if request.LANGUAGE_CODE == 'pl' %}Analityka crawlerów{% else %}Crawler analytics{% endif %}</p>
+            <h1 class="mt-2 font-display text-3xl font-bold tracking-tight text-[#284b63]">{{ organization.name }}</h1>
+            <p class="mt-1 font-mono text-xs text-[#353535]/60">{{ organization.slug }}</p>
+        </div>
+        <a class="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#d9d9d9] bg-white px-4 py-2 text-sm font-semibold text-[#284b63] transition hover:border-[#5ca197]" href="{% url 'public-company-directory' %}">{% if request.LANGUAGE_CODE == 'pl' %}Wróć do katalogu{% else %}Back to directory{% endif %}</a>
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+        <section class="rounded-xl border border-[#d9d9d9] bg-white p-4 sm:p-5">
+            <h2 class="font-display text-lg font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Zbieranie danych{% else %}Data collection{% endif %}</h2>
+            <p class="mt-1 text-sm leading-6 text-[#353535]/65">{% if request.LANGUAGE_CODE == 'pl' %}Dotyczy wyłącznie tej strony. Wyłączenie zatrzymuje nowe zapisy, ale nie usuwa zebranej historii.{% else %}Applies only to this page. Turning collection off stops new events but keeps existing history.{% endif %}</p>
+            <form class="mt-4" method="post" action="{% url 'dashboard:crawler-analytics-admin-settings' organization.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="toggle_collection">
+                <button class="inline-flex min-h-10 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-white {% if organization.crawler_analytics_enabled %}bg-[#a54444] hover:bg-[#843535]{% else %}bg-[#5ca197] hover:bg-[#397b72]{% endif %}" type="submit">
+                    {% if organization.crawler_analytics_enabled %}{% if request.LANGUAGE_CODE == 'pl' %}Wyłącz zbieranie{% else %}Disable collection{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Włącz zbieranie{% else %}Enable collection{% endif %}{% endif %}
+                </button>
+                <span class="ml-2 text-sm font-semibold {% if organization.crawler_analytics_enabled %}text-[#397b72]{% else %}text-[#353535]/55{% endif %}">{% if organization.crawler_analytics_enabled %}{% if request.LANGUAGE_CODE == 'pl' %}Aktywne{% else %}Enabled{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Wyłączone{% else %}Disabled{% endif %}{% endif %}</span>
+            </form>
+        </section>
+
+        <section class="rounded-xl border border-[#d9d9d9] bg-white p-4 sm:p-5">
+            <h2 class="font-display text-lg font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Udostępnianie klientowi{% else %}Share with customer{% endif %}</h2>
+            <p class="mt-1 text-sm leading-6 text-[#353535]/65">{% if request.LANGUAGE_CODE == 'pl' %}To ustawienie jest niezależne od zbierania danych. Raport można udostępnić dopiero po agregacji pierwszych zdarzeń.{% else %}This setting is independent of collection. The report can be shared after the first events have been aggregated.{% endif %}</p>
+            <form class="mt-4" method="post" action="{% url 'dashboard:crawler-analytics-admin-settings' organization.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="toggle_sharing">
+                <button class="inline-flex min-h-10 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-white {% if organization.crawler_analytics_shared %}bg-[#a54444] hover:bg-[#843535]{% else %}bg-[#5ca197] hover:bg-[#397b72]{% endif %}" type="submit" {% if not report.has_data %}disabled{% endif %}>
+                    {% if organization.crawler_analytics_shared %}{% if request.LANGUAGE_CODE == 'pl' %}Cofnij udostępnienie{% else %}Revoke sharing{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Udostępnij raport{% else %}Share report{% endif %}{% endif %}
+                </button>
+                <span class="ml-2 text-sm font-semibold {% if organization.crawler_analytics_shared %}text-[#397b72]{% else %}text-[#353535]/55{% endif %}">{% if organization.crawler_analytics_shared %}{% if request.LANGUAGE_CODE == 'pl' %}Udostępniony{% else %}Shared{% endif %}{% else %}{% if request.LANGUAGE_CODE == 'pl' %}Nieudostępniony{% else %}Not shared{% endif %}{% endif %}</span>
+            </form>
+        </section>
+    </div>
+
+    <section class="rounded-xl border border-[#d9d9d9] bg-white p-4 sm:p-6">
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+                <h2 class="font-display text-xl font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Statystyki pobrań{% else %}Download statistics{% endif %}</h2>
+                <p class="mt-1 text-sm text-[#353535]/60">{% if request.LANGUAGE_CODE == 'pl' %}Zdarzenia oczekujące na agregację: {{ pending_events }}{% else %}Events waiting for aggregation: {{ pending_events }}{% endif %}</p>
+            </div>
+        </div>
+        {% if report.has_data %}
+            <div class="mt-5">
+                {% include 'dashboard/partials/crawler_analytics_summary.html' with report=report %}
+            </div>
+        {% else %}
+            <div class="mt-5 rounded-lg border border-dashed border-[#d9d9d9] bg-[#f8fafa] p-5 text-sm leading-6 text-[#353535]/65">
+                {% if organization.crawler_analytics_enabled %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}Brak zagregowanych danych. Gdy crawler pobierze plik, dane pojawią się po uruchomieniu zadania Cron.{% else %}No aggregated data yet. Once a crawler requests a file, data will appear after the Cron job runs.{% endif %}
+                {% else %}
+                    {% if request.LANGUAGE_CODE == 'pl' %}Zbieranie danych jest domyślnie wyłączone. Włącz je powyżej, aby rozpocząć tworzenie raportu.{% else %}Data collection is disabled by default. Enable it above to start building a report.{% endif %}
+                {% endif %}
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

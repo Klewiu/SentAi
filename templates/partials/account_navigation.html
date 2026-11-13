@@ -7,7 +7,7 @@
         <span>{% if request.user.is_superuser %}{% if request.LANGUAGE_CODE == 'pl' %}Panel admin{% else %}Admin panel{% endif %}{% elif request.LANGUAGE_CODE == 'pl' %}Panel klienta{% else %}Client dashboard{% endif %}</span>
     </a>
     {% if navbar_show_account_badges %}
-        <div class="grid w-full grid-cols-1 gap-2 xl:flex xl:w-auto">
+        <div class="account-nav-group grid w-full grid-cols-1 gap-2 xl:flex xl:w-auto">
             {% if request.user.account_type != 'STAFF' %}
                 <a class="account-nav-link" href="{% if navbar_has_active_billing_subscription %}{% url 'dashboard:billing-portal' %}{% else %}{% url 'dashboard:plan-update' %}{% endif %}" {% if current_view == 'dashboard:plan-update' or current_view == 'dashboard:billing-portal' or current_view == 'dashboard:plan-payment-method' or current_view == 'dashboard:plan-purchase-continue' or current_view == 'dashboard:plan-purchase-terms' or current_view == 'dashboard:stripe-plan-confirm' or current_view == 'dashboard:blik-plan-confirm' or current_view == 'dashboard:billing-profile' or current_view == 'dashboard:manual-plan-confirm' or current_view == 'dashboard:stripe-customer-portal' or current_view == 'dashboard:billing-subscription-cancel' or current_view == 'dashboard:billing-subscription-cancel-renewal' or current_view == 'dashboard:billing-subscription-reactivate' or current_view == 'dashboard:plan-checkout-success' or current_view == 'dashboard:plan-checkout-cancel' %}aria-current="page"{% endif %}>
                     <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -26,6 +26,12 @@
                         <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ navbar_customer_notification_count }}</span>
                     {% endif %}
                 </a>
+                {% if navbar_has_shared_crawler_reports and request.user.account_type != 'STAFF' %}
+                    <a class="account-nav-link" href="{% url 'dashboard:crawler-analytics-reports' %}" {% if current_view == 'dashboard:crawler-analytics-reports' %}aria-current="page"{% endif %}>
+                        <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 19h16v2H2V3h2v16zm3-2V9h3v8H7zm5 0V5h3v12h-3zm5 0v-5h3v5h-3z" fill="currentColor"/></svg>
+                        <span>{% if request.LANGUAGE_CODE == 'pl' %}Raporty{% else %}Reports{% endif %}</span>
+                    </a>
+                {% endif %}
             {% endif %}
             {% if request.user.account_type != 'STAFF' and navbar_has_publication_access %}
                 <span class="account-nav-static cursor-default">

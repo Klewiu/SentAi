@@ -69,6 +69,16 @@ Runner ustawia katalog roboczy i konfigurację produkcyjną. Blokada systemowa z
 
 Po pierwszym zaplanowanym wykonaniu sprawdź log: powinien zawierać zakończenie oraz `0 subscription failures`. Przetestuj webhook w trybie testowym Stripe, zapis płatności, dostęp klienta i powiadomienia. Dopiero taki test potwierdza działanie na serwerze.
 
+### Analityka crawlerów
+
+Zbieranie żądań plików publicznych jest domyślnie wyłączone dla każdej strony. Administrator może je włączyć w raporcie firmy. Zdarzenia trafiają do kolejki w bazie, a harmonogram Cron agreguje je do dziennych statystyk; aplikacja nie wymaga Redis ani Celery. Zaplanuj osobne uruchomienie co minutę:
+
+```cron
+* * * * * /usr/home/LOGIN/VENV/bin/python /usr/home/LOGIN/domains/DOMENA/public_python/tools/run_crawler_analytics.py >> /usr/home/LOGIN/domains/DOMENA/public_python/logs/crawler-analytics.log 2>&1
+```
+
+Uruchom skrypt ręcznie po migracji, aby sprawdzić konfigurację. Każde uruchomienie przetwarza maksymalnie 2000 zdarzeń; blokada systemowa zapobiega nakładaniu się kopii. Kolejka deduplikuje żądania tej samej strony, IP, bota i pliku w tej samej minucie. Surowe adresy IP nie są zapisywane: do czasu agregacji przechowywany jest jedynie ich HMAC, po czym zdarzenia kolejki są usuwane. Skonfiguruj rotację logu i monitorowanie błędów analogicznie do zadania rozliczeniowego.
+
 Dokumentacja dostawcy:
 - https://pomoc.mydevil.net/Django/
 - https://pomoc.mydevil.net/Python/

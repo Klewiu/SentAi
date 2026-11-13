@@ -6,7 +6,7 @@ from django.test import TransactionTestCase
 
 class GeneratedOrganizationSlugMigrationTests(TransactionTestCase):
     migrate_from = ("companies", "0021_product_product_type")
-    migrate_to = ("companies", "0022_transliterate_generated_organization_slugs")
+    migrate_to = ("companies", "0023_organization_crawler_analytics_enabled_and_more")
 
     def setUp(self):
         super().setUp()

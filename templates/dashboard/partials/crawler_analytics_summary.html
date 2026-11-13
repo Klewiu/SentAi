@@ -1,0 +1,73 @@
+<div class="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="min-w-0 rounded-lg border border-[#d9d9d9] bg-[#f8fafa] p-4">
+        <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/50">{% if request.LANGUAGE_CODE == 'pl' %}Ostatnie 7 dni{% else %}Last 7 days{% endif %}</p>
+        <p class="mt-2 font-display text-2xl font-semibold text-[#284b63]">{{ report.last_7_days }}</p>
+    </div>
+    <div class="min-w-0 rounded-lg border border-[#d9d9d9] bg-[#f8fafa] p-4">
+        <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/50">{% if request.LANGUAGE_CODE == 'pl' %}Ostatnie 30 dni{% else %}Last 30 days{% endif %}</p>
+        <p class="mt-2 font-display text-2xl font-semibold text-[#284b63]">{{ report.last_30_days }}</p>
+    </div>
+    <div class="min-w-0 rounded-lg border border-[#d9d9d9] bg-[#f8fafa] p-4">
+        <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/50">{% if request.LANGUAGE_CODE == 'pl' %}Ostatnie 365 dni{% else %}Last 365 days{% endif %}</p>
+        <p class="mt-2 font-display text-2xl font-semibold text-[#284b63]">{{ report.last_365_days }}</p>
+    </div>
+    <div class="min-w-0 rounded-lg border border-[#5ca197]/40 bg-[#5ca197]/10 p-4">
+        <p class="font-mono text-[10px] uppercase tracking-widest text-[#353535]/50">{% if request.LANGUAGE_CODE == 'pl' %}Łącznie{% else %}All time{% endif %}</p>
+        <p class="mt-2 font-display text-2xl font-semibold text-[#284b63]">{{ report.all_time }}</p>
+    </div>
+</div>
+
+<div class="mt-6 grid min-w-0 gap-6 lg:grid-cols-2">
+    <section class="min-w-0">
+        <h3 class="break-words font-display text-lg font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Pobrania według pliku — ostatnie 30 dni{% else %}Requests by file — last 30 days{% endif %}</h3>
+        <div class="mt-3 space-y-3">
+            {% for row in report.resource_rows %}
+                <div>
+                    <div class="flex min-w-0 items-center justify-between gap-3 text-sm">
+                        <span class="min-w-0 break-all font-mono text-[#284b63]">{{ row.label }}</span>
+                        <span class="shrink-0 font-semibold tabular-nums text-[#284b63]">{{ row.total }}</span>
+                    </div>
+                    <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-[#d9d9d9]">
+                        <div class="h-full rounded-full bg-[#5ca197]" style="width: {{ row.percent }}%"></div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="min-w-0">
+        <h3 class="break-words font-display text-lg font-semibold text-[#284b63]">{% if request.LANGUAGE_CODE == 'pl' %}Boty i pobrane pliki — łącznie{% else %}Bots and requested files — all time{% endif %}</h3>
+        <div class="mt-3 min-w-0 max-w-full overflow-x-auto rounded-lg border border-[#d9d9d9]">
+            <table class="w-full min-w-full table-fixed text-left text-sm sm:min-w-[32rem] sm:table-auto">
+                <thead class="bg-[#f8fafa] font-mono text-[10px] uppercase tracking-wider text-[#353535]/55">
+                    <tr>
+                        <th class="break-words px-2 py-2 sm:px-3">{% if request.LANGUAGE_CODE == 'pl' %}Bot{% else %}Bot{% endif %}</th>
+                        <th class="break-words px-2 py-2 sm:px-3">{% if request.LANGUAGE_CODE == 'pl' %}Typ{% else %}Type{% endif %}</th>
+                        <th class="break-words px-2 py-2 sm:px-3">{% if request.LANGUAGE_CODE == 'pl' %}Plik{% else %}File{% endif %}</th>
+                        <th class="break-words px-2 py-2 text-right sm:px-3">{% if request.LANGUAGE_CODE == 'pl' %}Pobrań{% else %}Requests{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#d9d9d9]">
+                    {% for row in report.bot_rows %}
+                        <tr>
+                            <td class="break-words px-2 py-2 font-medium text-[#284b63] sm:px-3">{{ row.bot_name }}</td>
+                            <td class="break-words px-2 py-2 text-[#353535]/70 sm:px-3">
+                                {% if request.LANGUAGE_CODE == 'pl' %}
+                                    {% if row.bot_category == 'ai_search' %}Wyszukiwanie AI{% elif row.bot_category == 'ai_training' %}Trenowanie AI{% else %}Wyszukiwarki tradycyjne{% endif %}
+                                {% else %}
+                                    {{ row.category_label }}
+                                {% endif %}
+                            </td>
+                            <td class="break-words px-2 py-2 font-mono text-xs text-[#353535]/70 sm:px-3">{{ row.resource_label }}</td>
+                            <td class="break-words px-2 py-2 text-right font-semibold tabular-nums text-[#284b63] sm:px-3">{{ row.total }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-3 py-4 text-sm text-[#353535]/60">{% if request.LANGUAGE_CODE == 'pl' %}Brak danych do wyświetlenia.{% else %}No data to display.{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

@@ -17,6 +17,7 @@ def navbar_account_context(request):
             "navbar_show_account_badges": False,
             "navbar_active_notification_count": active_notification_count,
             "navbar_customer_notification_count": 0,
+            "navbar_has_shared_crawler_reports": False,
         }
 
     if not user.is_authenticated or user.is_superuser:
@@ -25,9 +26,11 @@ def navbar_account_context(request):
             "navbar_show_account_badges": False,
             "navbar_active_notification_count": 0,
             "navbar_customer_notification_count": 0,
+            "navbar_has_shared_crawler_reports": False,
         }
 
     organization_count = user.organizations.count()
+    has_shared_crawler_reports = user.organizations.filter(crawler_analytics_shared=True).exists()
     organization_limit = user.organization_limit()
     utilization_percent = min(100, int((organization_count / organization_limit) * 100)) if organization_limit else 0
     try:
@@ -64,6 +67,7 @@ def navbar_account_context(request):
         "navbar_plan_limits": USER_PLAN_ORGANIZATION_LIMITS,
         "navbar_active_notification_count": 0,
         "navbar_customer_notification_count": customer_notification_count,
+        "navbar_has_shared_crawler_reports": has_shared_crawler_reports,
         "navbar_has_active_billing_subscription": has_active_billing_subscription or has_manual_plan,
         "navbar_has_publication_access": has_plan_access,
     }
