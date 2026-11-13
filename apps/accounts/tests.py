@@ -242,6 +242,7 @@ class RegistrationFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("accounts:close-account"))
+        self.assertContains(response, 'name="account_removal_ack"')
         self.assertContains(response, "Usuń konto")
         self.assertContains(response, "BRAK")
         self.assertNotContains(response, "BASIC")
@@ -275,7 +276,7 @@ class RegistrationFlowTests(TestCase):
         )
         self.client.force_login(user)
 
-        response = self.client.post(reverse("accounts:close-account"))
+        response = self.client.post(reverse("accounts:close-account"), {"account_removal_ack": "on"})
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("login"))
@@ -284,6 +285,22 @@ class RegistrationFlowTests(TestCase):
         self.assertIsNotNone(user.closed_at)
         self.assertEqual(user.closed_display_name, "client-delete")
         self.assertEqual(user.closed_email, "client-delete@example.com")
+
+    def test_close_account_requires_explicit_confirmation(self):
+        user = User.objects.create_user(
+            username="client-no-confirmation",
+            email="client-no-confirmation@example.com",
+            password="StrongPass123!",
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(reverse("accounts:close-account"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("accounts:profile"))
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+        self.assertIsNone(user.closed_at)
 
     @override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
     @patch("apps.accounts.views.stripe.Subscription.delete")
@@ -303,7 +320,7 @@ class RegistrationFlowTests(TestCase):
         )
         self.client.force_login(user)
 
-        response = self.client.post(reverse("accounts:close-account"))
+        response = self.client.post(reverse("accounts:close-account"), {"account_removal_ack": "on"})
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("login"))
@@ -337,7 +354,7 @@ class RegistrationFlowTests(TestCase):
         }
         self.client.force_login(user)
 
-        response = self.client.post(reverse("accounts:close-account"))
+        response = self.client.post(reverse("accounts:close-account"), {"account_removal_ack": "on"})
 
         self.assertEqual(response.status_code, 302)
         user.refresh_from_db()
@@ -376,7 +393,7 @@ class RegistrationFlowTests(TestCase):
         organization = Organization.objects.create(owner=user, name="Archived Company")
         self.client.force_login(user)
 
-        response = self.client.post(reverse("accounts:close-account"))
+        response = self.client.post(reverse("accounts:close-account"), {"account_removal_ack": "on"})
 
         self.assertEqual(response.status_code, 302)
         user.refresh_from_db()

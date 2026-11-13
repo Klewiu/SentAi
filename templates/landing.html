@@ -10,7 +10,7 @@
     <meta name="description" content="{% if request.LANGUAGE_CODE == 'pl' %}Xoaila przekształca informacje o Twojej firmie w ustrukturyzowane dane gotowe dla modeli AI i nowoczesnych wyszukiwarek.{% else %}Xoaila transforms your company information into structured data ready for AI models and next-generation search.{% endif %}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
     <script>
         window.tailwind = window.tailwind || {};
         window.tailwind.config = {
@@ -18,7 +18,7 @@
                 extend: {
                     fontFamily: {
                         sans: ["Inter", "sans-serif"],
-                        display: ["Space Grotesk", "sans-serif"],
+                        display: ["Sora", "sans-serif"],
                         mono: ["IBM Plex Mono", "monospace"],
                     },
                 },
@@ -394,7 +394,7 @@
 <!-- ============================================================
      VIDEO GUIDE
      ============================================================ -->
-<section id="video-guide" class="border-y border-[#d9d9d9] bg-[#f3f8f7] py-14 lg:py-20">
+<section id="video-guide" class="border-y border-[#d9d9d9] bg-[#f3f8f7] py-14 lg:py-20" style="background-image:linear-gradient(rgb(243 248 247 / 0.42),rgb(243 248 247 / 0.42)),url('{% static 'images/neural-grid.svg' %}?v=3');background-position:center top;background-size:auto,720px 520px">
     <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div>
             <div class="max-w-2xl">
