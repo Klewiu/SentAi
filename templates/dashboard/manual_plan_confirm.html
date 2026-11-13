@@ -41,8 +41,10 @@
         {% if applied_coupon %}<p class="mt-2 text-[#353535]/55"><span>{% if request.LANGUAGE_CODE == 'pl' %}Cena przed rabatem{% else %}Price before discount{% endif %}:</span> <span class="line-through">{{ manual_original_price_label }}</span></p>{% endif %}
         <p class="mt-2"><strong>{% if request.LANGUAGE_CODE == 'pl' %}Kwota brutto do przelewu{% else %}Gross amount to transfer{% endif %}:</strong> {{ manual_pro_price_label }}</p>
         <p class="mt-2"><strong>{% if request.LANGUAGE_CODE == 'pl' %}Odbiorca{% else %}Recipient{% endif %}:</strong> {{ manual_payment_recipient }}</p>
+        <p class="mt-2"><strong>{% if request.LANGUAGE_CODE == 'pl' %}Adres{% else %}Address{% endif %}:</strong> {{ manual_payment_address }}</p>
+        <p class="mt-2"><strong>NIP:</strong> {{ manual_payment_tax_id }}</p>
         <p class="mt-2"><strong>IBAN:</strong> {{ manual_payment_iban }}</p>
-        <p class="mt-2"><strong>Bank:</strong> {{ manual_payment_bank }}</p>
+        {% if manual_payment_bank %}<p class="mt-2"><strong>Bank:</strong> {{ manual_payment_bank }}</p>{% endif %}
         <p class="mt-2"><strong>{% if request.LANGUAGE_CODE == 'pl' %}Tytuł przelewu (identyfikator płatności){% else %}Transfer title (payment identifier){% endif %}:</strong> <span class="font-mono">{{ manual_payment_reference }}</span></p>
     </div>
     <div class="mt-6 flex flex-wrap justify-end gap-2">

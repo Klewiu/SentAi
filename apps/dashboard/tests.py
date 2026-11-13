@@ -587,7 +587,7 @@ class DashboardPlanLimitTests(TestCase):
                     "Notifications",
                     "Active pages",
                     "User",
-                    "Language: Polish",
+                    "Polski",
                     "Log out",
                 ),
             ),
@@ -600,7 +600,7 @@ class DashboardPlanLimitTests(TestCase):
                     "Powiadomienia",
                     "Aktywne strony",
                     "Użytkownik",
-                    "Język: English",
+                    "English",
                     "Wyloguj",
                 ),
             ),
@@ -708,6 +708,11 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Verified company")
         self.assertContains(response, "SERVICE ACTIVE")
+        self.assertContains(response, 'rounded-2xl border border-white/70 bg-white/35 p-4 sm:p-6 lg:p-8')
+        profile_url = reverse("public-company-language-detail", args=[organization.slug, organization.primary_language])
+        self.assertContains(response, f'href="{profile_url}"')
+        profile_link = response.content.decode().rsplit("View profile", 1)[0].rsplit("<a ", 1)[-1].split(">", 1)[0]
+        self.assertNotIn('target="_blank"', profile_link)
 
     def test_add_company_button_hidden_when_basic_limit_reached(self):
         Organization.objects.create(
@@ -905,7 +910,7 @@ class DashboardPlanLimitTests(TestCase):
 
         confirmation = self.client.post(reverse("dashboard:manual-plan-confirm"))
 
-        self.assertRedirects(confirmation, reverse("dashboard:billing-portal"))
+        self.assertRedirects(confirmation, reverse("dashboard:home"))
         self.user.refresh_from_db()
         order = ManualPlanOrder.objects.get(user=self.user)
         self.assertEqual(self.user.plan_tier, UserPlanTier.PRO)
@@ -916,7 +921,7 @@ class DashboardPlanLimitTests(TestCase):
         self.assertGreaterEqual((order.payment_due_at - order.created_at).days, 11)
         self.assertLessEqual((order.payment_due_at - order.created_at).days, 12)
         self.assertGreaterEqual((order.access_until - order.created_at).days, 364)
-        self.assertIn("Client-Company", order.payment_reference)
+        self.assertIn("CLIENT-COMPANY", order.payment_reference)
 
         portal = self.client.get(reverse("dashboard:billing-portal"))
         self.assertContains(portal, "PRO")
@@ -1547,7 +1552,7 @@ class DashboardPlanLimitTests(TestCase):
         self.assertEqual(confirmation.status_code, 200)
         purchase = self.client.post(reverse("dashboard:manual-plan-confirm"))
 
-        self.assertRedirects(purchase, reverse("dashboard:billing-portal"))
+        self.assertRedirects(purchase, reverse("dashboard:home"))
         replacement = self.user.manual_plan_orders.exclude(pk=order.pk).get()
         self.assertEqual(replacement.tier, UserPlanTier.PRO)
         self.assertEqual(replacement.status, ManualPlanOrderStatus.AWAITING_PAYMENT)
@@ -3072,6 +3077,8 @@ class SellerManagementTests(TestCase):
         stripe_detail = self.client.get(reverse("dashboard:client-detail", args=[stripe_client.pk]))
 
         self.assertContains(listing, "PRO MANUAL")
+        self.assertContains(listing, 'class="whitespace-nowrap px-4 py-3"')
+        self.assertContains(listing, f'href="{reverse("dashboard:billing-overview")}"')
         self.assertContains(manual_detail, "PRO MANUAL")
         self.assertContains(stripe_detail, ">PRO<")
         self.assertNotContains(stripe_detail, "PRO MANUAL")

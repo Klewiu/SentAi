@@ -94,6 +94,7 @@ class PublicLanguageTests(TestCase):
         self.assertContains(response, "English product")
         self.assertContains(response, "SERVICE ACTIVE")
         self.assertContains(response, "Xoaila hosts specially prepared files")
+        self.assertContains(response, 'bg-white/35 p-4 sm:p-6 lg:p-8')
 
     def test_legacy_primary_language_without_content_uses_published_language(self):
         Organization.objects.filter(pk=self.org.pk).update(

@@ -115,14 +115,14 @@
                             <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                 <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm7.93 9h-3.08a15.7 15.7 0 0 0-1.1-5A8.02 8.02 0 0 1 19.93 11ZM12 4c.94 1.2 1.7 3.1 2 5H10c.3-1.9 1.06-3.8 2-5ZM8.25 6a15.7 15.7 0 0 0-1.1 5H4.07A8.02 8.02 0 0 1 8.25 6ZM4.07 13h3.08a15.7 15.7 0 0 0 1.1 5A8.02 8.02 0 0 1 4.07 13ZM12 20c-.94-1.2-1.7-3.1-2-5h4c-.3 1.9-1.06 3.8-2 5Zm3.75-2a15.7 15.7 0 0 0 1.1-5h3.08A8.02 8.02 0 0 1 15.75 18ZM9 13a13.6 13.6 0 0 1 0-2h6a13.6 13.6 0 0 1 0 2Z" fill="currentColor"/>
                             </svg>
-                            <span>Język: English</span>
+                            <span>English</span>
                         </button>
                     {% else %}
                         <button type="submit" name="language" value="pl" class="account-nav-link w-full sm:w-auto">
                             <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                 <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm7.93 9h-3.08a15.7 15.7 0 0 0-1.1-5A8.02 8.02 0 0 1 19.93 11ZM12 4c.94 1.2 1.7 3.1 2 5H10c.3-1.9 1.06-3.8 2-5ZM8.25 6a15.7 15.7 0 0 0-1.1 5H4.07A8.02 8.02 0 0 1 8.25 6ZM4.07 13h3.08a15.7 15.7 0 0 0 1.1 5A8.02 8.02 0 0 1 4.07 13ZM12 20c-.94-1.2-1.7-3.1-2-5h4c-.3 1.9-1.06 3.8-2 5Zm3.75-2a15.7 15.7 0 0 0 1.1-5h3.08A8.02 8.02 0 0 1 15.75 18ZM9 13a13.6 13.6 0 0 1 0-2h6a13.6 13.6 0 0 1 0 2Z" fill="currentColor"/>
                             </svg>
-                            <span>Language: Polish</span>
+                            <span>Polski</span>
                         </button>
                     {% endif %}
                 </form>
@@ -130,7 +130,8 @@
                     <form action="{% url 'logout' %}" method="post" class="w-full sm:w-auto" data-logout-form>
                         {% csrf_token %}
                         <button class="account-nav-link account-nav-link-danger w-full sm:w-auto" type="submit">
-                            {% if request.LANGUAGE_CODE == 'pl' %}Wyloguj{% else %}Log out{% endif %}
+                            <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 3h7v2H6v14h5v2H4V3zm10 4 5 5-5 5-1.4-1.4 2.6-2.6H9v-2h6.2l-2.6-2.6L14 7z" fill="currentColor"/></svg>
+                            <span>{% if request.LANGUAGE_CODE == 'pl' %}Wyloguj{% else %}Log out{% endif %}</span>
                         </button>
                     </form>
                 {% endif %}

@@ -47,6 +47,8 @@ Włącz też DKIM w DevilWEB i opublikuj wygenerowany rekord DNS. Szczegóły: [
 4. Uruchom migracje, collectstatic i `check --deploy` interpreterem środowiska, z `--settings=sentai.settings.prod`. Sprawdź domenę i logi Passenger.
 5. Skonfiguruj w Stripe webhook `https://DOMENA/stripe/webhook/` i zapisz właściwy sekret jako `STRIPE_WEBHOOK_SECRET`. Użyj tego samego trybu Stripe co ceny i klucze. Dodaj produkcyjne origin HTTPS w konfiguracji klienta Google.
 
+Domyślne dane przelewu PLN to Wicky Wave Sp. z o.o., ul. Ezopa 57, 04-805 Warszawa, NIP 9522290935, IBAN `PL79 1160 2202 0000 0007 3928 4688`. Zmienne środowiskowe `MANUAL_PAYMENT_RECIPIENT`, `MANUAL_PAYMENT_ADDRESS`, `MANUAL_PAYMENT_TAX_ID`, `MANUAL_PAYMENT_IBAN_PLN` i `MANUAL_PAYMENT_BANK` nadpisują te wartości: sprawdź istniejący serwerowy `.env` i usuń lub popraw stare dane demonstracyjne. Przelewy EUR wymagają osobnego ustawienia `MANUAL_PAYMENT_IBAN_EUR`.
+
 ## Harmonogram
 
 Zastąp LOGIN, DOMENA oraz ścieżkę VENV rzeczywistymi wartościami. Utwórz katalog `logs` w projekcie przed dodaniem zadania (przekierowanie logu następuje przed startem Pythona).

@@ -16,9 +16,11 @@
                     <span class="truncate">{% if request.LANGUAGE_CODE == 'pl' %}Plany{% else %}Plans{% endif %}</span>
                 </a>
                 <a class="account-nav-link" href="{% url 'dashboard:customer-invoices' %}" {% if current_view == 'dashboard:customer-invoices' or current_view == 'dashboard:customer-invoice-download' %}aria-current="page"{% endif %}>
-                    {% if request.LANGUAGE_CODE == 'pl' %}Faktury{% else %}Invoices{% endif %}
+                    <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 3h10l4 4v14H5V3zm9 2v3h3l-3-3zM8 11v2h8v-2H8zm0 4v2h8v-2H8z" fill="currentColor"/></svg>
+                    <span>{% if request.LANGUAGE_CODE == 'pl' %}Faktury{% else %}Invoices{% endif %}</span>
                 </a>
                 <a class="account-nav-link" href="{% url 'dashboard:customer-notifications' %}" {% if current_view == 'dashboard:customer-notifications' or current_view == 'dashboard:customer-notification-close' %}aria-current="page"{% endif %}>
+                    <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a2 2 0 0 0-2 2v.3A6 6 0 0 0 6 10v4l-2 3v1h16v-1l-2-3v-4a6 6 0 0 0-4-5.7V4a2 2 0 0 0-2-2zm-2 18a2 2 0 0 0 4 0h-4z" fill="currentColor"/></svg>
                     <span>{% if request.LANGUAGE_CODE == 'pl' %}Powiadomienia{% else %}Notifications{% endif %}</span>
                     {% if navbar_customer_notification_count %}
                         <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ navbar_customer_notification_count }}</span>
@@ -51,20 +53,23 @@
     {% endif %}
     {% if request.user.is_superuser %}
         <a class="account-nav-link w-full sm:w-auto" href="{% url 'dashboard:notifications' %}" {% if current_view == 'dashboard:notifications' or current_view == 'dashboard:notification-close' %}aria-current="page"{% endif %}>
+            <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a2 2 0 0 0-2 2v.3A6 6 0 0 0 6 10v4l-2 3v1h16v-1l-2-3v-4a6 6 0 0 0-4-5.7V4a2 2 0 0 0-2-2zm-2 18a2 2 0 0 0 4 0h-4z" fill="currentColor"/></svg>
             <span>{% if request.LANGUAGE_CODE == 'pl' %}Powiadomienia{% else %}Notifications{% endif %}</span>
             {% if navbar_active_notification_count %}
                 <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{{ navbar_active_notification_count }}</span>
             {% endif %}
         </a>
-        <a class="account-nav-link w-full sm:w-auto" href="{% url 'admin:index' %}" {% if 'admin:' in current_view %}aria-current="page"{% endif %}>Django-admin</a>
-        <a class="account-nav-link w-full sm:w-auto" href="{% url 'companies_api:organization-list' %}" {% if current_view == 'companies_api:organization-list' %}aria-current="page"{% endif %}>API</a>
+        <a class="account-nav-link w-full sm:w-auto" href="{% url 'admin:index' %}" {% if 'admin:' in current_view %}aria-current="page"{% endif %}><svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2 4 5v6c0 5 3.4 8.6 8 11 4.6-2.4 8-6 8-11V5l-8-3zm-1 5h2v4h4v2h-4v4h-2v-4H7v-2h4V7z" fill="currentColor"/></svg><span>Django-admin</span></a>
+        <a class="account-nav-link w-full sm:w-auto" href="{% url 'companies_api:organization-list' %}" {% if current_view == 'companies_api:organization-list' %}aria-current="page"{% endif %}><svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m8 5-7 7 7 7 1.4-1.4L3.8 12l5.6-5.6L8 5zm8 0-1.4 1.4 5.6 5.6-5.6 5.6L16 19l7-7-7-7zm-3-2-4 18h2l4-18h-2z" fill="currentColor"/></svg><span>API</span></a>
     {% endif %}
 {% else %}
     <a href="{% url 'login' %}" class="account-nav-link w-full sm:w-auto" {% if current_view == 'login' %}aria-current="page"{% endif %}>
-        {% if request.LANGUAGE_CODE == 'pl' %}Zaloguj się{% else %}Log in{% endif %}
+        <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 3h7v18h-7v-2h5V5h-5V3zm-3 4 5 5-5 5-1.4-1.4 2.6-2.6H3v-2h8.2L8.6 8.4 10 7z" fill="currentColor"/></svg>
+        <span>{% if request.LANGUAGE_CODE == 'pl' %}Zaloguj się{% else %}Log in{% endif %}</span>
     </a>
     <a href="{% url 'register' %}" class="account-nav-link w-full sm:w-auto" {% if current_view == 'register' %}aria-current="page"{% endif %}>
-        {% if request.LANGUAGE_CODE == 'pl' %}Zarejestruj się{% else %}Get started{% endif %}
+        <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-3.3 0-6 1.8-6 4v2h12v-2c0-2.2-2.7-4-6-4zm9-5V6h2v3h3v2h-3v3h-2v-3h-3V9h3z" fill="currentColor"/></svg>
+        <span>{% if request.LANGUAGE_CODE == 'pl' %}Zarejestruj się{% else %}Get started{% endif %}</span>
     </a>
 {% endif %}
 {% endwith %}

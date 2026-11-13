@@ -19,6 +19,7 @@ from django.views.generic import CreateView, FormView, TemplateView, UpdateView
 from django.db import models
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.text import slugify
 
 from apps.accounts.models import AccountType, User, UserPlanTier
 from apps.billing.models import (
@@ -67,9 +68,9 @@ def build_manual_payment_reference(user, tier):
         or user.get_full_name()
         or user.username
     )
+    safe_name = slugify(customer_name.translate(str.maketrans({"ł": "l", "Ł": "L"})))[:50].strip("-")
     reference_token = uuid.uuid4().hex[:8].upper()
-    safe_name = "-".join(customer_name.split())[:50]
-    return f"{tier}-{reference_token}-{safe_name}"[:255]
+    return f"{timezone.localdate():%Y%m%d}-{safe_name.upper() or 'KLIENT'}-{tier}-{reference_token}"
 
 
 @transaction.atomic
@@ -830,6 +831,8 @@ class BillingPortalView(LoginRequiredMixin, TemplateView):
         )
         if manual_plan_order:
             context["manual_payment_recipient"] = settings.MANUAL_PAYMENT_RECIPIENT
+            context["manual_payment_address"] = settings.MANUAL_PAYMENT_ADDRESS
+            context["manual_payment_tax_id"] = settings.MANUAL_PAYMENT_TAX_ID
             context["manual_payment_bank"] = settings.MANUAL_PAYMENT_BANK
             context["manual_payment_iban"] = (
                 settings.MANUAL_PAYMENT_IBAN_PLN
@@ -1564,6 +1567,14 @@ class ManualPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
         if not billing_profile or not billing_profile.is_complete():
             target = reverse("dashboard:manual-plan-confirm")
             return redirect(f"{reverse('dashboard:billing-profile')}?next={target}")
+        if billing_profile.billing_currency() == "eur" and not settings.MANUAL_PAYMENT_IBAN_EUR.strip():
+            messages.error(
+                request,
+                "Płatność przelewem w EUR jest niedostępna. Wybierz inną metodę płatności."
+                if request.LANGUAGE_CODE == "pl"
+                else "Bank transfer in EUR is unavailable. Choose another payment method.",
+            )
+            return redirect("dashboard:plan-payment-method")
         if request.user.manual_plan_orders.filter(
             status__in=[ManualPlanOrderStatus.AWAITING_PAYMENT, ManualPlanOrderStatus.PAID], access_until__gt=timezone.now()
         ).exists():
@@ -1617,6 +1628,8 @@ class ManualPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
             "applied_coupon": coupon,
             "coupon_available": True,
             "manual_payment_recipient": settings.MANUAL_PAYMENT_RECIPIENT,
+            "manual_payment_address": settings.MANUAL_PAYMENT_ADDRESS,
+            "manual_payment_tax_id": settings.MANUAL_PAYMENT_TAX_ID,
             "manual_payment_bank": settings.MANUAL_PAYMENT_BANK,
             "manual_payment_iban": settings.MANUAL_PAYMENT_IBAN_PLN if currency == "pln" else settings.MANUAL_PAYMENT_IBAN_EUR,
             "manual_payment_reference": pending["payment_reference"],
@@ -1678,7 +1691,7 @@ class ManualPlanConfirmView(LoginRequiredMixin, PendingPurchaseMixin, TemplateVi
         else:
             messages.success(request, f"The {UserPlanTier(tier).label} plan has been activated. Make the bank transfer within 12 days.")
         request.session.pop("pending_plan_purchase", None)
-        return redirect("dashboard:billing-portal")
+        return redirect("dashboard:home")
 
 
 @method_decorator(csrf_exempt, name="dispatch")

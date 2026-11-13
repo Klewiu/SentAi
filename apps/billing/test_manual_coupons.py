@@ -127,7 +127,7 @@ class ManualDiscountCouponTests(TestCase):
         self.assertContains(response, "10%")
 
         response = self.client.post(confirm_url, {"action": "confirm"})
-        self.assertRedirects(response, reverse("dashboard:billing-portal"))
+        self.assertRedirects(response, reverse("dashboard:home"))
         order = ManualPlanOrder.objects.get(user=self.user)
         self.assertEqual(order.amount, 36000)
         self.assertEqual(order.discount_percent, 10)
